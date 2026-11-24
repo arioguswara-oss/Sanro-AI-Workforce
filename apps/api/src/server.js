@@ -6,6 +6,7 @@ import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {loadAuth,authenticate,projectAccess} from './auth.js';
 import {Store,AGENTS} from './store.js';
+import {Director} from './director.js';
 import {WorkerController} from './worker-controller.js';
 
 const root=resolve(fileURLToPath(new URL('../../../',import.meta.url)));
@@ -48,7 +49,7 @@ async function workerCall(stateDir,auth,principal,project,request){
   });
 }
 
-export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=process.env.WORKFORCE_STATE_DIR,startWorker=process.env.WORKFORCE_WORKER_AUTOSTART==='1',allowWorkerControl=process.env.WORKFORCE_ALLOW_WORKER_CONTROL==='1'}={}){
+export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=process.env.WORKFORCE_STATE_DIR,startWorker=process.env.WORKFORCE_WORKER_AUTOSTART==='1',allowWorkerControl=process.env.WORKFORCE_ALLOW_WORKER_CONTROL==='1',startDirector=false,executor,snapshot}={}){
   const auth=loadAuth(authPath);
   if(!stateDir)throw new Error('WORKFORCE_STATE_DIR is required');
   stateDir=resolve(stateDir);privateDirectory(stateDir);privateDirectory(join(stateDir,'tmp'));
@@ -57,6 +58,8 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
   process.umask(0o077);const store=new Store(dbPath);chmodSync(dbPath,0o600);store.seedProjects([...auth.projects.values()]);
   const db=store.db;
   const workerController=new WorkerController(stateDir);if(startWorker)workerController.start();
+  const director=new Director({db,auth,workerCall:executor??((principal,project,request)=>workerCall(stateDir,auth,principal,project,request)),authorize:(principal,project,ref,scope)=>approvalStatus(auth,principal,project,ref,scope),...(snapshot?{snapshot}:{})});
+  if(startDirector)director.start();
   async function handler(req,res){
     try{
       const url=new URL(req.url,'http://localhost');const path=url.pathname;
@@ -65,6 +68,16 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
       if(req.method==='GET'&&path==='/api/agents')return reply(res,200,{agents:AGENTS});
       if(req.method==='GET'&&path==='/api/capabilities')return reply(res,200,{capabilities});
       let m;
+      m=path.match(/^\/api\/projects\/([^/]+)\/runs\/([a-f0-9-]+)\/resume$/);
+      if(m){const access=projectAccess(auth,principal,m[1],'engineering:recover');if(!access)return reply(res,404,{error:'not found'});if(req.method!=='POST')return reply(res,405,{error:'POST required'});const result=await director.resume(principal,access.project,m[2],await readBody(req));return reply(res,202,{run_id:result.id,state:result.state});}
+      m=path.match(/^\/api\/projects\/([^/]+)\/runs$/);
+      if(m){
+        const projectId=m[1],access=projectAccess(auth,principal,projectId,req.method==='POST'?'workflow:run':'read');
+        if(!access)return reply(res,404,{error:'not found'});
+        if(req.method==='POST'){const run=director.submit(principal,access.project,await readBody(req));return reply(res,202,{run_id:run.id,state:run.state,task_id:run.task_id});}
+        if(req.method==='GET'){const runs=db.prepare('SELECT id,task_id,state,stage,attempt,job_id,candidate_sha,test_status,blocker,created_at,updated_at FROM director_runs WHERE project_id=? AND owner=? ORDER BY created_at').all(projectId,principal.subject);return reply(res,200,{runs});}
+        return reply(res,405,{error:'method not allowed'});
+      }
       m=path.match(/^\/api\/projects\/([^/]+)\/worker$/);
       if(m){const projectId=m[1],access=projectAccess(auth,principal,projectId,'read');if(!access)return reply(res,404,{error:'not found'});
         if(req.method==='GET'&&access.grants.scopes.includes('worker:read'))return reply(res,200,{status:workerController.status()});
@@ -140,8 +153,8 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
   }
   function persistCheckpoint(row,result){let previous={};try{previous=JSON.parse(row.checkpoint_json??'{}');}catch{}const checkpoint={...previous,status:result.status,updated_at:date(),...(result.exit_code!==undefined?{exit_code:result.exit_code}:{}),...(result.error?{error:result.error}: {})};db.prepare('UPDATE worker_jobs SET checkpoint_json=? WHERE job_id=?').run(JSON.stringify(checkpoint),row.job_id);}
   function audit(projectId,actor,event,entity){db.prepare('INSERT INTO audit_events VALUES(?,?,?,?,?,?)').run(randomUUID(),projectId,actor,event,entity,date());}
-  const server=http.createServer((req,res)=>{void handler(req,res);});server.on('close',()=>{store.close();void workerController.shutdown();});
-  return {server,handler,auth,store,stateDir,workerController};
+  const server=http.createServer((req,res)=>{void handler(req,res);});server.on('close',()=>{director.stop();store.close();void workerController.shutdown();});
+  return {server,handler,auth,store,stateDir,workerController,director};
 }
 
 if(import.meta.url===`file://${process.argv[1]}`){

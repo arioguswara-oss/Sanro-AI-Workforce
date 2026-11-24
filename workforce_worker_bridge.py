@@ -1,6 +1,7 @@
 """Private stdio bridge from the local Workforce API to the JD-04 adapter."""
 import json
 import os
+import math
 import sys
 
 from hermes_adapter import Authorization, HermesAdapter
@@ -31,9 +32,24 @@ def main():
                 raise PermissionError("unknown command profile")
             if profile.get("approval_required", True) and not request.get("approval_ref"):
                 raise PermissionError("an explicit authorized approval reference is required")
+            if p["id"] not in profile.get("projects", []):
+                raise PermissionError("profile project mismatch")
+            command = list(profile["command"])
+            if "{workforce_instruction}" in command:
+                instruction = request.get("instruction")
+                if not isinstance(instruction, str) or len(instruction) > 20000:
+                    raise PermissionError("bounded Director instruction required")
+                manifest = json.loads(instruction)
+                if manifest.get("project_id") != p["id"] or manifest.get("executor") != profile.get("executor"):
+                    raise PermissionError("instruction scope mismatch")
+                command = [instruction if arg == "{workforce_instruction}" else arg for arg in command]
+                adapter.allowed_commands = [tuple(command)]
+            timeout = float(request.get("timeout", 300))
+            if not math.isfinite(timeout):
+                raise ValueError("invalid timeout")
             result = adapter.submit(auth, project_id=p["id"], workspace=p["workspace"],
-                approval_ref=request.get("approval_ref"), command=profile["command"],
-                timeout=min(max(float(request.get("timeout", 300)), 1), 3600),
+                approval_ref=request.get("approval_ref"), command=command,
+                timeout=min(max(timeout, 1), 3600),
                 idempotency_key=request["idempotency_key"])
         elif action == "status":
             result = adapter.status(auth, project_id=p["id"], workspace=p["workspace"], job_id=request["job_id"])
