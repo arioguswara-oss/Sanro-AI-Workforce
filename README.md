@@ -24,3 +24,8 @@ See `docs/BUILD_PLAN.md` (to be proposed on a development branch) for implementa
 - [SANRO Studio pilot](https://github.com/arioguswara-oss/Plugin-Kaoscetak) — first autonomous-workflow validation target.
 
 No service deployment, model API purchase, bot creation or active worker modification is authorized by this README.
+
+
+## Development checkpoint
+
+JD-03 and JD-04 isolated engineering candidates, their focused tests, and sanitized evidence are tracked on `feature/hermes-workforce-foundation`. See `docs/WORKBOARD.md`, `docs/CAPABILITY_REGISTRY.md`, and `docs/DEVELOPMENT_CHECKPOINT.md`. They are not live Hermes capabilities: runtime activation is NO-GO pending stronger process/network/credential isolation and approval-path verification.

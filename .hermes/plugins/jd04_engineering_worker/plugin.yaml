@@ -1,0 +1,9 @@
+name: jd04_engineering_worker
+version: 0.1.0
+description: Isolated project-local engineering job queue backed by Landlock-confined worker processes.
+author: SANRO
+kind: standalone
+platforms:
+  - linux
+provides_tools:
+  - jd04_engineering_job
