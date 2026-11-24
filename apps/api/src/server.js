@@ -6,6 +6,7 @@ import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {loadAuth,authenticate,projectAccess} from './auth.js';
 import {Store,AGENTS} from './store.js';
+import {monitoringSnapshot} from './monitoring.js';
 import {Director} from './director.js';
 import {WorkerController} from './worker-controller.js';
 
@@ -24,6 +25,7 @@ const transitions={
   RELEASE_CANDIDATE:{save_checkpoint:{next:'CHECKPOINTED',scope:'workflow:director'}},
   CHECKPOINTED:{report_owner:{next:'REPORTED',scope:'workflow:director'}},
 };
+const providerCatalog=JSON.parse(readFileSync(join(root,'provider_catalog.json'),'utf8'));
 const capabilities=JSON.parse(readFileSync(join(root,'capability_registry.json'),'utf8')).capabilities;
 
 function readBody(req,max=64*1024){return new Promise((resolve,reject)=>{let data='';req.on('data',chunk=>{data+=chunk;if(data.length>max){reject(Object.assign(new Error('request too large'),{status:413}));req.destroy();}});req.on('end',()=>{try{resolve(data?JSON.parse(data):{});}catch{reject(Object.assign(new Error('invalid JSON'),{status:400}));}});req.on('error',reject);});}
@@ -49,7 +51,8 @@ async function workerCall(stateDir,auth,principal,project,request){
   });
 }
 
-export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=process.env.WORKFORCE_STATE_DIR,startWorker=process.env.WORKFORCE_WORKER_AUTOSTART==='1',allowWorkerControl=process.env.WORKFORCE_ALLOW_WORKER_CONTROL==='1',startDirector=false,executor,snapshot}={}){
+export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=process.env.WORKFORCE_STATE_DIR,startWorker=process.env.WORKFORCE_WORKER_AUTOSTART==='1',allowWorkerControl=process.env.WORKFORCE_ALLOW_WORKER_CONTROL==='1',startDirector=false,executor,snapshot,monitorMaxAgeMs=60000}={}){
+  if(!Number.isFinite(monitorMaxAgeMs)||monitorMaxAgeMs<1000||monitorMaxAgeMs>3600000)throw new Error('invalid monitoring freshness bound');
   const auth=loadAuth(authPath);
   if(!stateDir)throw new Error('WORKFORCE_STATE_DIR is required');
   stateDir=resolve(stateDir);privateDirectory(stateDir);privateDirectory(join(stateDir,'tmp'));
@@ -65,6 +68,15 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
       const url=new URL(req.url,'http://localhost');const path=url.pathname;
       if(req.method==='GET'&&path==='/api/health')return reply(res,200,{status:'READY',execution:'isolated-adapter-disabled-unless-authorized'});
       const principal=authenticate(auth,req.headers.authorization);if(!principal)return reply(res,401,{error:'authentication required'});
+      const monitorMatch=path.match(/^\/api\/monitoring\/v1\/projects\/([^/]+)$/);
+      const monitorOnly=Object.values(principal.projects).some(g=>g.scopes.includes('monitor:read'));
+      if(monitorMatch){
+        const access=projectAccess(auth,principal,monitorMatch[1],'monitor:read');if(!access)return reply(res,404,{error:'not found'});
+        if(req.method!=='GET')return reply(res,405,{error:'monitoring is GET-only'});
+        if(url.search)return reply(res,400,{error:'monitoring query parameters are not supported'});
+        return reply(res,200,monitoringSnapshot({db,project:access.project,providerCatalog,approvalRegistry:auth.approvals,maxAgeMs:monitorMaxAgeMs}));
+      }
+      if(monitorOnly)return reply(res,403,{error:'dedicated monitoring credentials cannot access operational endpoints'});
       if(req.method==='GET'&&path==='/api/agents')return reply(res,200,{agents:AGENTS});
       if(req.method==='GET'&&path==='/api/capabilities')return reply(res,200,{capabilities});
       let m;

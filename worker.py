@@ -82,8 +82,10 @@ class Queue:
                 (job_id, json.dumps(command), cwd, timeout, dedupe_key, "queued", now(), None, None, None, None, log))
         except sqlite3.IntegrityError:
             if dedupe_key:
-                row = self.conn.execute("SELECT id FROM jobs WHERE dedupe_key=?", (dedupe_key,)).fetchone()
+                row = self.conn.execute("SELECT id,command,cwd,timeout FROM jobs WHERE dedupe_key=?", (dedupe_key,)).fetchone()
                 if row:
+                    if row["command"] != json.dumps(command) or row["cwd"] != cwd or row["timeout"] != timeout:
+                        raise ValueError("idempotency key content mismatch")
                     return row["id"], False
             raise
         return job_id, True

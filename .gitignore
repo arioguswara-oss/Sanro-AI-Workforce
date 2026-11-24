@@ -15,3 +15,4 @@ __pycache__/
 node_modules/
 apps/web/dist/
 .workforce-state/
+apps/web/dist-monitor/

@@ -10,6 +10,11 @@ export function loadAuth(path) {
   const principals = new Map();
   for (const p of config.principals) {
     if (!/^[a-f0-9]{64}$/.test(p.token_sha256) || !p.subject || !p.projects || typeof p.projects !== 'object') throw new Error('invalid principal entry');
+    for(const grant of Object.values(p.projects)){
+      if(!grant||!Array.isArray(grant.scopes))throw new Error('invalid project scopes');
+      if(grant.scopes.includes('monitor:read')&&grant.scopes.some(scope=>scope!=='monitor:read'))throw new Error('monitor credentials must have dedicated read-only scope');
+    }
+    if(Object.values(p.projects).some(g=>g.scopes.includes('monitor:read'))&&Object.values(p.projects).some(g=>g.scopes.some(s=>s!=='monitor:read')))throw new Error('monitor credentials cannot carry operational grants');
     principals.set(p.token_sha256,p);
   }
   const projects = new Map();

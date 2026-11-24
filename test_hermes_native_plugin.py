@@ -44,7 +44,7 @@ class NativePluginTests(unittest.TestCase):
         gateway = types.ModuleType("gateway"); gateway.__path__ = []
         session_context = types.ModuleType("gateway.session_context")
         session_values = {"HERMES_SESSION_PLATFORM": "telegram", "HERMES_SESSION_USER_ID": "1007",
-                          "HERMES_SESSION_CHAT_ID": "chat-9", "HERMES_SESSION_KEY": "telegram:chat-9"}
+                          "HERMES_SESSION_ACTOR_ID": "1007", "HERMES_SESSION_CHAT_ID": "chat-9", "HERMES_SESSION_KEY": "telegram:chat-9"}
         session_context.bound_session_env = lambda name: session_values.get(name, "")
         tools = types.ModuleType("tools"); tools.__path__ = []
         approval = types.ModuleType("tools.approval")
@@ -118,6 +118,35 @@ class NativePluginTests(unittest.TestCase):
             "profile": "python", "arguments": ["pass"], "idempotency_key": "denied"}))
         self.assertEqual(response["status"], "approval_denied")
         self.assertFalse((self.root / "jobs.sqlite3").exists())
+        ctx.unload()
+
+    def test_native_pending_or_truthy_approval_never_queues(self):
+        ctx = FakePluginContext({"projects": {"proj-native": {
+            "workspace": str(self.workspace), "telegram_user_ids": ["1007"],
+            "scopes": ["engineering:execute"],
+            "command_profiles": {"python": {"argv": [sys.executable, "-c"]}},
+        }}})
+        PLUGIN.register(ctx)
+        handler = ctx.tools["jd04_engineering_job"]["handler"]
+        for decision in ({"approved": "yes"}, {"status": "pending_approval"}, None):
+            sys.modules["tools.approval"].request_tool_approval = lambda *a, **kw: decision
+            response = json.loads(handler({"action": "submit", "project_id": "proj-native",
+                "profile": "python", "arguments": ["pass"], "idempotency_key": "pending"}))
+            self.assertEqual(response["status"], "approval_denied")
+        self.assertFalse((self.state_root / "jobs.sqlite3").exists())
+        ctx.unload()
+
+    def test_route_user_without_turn_actor_is_denied(self):
+        ctx = FakePluginContext({"projects": {"proj-native": {
+            "workspace": str(self.workspace), "telegram_user_ids": ["1007"],
+            "scopes": ["engineering:execute"], "command_profiles": {},
+        }}})
+        PLUGIN.register(ctx)
+        sys.modules["gateway.session_context"].bound_session_env = lambda name: {
+            "HERMES_SESSION_PLATFORM": "telegram", "HERMES_SESSION_USER_ID": "1007",
+            "HERMES_SESSION_KEY": "telegram:chat-9"}.get(name, "")
+        response = json.loads(ctx.tools["jd04_engineering_job"]["handler"]({"action": "submit", "project_id": "proj-native"}))
+        self.assertIn("identity", response["error"])
         ctx.unload()
 
     def test_profile_traversal_and_missing_scope_are_denied(self):

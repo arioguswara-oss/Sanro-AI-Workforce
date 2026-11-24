@@ -40,6 +40,12 @@ Worker commands inherit only a small environment. Each job is confined to the co
 
 The worker database persists FIFO jobs, status, logs, idempotency and interrupted checkpoints. Interrupted jobs are not replayed automatically. `/jobs/:id/resume` requires an interrupted parent, a new idempotency key, explicit `side_effects_reconciled`, and an active scoped recovery approval; the API stores only a hash of the review note.
 
+## Hermes-first orchestration and monitoring
+
+See [Director contract](../../docs/ORCHESTRATION_CONTRACT.md) for fixed Codex/Local CI profiles, native approval boundary, durable automatic stages, reviewed recovery and existing-transport report outbox. The Director timer is OFF unless explicitly enabled by an authorized integrating host.
+
+See [monitoring contract](../../docs/MONITORING_API.md) for dedicated `monitor:read` credentials and GET-only sanitized data. This interface has no task, worker, approval or terminal control. Future Superadmin integration is outside this repository's mandate.
+
 ## Verification limits
 
-API route tests invoke the handler directly because this sandbox denies opening loopback listeners. They still run the Python adapter and synthetic worker processes. The React UI source is present, but a Vite build was not verified because package registry access reset during installation. No live model, Hermes, Telegram, or external network call was made.
+The current environment supports an isolated loopback HTTP listener; the real HTTP monitoring test passes. Original React/Vite and reusable monitoring component builds pass. API/Director synthetic-executor acceptance passes. Landlock ABI is 0, so real worker subprocess execution fails closed. Historical worker acceptance cannot be reasserted here. Native Hermes/Telegram/Codex and provider account/quota remain NOT TESTED live. No services are activated by tests.

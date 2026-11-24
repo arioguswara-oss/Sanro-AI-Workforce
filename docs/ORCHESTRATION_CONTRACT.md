@@ -10,6 +10,8 @@ QA exit code zero plus a clean Git snapshot on the configured repository/branch 
 
 `GET /api/projects/{id}/runs` lists subject-owned runs. The Director scheduler is opt-in via `createApp({startDirector:true})`; default is OFF and no Gateway/service is started. Host code can call `director.tick()` or `director.start()` after acceptance. Interrupted/cancelled execution blocks without replay. `POST /api/projects/{id}/runs/{run}/resume` additionally requires recovery scope/approval, explicit side-effect reconciliation and a bounded note. Notes enter audit only as hashes. A new execution generation avoids reusing the old job key; maximum two reviewed recoveries.
 
+Release and blocker/critical-approval reports share the durable outbox, with distinct delivery keys across reviewed recoveries. No approval is granted through the outbox.
+
 Outbox delivery is prepared through `director.deliverReports(existingTransport)`. The injected existing Hermes/Jack transport implements `send(payload) -> {acknowledged:true}` and deduplicates `delivery_key`. It must bind the original authenticated Owner/project routing; no raw logs/prompts/credentials in payloads. No bot/API credential is created. A crash between send and acknowledgement can retry delivery. Current `REPORTED` means locally checkpointed and report queued; it does not mean Telegram received it. Check `report_outbox.delivered_at` for acknowledgement. Pending approvals remain native; no approval mutation endpoint is added.
 
 No worker delegation, real Codex coding, live Telegram delivery or runtime autonomy is claimed by the synthetic acceptance suite.

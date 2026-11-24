@@ -33,7 +33,7 @@ export class Director {
       blocker TEXT, recovery_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
       UNIQUE(project_id,owner,idempotency_key));
       CREATE TABLE IF NOT EXISTS report_outbox (
-      id TEXT PRIMARY KEY, project_id TEXT NOT NULL, owner TEXT NOT NULL, run_id TEXT NOT NULL UNIQUE,
+      id TEXT PRIMARY KEY, project_id TEXT NOT NULL, owner TEXT NOT NULL, run_id TEXT NOT NULL, delivery_key TEXT UNIQUE NOT NULL,
       payload TEXT NOT NULL, created_at TEXT NOT NULL, delivered_at TEXT);
       CREATE TABLE IF NOT EXISTS worker_heartbeats (
       worker_id TEXT NOT NULL, project_id TEXT NOT NULL, role TEXT NOT NULL, status TEXT NOT NULL,
@@ -91,7 +91,15 @@ export class Director {
     return next;
   }
   heartbeat(run,status){this.db.prepare(`INSERT INTO worker_heartbeats VALUES(?,?,?,?,?,?,?) ON CONFLICT(worker_id,project_id) DO UPDATE SET status=excluded.status,run_id=excluded.run_id,job_id=excluded.job_id,observed_at=excluded.observed_at`).run(stageRoles[run.stage]??'director',run.project_id,stageRoles[run.stage]??'director',status,run.id,run.job_id,iso());}
-  block(run,reason){const next=this.change(run,{state:'BLOCKED',blocker:reason});this.heartbeat(next,'blocked');return next;}
+  block(run,reason){
+    this.db.exec('BEGIN IMMEDIATE');try{
+      const next=this.change(run,{state:'BLOCKED',blocker:reason});this.heartbeat(next,'blocked');
+      const delivery_key=`blocker:${run.id}:${run.recovery_count}`;
+      const payload={version:1,event:'BLOCKER',project_id:run.project_id,run_id:run.id,task_id:run.task_id,job_id:run.job_id,blocker:reason,delivery_key,approval_required:reason==='MANDATE_EXPIRED_OR_REVOKED'||reason==='SIDE_EFFECT_REVIEW_REQUIRED'};
+      this.db.prepare('INSERT OR IGNORE INTO report_outbox VALUES(?,?,?,?,?,?,?,NULL)').run(randomUUID(),run.project_id,run.owner,run.id,delivery_key,JSON.stringify(payload),iso());
+      this.db.exec('COMMIT');return next;
+    }catch(e){this.db.exec('ROLLBACK');throw e;}
+  }
   async tick(){
     if(this.busy)return false;this.busy=true;
     try{
@@ -140,7 +148,7 @@ export class Director {
         this.db.prepare('UPDATE tasks SET checkpoint=? WHERE id=?').run(JSON.stringify(checkpoint),task.id);
         this.audit(project.id,run.owner,'DURABLE_CHECKPOINT_SAVED',run.id);
         const payload={version:1,event:'RELEASE_CANDIDATE',project_id:project.id,run_id:run.id,task_id:task.id,commit_sha:currentSha,test_status:'PASS',delivery_key:`report:${run.id}`,draft_pr_status:'NOT_CREATED_BY_DIRECTOR',message:'Candidate ready for review; no merge or deployment.'};
-        this.db.prepare('INSERT OR IGNORE INTO report_outbox VALUES(?,?,?,?,?,?,NULL)').run(randomUUID(),project.id,run.owner,run.id,JSON.stringify(payload),iso());
+        this.db.prepare('INSERT OR IGNORE INTO report_outbox VALUES(?,?,?,?,?,?,?,NULL)').run(randomUUID(),project.id,run.owner,run.id,payload.delivery_key,JSON.stringify(payload),iso());
         const next=this.change(run,{state:'REPORTED',test_status:'PASS',blocker:null});this.heartbeat(next,'idle');
         this.db.exec('COMMIT');
       }catch(e){this.db.exec('ROLLBACK');throw e;}

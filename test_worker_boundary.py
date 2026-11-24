@@ -36,3 +36,15 @@ class BoundaryTests(unittest.TestCase):
                     self.assertRaises(ValueError, q.submit, ['/usr/bin/true'], directory, timeout, None)
             finally:
                 q.close()
+
+    def test_idempotency_conflict_cannot_replace_command(self):
+        with tempfile.TemporaryDirectory() as directory:
+            q = Queue(directory)
+            try:
+                first, created = q.submit(['/usr/bin/true'], directory, 2, 'same-key')
+                self.assertTrue(created)
+                self.assertEqual(q.submit(['/usr/bin/true'], directory, 2, 'same-key'), (first, False))
+                self.assertRaises(ValueError, q.submit, ['/usr/bin/false'], directory, 2, 'same-key')
+                self.assertRaises(ValueError, q.submit, ['/usr/bin/true'], directory, 3, 'same-key')
+            finally:
+                q.close()

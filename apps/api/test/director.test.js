@@ -57,7 +57,7 @@ test('Director fails closed on revocation, project scope, profile mismatch and e
 
 test('uncertain execution blocks without replay and QA cannot validate a moving candidate',async t=>{
   const f=fixture(t,{failures:0}),r=f.submit();await f.director.tick();const job=f.director.get(r.id).job_id;f.jobs.set(job,{status:'INTERRUPTED'});await f.director.tick();await f.director.tick();assert.equal(f.director.get(r.id).blocker,'SIDE_EFFECT_REVIEW_REQUIRED');assert.equal(f.jobs.size,1);
-  const g=fixture(t,{failures:0}),s=g.submit();await g.director.tick();await g.director.tick();await g.director.tick();g.setSha('c'.repeat(40));await g.director.tick();assert.equal(g.director.get(s.id).blocker,'CANDIDATE_CHANGED_DURING_QA');assert.equal(g.store.db.prepare('SELECT COUNT(*) n FROM report_outbox').get().n,0);
+  const g=fixture(t,{failures:0}),s=g.submit();await g.director.tick();await g.director.tick();await g.director.tick();g.setSha('c'.repeat(40));await g.director.tick();assert.equal(g.director.get(s.id).blocker,'CANDIDATE_CHANGED_DURING_QA');assert.equal(JSON.parse(g.store.db.prepare('SELECT payload FROM report_outbox').get().payload).event,'BLOCKER');
 });
 
 test('explicit recovery preserves checkpoint and uses a new deduplicated execution generation',async t=>{

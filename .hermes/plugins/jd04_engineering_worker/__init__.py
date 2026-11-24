@@ -72,7 +72,7 @@ def register(ctx) -> None:
         try:
             from gateway.session_context import bound_session_env
             platform = bound_session_env("HERMES_SESSION_PLATFORM")
-            user_id = bound_session_env("HERMES_SESSION_USER_ID")
+            user_id = bound_session_env("HERMES_SESSION_ACTOR_ID")
             chat_id = bound_session_env("HERMES_SESSION_CHAT_ID")
             session_key = bound_session_env("HERMES_SESSION_KEY")
             if platform != "telegram" or not user_id or not session_key:
