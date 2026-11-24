@@ -1,9 +1,9 @@
 # Hermes Multi-Model Engine (WF-MME-001)
-Date: 2026-11-24. Priority: P0. Status: PLANNED / NOT IMPLEMENTED / NOT TESTED.
+Date: 2026-11-24. Priority: P0. Status: LOCAL ADAPTER CANDIDATE IMPLEMENTED / MOCK-TESTED; PROVIDERS NOT LIVE-TESTED.
 Companion to BUILD_PLAN.md; dependency of Phase 4 and release gate of Phase 5. No runtime or spending authorization.
 
 ## Architecture
-Retain existing Hermes/Codex authentication and serial worker lock. Evaluate native Hermes fallback first, 9Router as first free-only fallback, FreeLLMAPI as optional second fallback only if it adds measurable independent capacity. Use isolated local endpoints, not public listeners. Upstream candidates: https://github.com/decolua/9router and https://github.com/Pendia/FreeLLMAPI. Verify pinned versions, licenses, provider terms and actual supported interfaces before installation. ChatGPT subscription is not an API credit balance; do not bypass provider limits or use unsupported authentication.
+Retain existing Hermes/Codex authentication and serial worker lock. Evaluate native Hermes fallback first. Treat 9Router as an OpenAI-compatible candidate only if its downstream routing can be pinned and verified free-only; otherwise it is excluded by policy. Evaluate FreeLLMAPI only if its isolated pool adds measurable independent capacity and provider terms permit the data. Use loopback endpoints, not public listeners. Upstream candidates: https://github.com/decolua/9router and https://github.com/Pendia/FreeLLMAPI. Verify pinned versions, licenses, provider terms and actual supported interfaces before installation. ChatGPT subscription is not an API credit balance; do not bypass provider limits or use unsupported authentication.
 
 ## Policy
 - Zero incremental AI spend; deny paid routes, automatic top-ups and unknown pricing. No new VPS or services without approval.
@@ -25,6 +25,20 @@ PASS requires actual evidence tied to SHA and job ID: primary success; simulated
 
 ## Approval
 This proposal does not authorize VPS install, new credentials, provider signup, paid APIs, staging writes, merge or production changes. Existing scoped mandates remain unchanged. Report blockers and request only missing critical authorization.
+
+## Local provider adapter checkpoint — 2026-11-24
+
+`provider_adapters.py` implements the OpenAI chat-completions request/response shape used by the current 9Router and FreeLLMAPI documentation. 9Router documents an OpenAI-compatible endpoint; its routing includes subscription, cheap/paid, and free tiers, so this code's `cost_usd_per_million == 0` check cannot certify the router's internal downstream tier. A 9Router deployment would need a separately verified free-only configuration. FreeLLMAPI documents `/v1/chat/completions`, tool-call payloads, and a local default endpoint; the candidate does not start it or provide keys. Sources: [9Router endpoint guide](https://github.com/decolua/9router/blob/master/gitbook/content/en/integration/other-tools.md), [9Router routing tiers](https://docs.9router.com/), [FreeLLMAPI REST API](https://github.com/emmgmm/FreeLLMAPI/blob/main/docs/en/api/01-rest-api.md).
+
+Eight routing/provider tests use injected mock transports only. They verify schema adaptation, 429 cooldown, bounded fallback, failback after cooldown, checkpoint metadata without prompt text, pause/resume, and rejection of engineering execution. No live model calls, provider keys, downstream quota, price, context window, or tool reliability were tested. Conversation fallback is separate; engineering job execution remains assigned to Codex. Tool schemas returned by any fallback are data and are never executed by this adapter.
+
+## Fallback semantics reconciliation
+
+Hermes `fallback.min_switch_reset_seconds` is a reset-time deferral for switching after a rate-limit response. It is not a usage threshold and not a retry count; `0` disables the deferral. Hermes native retries/fallback are request/turn scoped. This correction reflects the previously inspected installed Hermes source; original JD-02 source evidence was not present here, so the JD-02 report itself was not independently re-audited.
+
+## Mock implementation limits
+
+The adapter only models providers explicitly declared with zero cost and an approved capability profile. It cannot independently verify an aggregator's internal routing, contract terms, data retention or quotas. It reads the configured key from the named environment variable only when explicitly called; the tests use synthetic keys and injected in-memory responses. Unverified model capabilities remain unavailable for engineering. Codex stays the preferred and only engineering executor until a separately approved live qualification.
 
 ## Checkpoint 2026-11-24 — Owner handoff
 Reported, not independently runtime verified: Gateway/Telegram working; Codex CLI 0.162.1; delegation and repo audit reported success; GitHub read and isolated workspace PASS; initial integration 8/10. Gemini Flash Lite instability/rate limits; Qwen 1.7B inconsistent tools; background FAIL; concurrency NOT TESTED; Telegram response ~11 min with irrelevant tool call; repeated Backup/DR approvals on read-only tasks. Both autonomous crons remain PAUSED. Do not repeat passing tests without relevant changes.

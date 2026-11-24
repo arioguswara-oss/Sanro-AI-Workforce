@@ -114,6 +114,14 @@ class FreeOnlyRouter:
         self._state["cooldowns"][self._key(route)] = (time.time() if now is None else now) + delay
         self._save()
 
+    def record_unavailable(self, route: FreeRoute, *, retry_after_seconds: int | None = None, now: float | None = None) -> None:
+        """Open a bounded per-route circuit after transport or service failure."""
+        if route not in self.routes:
+            raise RouteRejected("route is outside this router's allowlist")
+        delay = max(1, min(86_400, int(retry_after_seconds or 30)))
+        self._state["cooldowns"][self._key(route)] = (time.time() if now is None else now) + delay
+        self._save()
+
     def record_success(self, route: FreeRoute) -> None:
         if route not in self.routes:
             raise RouteRejected("route is outside this router's allowlist")
