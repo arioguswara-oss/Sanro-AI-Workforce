@@ -12,3 +12,6 @@
 .jd04-worker-state-*/
 __pycache__/
 *.py[cod]
+node_modules/
+apps/web/dist/
+.workforce-state/

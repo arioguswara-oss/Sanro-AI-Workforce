@@ -123,6 +123,16 @@ Untuk setiap fase, status awal adalah `DECIDED` / `NOT IMPLEMENTED`; tingkatkan 
 - Empat Telegram bot baru, Telegram Group, Web App, unified messaging, Director baru, dan E2E autonomous **BELUM DIBUAT / BELUM TERVERIFIKASI**.
 - Tidak ada pembelian, pembuatan bot/token, deploy, merge, atau perubahan production oleh dokumen ini.
 
+## 10. Checkpoint pengembangan — 2026-11-24 (JD-05)
+
+WF-002 has a local Node.js API candidate backed by private SQLite, a private-file deny-by-default project ACL, logical agent registry, conversation and task ledgers, an audit log, scoped approvals, job status/log/result/cancel, checkpoint, and explicit safe resume. The API route suite runs without a network listener because the sandbox rejects loopback `listen()`; the API was exercised through the same handler with synthetic requests and real synthetic worker subprocesses.
+
+The React/Vite web source is present for project, personal/group-labelled thread, task, job, approval and activity views. The React/Vite package install and production build remain NOT TESTED because registry access reset. Messages persist but do not call an AI; group membership, @mention dispatch, realtime events, and Telegram reporting are not implemented.
+
+Worker children now receive a reduced environment, Landlock filesystem grants, and an unprivileged seccomp policy blocking socket/network calls and process escape/inspection primitives. This improves the execution boundary but is not namespace/container/VM isolation and cannot prove the configured worktree has no credentials. The worker remains opt-in and isolated; live Hermes approval and session mapping remain a release gate.
+
+Routing code includes an OpenAI-compatible provider adapter with mocked 429/fallback/failback/checkpoint tests. Hermes `fallback.min_switch_reset_seconds` is a reset-time deferral, not a usage threshold or retry count. 9Router documents OpenAI compatibility but has paid and free routing tiers; its downstream tier cannot be certified free by this client policy. FreeLLMAPI documents OpenAI chat-completions and tool-call shape. Neither was installed or called; no provider capabilities, pricing, quota, privacy or engineering tool use are live-verified. Codex remains the engineering executor.
+
 
 ## Development checkpoint — 2026-11-24
 

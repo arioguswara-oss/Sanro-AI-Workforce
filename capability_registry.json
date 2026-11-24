@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "capabilities": [
+    {"id":"project_registry","status":"IMPLEMENTED","verification":"PROJECTS_SEEDED_FROM_PRIVATE_ACL; PROJECT_MUTATION_DISABLED"},
+    {"id":"agent_registry","status":"IMPLEMENTED","verification":"LOGICAL_PROFILES_ONLY; NO_MODEL_AGENT_RUNTIME"},
+    {"id":"conversation_threads","status":"IMPLEMENTED","verification":"OWNER_PROJECT_SCOPED_SQLITE_TESTS"},
+    {"id":"task_ledger_workflow","status":"IMPLEMENTED","verification":"SYNTHETIC_DIRECTOR_DEVELOPER_QA_SELF_FIX_RELEASE_CHECKPOINT_TESTS"},
+    {"id":"engineering_worker","status":"IMPLEMENTED","verification":"SYNTHETIC_FIFO_APPROVAL_CANCEL_TIMEOUT_RECOVERY_AND_SECCOMP_TESTS"},
+    {"id":"multi_model_routing","status":"IMPLEMENTED","verification":"MOCKED_OPENAI_COMPAT_QUOTA_FALLBACK_FAILBACK_CHECKPOINT_TESTS; NO_LIVE_PROVIDER"},
+    {"id":"react_web_build","status":"NOT_TESTED","verification":"REGISTRY_NETWORK_UNAVAILABLE_FOR_FREE_REACT_VITE_INSTALL"},
+    {"id":"telegram_reporting","status":"NOT_IMPLEMENTED","verification":"NO_BOT_OR_LIVE_SERVICE_MUTATION"},
+    {"id":"live_hermes_activation","status":"BLOCKED","verification":"NATIVE_APPROVAL_AND_FULL_PROCESS_ISOLATION_NOT_LIVE_VERIFIED"}
+  ]
+}

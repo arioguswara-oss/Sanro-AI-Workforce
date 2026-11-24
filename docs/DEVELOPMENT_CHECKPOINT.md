@@ -29,6 +29,38 @@ Progress is not reported as a percentage because the plan does not define a deno
 
 No live runtime/configuration/approval gate/cron was modified. The worker uses filesystem confinement and a reduced environment but lacks full process/network/credential isolation. Therefore runtime activation is **NO-GO**. Review and approval must precede any activation.
 
-## Next development checkpoint
+## Previous next checkpoint (superseded by the JD-05 checkpoint below)
 
 Proceed with WF-002: scaffold the local API and web application around project-scoped identity, durable thread/task records, and deny-by-default authorization. Keep Hermes execution disconnected until a process/network/credential isolation boundary and the actual approval path are independently verified.
+
+## Continuous development checkpoint — JD-05 — 2026-11-24
+
+### Recovered state and scope
+
+Recovered clean local branch `feature/hermes-workforce-foundation` at `57137d59ba17011e06382047a566faa9da33eb70`; remote state had not changed before this work. Current changes are isolated in the authorized feature clone and have not yet been pushed. No JD-03, live Hermes, Gateway, Telegram, cron, production, or SANRO Studio files were changed.
+
+### Implementation state
+
+| Area | Current status | Evidence / boundary |
+|---|---|---|
+| API + private project registry/ACL | IMPLEMENTED / VERIFIED (handler tests) | SQLite seeded from mode-0600 private config; project/path/session scopes fail closed; loopback-only listener code; actual port bind NOT TESTED because sandbox returns `EPERM`. |
+| Agent registry + task workflow | IMPLEMENTED / VERIFIED (synthetic) | Logical Director, Developer, QA, DevOps and extension profiles; state transitions include one bounded self-fix, release candidate, checkpoint and report. No model orchestration. |
+| Conversations / activity | IMPLEMENTED / VERIFIED (synthetic) | Owner-scoped personal and group-labelled threads, stored messages, audit timeline; group members and agent replies are not implemented. |
+| Worker integration | IMPLEMENTED / VERIFIED (synthetic processes) | Fixed command profiles, approval references, FIFO, timeout, cancellation, logs/results, idempotency, checkpoint and explicit resume; interrupted jobs never replay automatically. Resume requires separate scope, active approval and side-effect reconciliation acknowledgement. |
+| Execution controls | IMPLEMENTED / VERIFIED (host synthetic tests) | Reduced environment; Landlock filesystem boundary; seccomp socket/network, session escape, process inspection/signal denial; worker fast-exit return-code bug fixed. Same UID/kernel, configured worktree contents and kernel remain outside full isolation. |
+| Model routing/providers | IMPLEMENTED / VERIFIED (mock only) | 9Router/FreeLLMAPI OpenAI-compatible adapter shape, zero-cost declaration checks, 429 cooldown, bounded fallback/failback and checkpoint/resume. Live downstream pricing, quotas, provider terms, context and tool reliability NOT TESTED. |
+| React UI | IMPLEMENTED (source) / NOT TESTED (build/browser) | JSX parser accepted source. Registry connection reset stopped React/Vite install; no runtime UI was launched. |
+| Telegram/native Hermes/live workforce | NOT IMPLEMENTED / BLOCKED | No service, bot, runtime config or plugin activation. Native approval and actual session mapping remain release gates. |
+
+### Verification
+
+- JD-03 historical baseline: **29 PASS / 0 FAIL**; unchanged and not rerun.
+- Current focused Python JD-04 + routing/provider suite: **32 PASS / 0 FAIL** (worker, adapter, native plugin, routing, provider mock tests).
+- Current Node API and worker-controller suite: **3 PASS / 0 FAIL**.
+- Combined checkpoint evidence: **64 PASS / 0 FAIL** (29 inherited JD-03 + 32 current Python + 3 current Node; not one monolithic run).
+- Latest isolated API run: submit **0.2734 s**, foreground read **0.00057 s**. These are direct-handler synthetic measurements; no network listener or Telegram response was measured.
+- `node:sqlite` emits Node's experimental warning. React/Vite build, browser behavior, live model calls, provider quota, live Hermes, and external network behavior remain NOT TESTED.
+
+### Safety disposition and GitHub checkpoint
+
+Live activation remains **NO-GO**. The current branch implementation needs a review push after final secret scan and diff validation. Draft PR #2 remains the review target. The API approval registry consumes already populated, subject/project/scope/expiry-bound references; it cannot create a native Hermes approval. seccomp and Landlock improve the child boundary but do not establish a hostile-code VM/container boundary.

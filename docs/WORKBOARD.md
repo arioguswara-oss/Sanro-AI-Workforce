@@ -1,4 +1,4 @@
-# SANRO AI Workforce — Initial Workboard
+# SANRO AI Workforce — Workboard
 Updated: 2026-11-24
 Source plan: [BUILD_PLAN.md](BUILD_PLAN.md)
 Scope: planning plus isolated source candidates; no runtime or production mutations.
@@ -8,24 +8,26 @@ Scope: planning plus isolated source candidates; no runtime or production mutati
 |---|---|---|
 | Repo public and README | IMPLEMENTED | Commit `78fd2ab1f7cf4d77c01f5659e04c3217f489f5d2` on `main` |
 | Full build plan | IMPLEMENTED (documentation only) | `docs/BUILD_PLAN.md`; original planning preserved from Draft PR #1 |
-| Web App/API | NOT IMPLEMENTED | No application source in Workforce repo |
+| Web App/API | PARTIAL / IMPLEMENTED CANDIDATE | Node API, private SQLite store, React UI source; React/Vite build NOT TESTED |
 | Four Telegram identities/group | NOT IMPLEMENTED | Proposed, no bot tokens or group IDs collected |
-| Director/orchestrator | NOT IMPLEMENTED | Needs policy + ledger + routing |
+| Director/orchestrator | PARTIAL / LOGICAL STATE MACHINE | Role-scoped task transitions; no AI inference or autonomous assignment |
 | JD-03 approval gate candidate | IMPLEMENTED / VERIFIED (synthetic) | 11 characterization tests pass; false positives remain; native gate unchanged |
 | JD-03 structured inspection candidate | IMPLEMENTED / VERIFIED (isolated synthetic) | 18 tests pass; inactive; live host identity/config NOT TESTED |
-| JD-04 Hermes worker candidate | IMPLEMENTED / VERIFIED (isolated synthetic) | 27 tests pass; native plugin loaded in isolated pilot; live activation BLOCKED |
-| Free-only routing policy candidate | IMPLEMENTED / VERIFIED (local policy tests) | 5 routing tests; provider calls and real quota validation NOT TESTED |
-| Web App/API, four Telegram identities/group, Director | NOT IMPLEMENTED | No application source or new bot/group runtime |
+| JD-04 worker and process controls | IMPLEMENTED / VERIFIED (isolated synthetic) | 32 focused Python tests; FIFO, checkpoint, seccomp network denial, timeout, cancel and recovery pass; live activation BLOCKED |
+| Free-only routing and protocol adapters | IMPLEMENTED / VERIFIED (mock transport only) | 8 tests; 429 fallback, cooldown, failback, pause/resume; no provider installed/called |
+| API, project/task/activity/approval registries | IMPLEMENTED / VERIFIED (handler simulation) | 3 Node tests; project ACL, SQLite persistence, approval, workflow, jobs/resume |
+| React web interface | IMPLEMENTED (source) / NOT TESTED (build) | Dependency install blocked by registry connection reset |
+| Telegram identities/group and live Director | NOT IMPLEMENTED / NOT TESTED | Existing bots untouched; no multi-user group membership or AI Director |
 | Autonomous E2E | NOT TESTED | No authenticated end-to-end pilot; conversation test was a simulation |
 
 ## Backlog — first five dependent tasks
 | ID | Order | Deliverable | Acceptance | Status |
 |---|---:|---|---|---|
 | WF-001 | 1 | Hermes/Supervisor read-only reuse inventory | Source interfaces partially mapped; active service state and Supervisor reconciliation remain open | IN PROGRESS (PARTIAL) |
-| WF-002 | 2 | Node.js API + React scaffold + store and logical agents | Build/lint smoke; durable threads; project isolation | NOT STARTED |
-| WF-003 | 3 | ChatGPT-style web UI for private/group chat | Login, project switch, @mention, persistent history, real status vs demo | NOT STARTED |
+| WF-002 | 2 | Node API + React source + store and logical agents | API ACL/persistence tests PASS; React build NOT TESTED due registry access | PARTIAL (API VERIFIED) |
+| WF-003 | 3 | Web UI source for project/thread/task/job view | JSX parses; Vite build and browser flow NOT TESTED; agent response and @mention dispatch NOT IMPLEMENTED | PARTIAL (SOURCE ONLY) |
 | WF-004 | 4 | Four Telegram Bot identities and shared gateway | Distinct bot posts; Topic↔thread sync; anti-echo and owner authentication | NOT STARTED |
-| WF-005 | 5 | Director + ledger + Hermes read-only bridge | Candidate job ledger/adapter exists; Director and full bridge remain incomplete | PARTIAL (CANDIDATE) |
+| WF-005 | 5 | Director + ledger + isolated worker bridge | SQLite task/job/audit/checkpoint API and fixed-profile bridge tested; no native Hermes approval bridge | PARTIAL (ISOLATED CANDIDATE) |
 
 ## After WF-005
 Implement Developer → QA → bounded self-fix → Draft PR in an isolated approved development lane; verify one SANRO Studio end-to-end delivery with exact commit SHA and no manual terminal steps. Only then onboard other SANRO projects.
@@ -50,6 +52,12 @@ Implement Developer → QA → bounded self-fix → Draft PR in an isolated appr
 7. GO/NO-GO and any critical approval needed.
 
 **Progress rule:** documentation-only planning does not count as software implementation. Candidate code is tracked separately from activated product capabilities; the full app and autonomous workflow remain unimplemented.
+
+## Checkpoint — 2026-11-24 (JD-05 continuous development)
+- API foundation, private SQLite, project ACL, owner-scoped threads, task transitions, approval read registry, activity log, job status/results/logs/cancel/checkpoint and explicit interrupted-job resume are implemented. Recovery does not auto-replay; resume requires reconciled side effects, new idempotency key, and scoped active approvals.
+- The web source is React/Vite with project, thread/group label, task, job, approval and activity panels. Build dependency installation did not complete because the package registry connection reset; no browser session was launched.
+- Worker children now inherit a reduced environment and receive Landlock plus an unprivileged seccomp filter denying network socket syscalls and process-group escape/inspection controls. Same UID/kernel remains a boundary; this is not a VM or container.
+- Latest tests: 32 targeted Python JD-04/routing/provider tests PASS; 3 Node API/supervisor tests PASS. Synthetic API metrics: submit 0.2734 s, foreground read 0.00057 s. No live Hermes, provider, Telegram or external model test.
 
 
 ## Development checkpoint — 2026-11-24

@@ -2,7 +2,7 @@
 
 Internal multi-agent engineering workspace for the SANRO ecosystem.
 
-**Status:** PLANNED / NOT IMPLEMENTED (initial repository documentation).
+**Status:** ISOLATED DEVELOPMENT CANDIDATE. The API, worker bridge and React UI source are implemented; the UI build and all live runtime integrations remain unverified.
 
 ## Goal
 One Owner instruction through a ChatGPT-style web app or a private Telegram group can be delegated by an AI Director to Developer, QA and DevOps workers, with traceable jobs, bounded self-fix, evidence and Draft PRs. High-risk actions require specific Owner approval.
@@ -29,3 +29,5 @@ No service deployment, model API purchase, bot creation or active worker modific
 ## Development checkpoint
 
 JD-03 and JD-04 isolated engineering candidates, their focused tests, and sanitized evidence are tracked on `feature/hermes-workforce-foundation`. See `docs/WORKBOARD.md`, `docs/CAPABILITY_REGISTRY.md`, and `docs/DEVELOPMENT_CHECKPOINT.md`. They are not live Hermes capabilities: runtime activation is NO-GO pending stronger process/network/credential isolation and approval-path verification.
+
+The new local control-plane source is under [`apps/api`](apps/api/README.md) and [`apps/web`](apps/web). The API stores project-scoped threads, tasks, audit events and worker checkpoints in private SQLite state; it exposes logical agents and does not call a model. The web interface requires a private local bearer token and labels unavailable agent responses as disconnected. Read the API setup and security limits before running it.
