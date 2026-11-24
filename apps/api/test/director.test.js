@@ -24,7 +24,7 @@ function fixture(t,{failures=1}={}){
     }
     return jobs.get(request.job_id);
   };
-  const options={db:store.db,auth,workerCall:executor,authorize:()=>approved,snapshot:async()=>sha};
+  const options={db:store.db,auth,workerCall:executor,authorize:()=>approved?{repository:project.repository,branch:project.branch,environment:project.environment,owner_actor:principal.subject,max_cost_usd:0,allowed_actions:['engineering:execute','qa:execute'],forbidden_actions:['merge','production:deploy','paid-api','other-repository:write']}:null,snapshot:async()=>sha};
   let director=new Director(options);
   const task=randomUUID(),now=new Date().toISOString();store.db.prepare('INSERT INTO tasks VALUES(?,?,?,?,?,?,?,?,?,?)').run(task,'pilot','owner','Synthetic task','Make the fixture pass','CREATED','owner',null,now,now);
   const submit=()=>director.submit(principal,project,{task_id:task,approval_ref:'approved',idempotency_key:'one-owner-instruction'});
@@ -34,6 +34,7 @@ function fixture(t,{failures=1}={}){
 test('one instruction automatically reaches Developer, QA, bounded self-fix, checkpoint and consolidated outbox across restart',async t=>{
   const f=fixture(t),run=f.submit();assert.equal(f.submit().id,run.id);
   await f.director.tick();const first=f.director.get(run.id);assert.ok(first.job_id);
+  assert.equal(JSON.parse(first.instruction_json).baseline_sha,'a'.repeat(40));
   // Simulate crash after durable executor enqueue but before run stores job ID.
   f.store.db.prepare('UPDATE director_runs SET job_id=NULL WHERE id=?').run(run.id);
   f.restart();await f.director.tick();assert.equal(f.director.get(run.id).job_id,first.job_id);assert.equal(f.jobs.size,1);
@@ -48,7 +49,7 @@ test('one instruction automatically reaches Developer, QA, bounded self-fix, che
 });
 
 test('Director fails closed on revocation, project scope, profile mismatch and exhausted self-fix',async t=>{
-  const f=fixture(t,{failures:2});assert.throws(()=>f.director.submit({...f.principal,subject:'other'},f.project,{task_id:f.task,approval_ref:'approved',idempotency_key:'other-task'}),/not found/);
+  const f=fixture(t,{failures:2});assert.throws(()=>f.director.submit({...f.principal,subject:'other'},f.project,{task_id:f.task,approval_ref:'approved',idempotency_key:'other-task'}),/mandate/);
   const run=f.submit();for(let i=0;i<10;i++)await f.director.tick();assert.equal(f.director.get(run.id).blocker,'SELF_FIX_LIMIT_REACHED');assert.equal(f.jobs.size,4);
   const g=fixture(t,{failures:0}),r=g.submit();g.revoke();await g.director.tick();assert.equal(g.director.get(r.id).blocker,'MANDATE_EXPIRED_OR_REVOKED');assert.equal(g.jobs.size,0);
   const h=fixture(t);h.auth.profiles.dev.executor='unverified-model';assert.throws(()=>h.submit(),/mandate/);

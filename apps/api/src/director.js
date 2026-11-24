@@ -30,7 +30,7 @@ export class Director {
       approval_ref TEXT NOT NULL, idempotency_key TEXT NOT NULL, fingerprint TEXT NOT NULL,
       state TEXT NOT NULL, stage TEXT NOT NULL, attempt INTEGER NOT NULL DEFAULT 0,
       job_id TEXT, candidate_sha TEXT, test_status TEXT NOT NULL DEFAULT 'NOT_TESTED',
-      blocker TEXT, recovery_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      blocker TEXT, instruction_json TEXT, recovery_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
       UNIQUE(project_id,owner,idempotency_key));
       CREATE TABLE IF NOT EXISTS report_outbox (
       id TEXT PRIMARY KEY, project_id TEXT NOT NULL, owner TEXT NOT NULL, run_id TEXT NOT NULL, delivery_key TEXT UNIQUE NOT NULL,
@@ -38,12 +38,16 @@ export class Director {
       CREATE TABLE IF NOT EXISTS worker_heartbeats (
       worker_id TEXT NOT NULL, project_id TEXT NOT NULL, role TEXT NOT NULL, status TEXT NOT NULL,
       run_id TEXT, job_id TEXT, observed_at TEXT NOT NULL, PRIMARY KEY(worker_id,project_id));`);
+    const runColumns=new Set(db.prepare('PRAGMA table_info(director_runs)').all().map(row=>row.name));
+    if(!runColumns.has('instruction_json'))db.exec('ALTER TABLE director_runs ADD COLUMN instruction_json TEXT');
   }
   active(principal,project,approval){
     const grants=principal?.projects?.[project.id];
     const scopes=['read','workflow:run','workflow:director','workflow:developer','workflow:qa','engineering:execute','engineering:read'];
     if(!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(project.repository??'')||!project.branch||['main','master'].includes(project.branch)||project.environment!=='isolated-development')return false;
-    if(!grants||grants.workspace!==project.workspace||!scopes.every(s=>grants.scopes.includes(s))||!this.authorize(principal,project.id,approval))return false;
+    const mandate=this.authorize(principal,project.id,approval);
+    if(!mandate||!Array.isArray(mandate.allowed_actions)||!Array.isArray(mandate.forbidden_actions)||mandate.repository!==project.repository||mandate.branch!==project.branch||mandate.environment!==project.environment||mandate.owner_actor!==principal.subject||mandate.max_cost_usd!==0||!['engineering:execute','qa:execute'].every(action=>mandate.allowed_actions?.includes(action))||!['merge','production:deploy','paid-api','other-repository:write'].every(action=>mandate.forbidden_actions?.includes(action)))return false;
+    if(!grants||grants.workspace!==project.workspace||!scopes.every(s=>grants.scopes.includes(s)))return false;
     const p=project.pipeline;
     return p&&['developer','qa','self_fix'].every(stage=>{
       const profile=this.auth.profiles[p[stage]];
@@ -75,7 +79,7 @@ export class Director {
     const prior=await this.workerCall(principal,project,{action:'status',job_id:run.job_id});
     if(!['INTERRUPTED','CANCELLED'].includes(prior.status))throw Object.assign(new Error('prior worker is not safely terminal'),{status:409});
     this.db.exec('BEGIN IMMEDIATE');try{
-      this.db.prepare('UPDATE director_runs SET approval_ref=?,recovery_count=recovery_count+1 WHERE id=?').run(approval_ref,id);
+      this.db.prepare('UPDATE director_runs SET approval_ref=?,instruction_json=NULL,recovery_count=recovery_count+1 WHERE id=?').run(approval_ref,id);
       this.audit(project.id,principal.subject,`SIDE_EFFECT_REVIEW_${hash(recovery_note)}`,id);
       const next=this.change(this.get(id),{state:'ACTIVE',job_id:null,blocker:null});this.db.exec('COMMIT');return next;
     }catch(e){this.db.exec('ROLLBACK');throw e;}
@@ -84,6 +88,7 @@ export class Director {
   audit(project,actor,event,entity){this.db.prepare('INSERT INTO audit_events VALUES(?,?,?,?,?,?)').run(randomUUID(),project,actor,event,entity,iso());}
   change(run,updates){
     const next={...run,...updates,updated_at:iso()};
+    if(next.stage!==run.stage)this.db.prepare('UPDATE director_runs SET instruction_json=NULL WHERE id=?').run(run.id);
     this.db.prepare('UPDATE director_runs SET state=?,stage=?,attempt=?,job_id=?,candidate_sha=?,test_status=?,blocker=?,updated_at=? WHERE id=?').run(next.state,next.stage,next.attempt,next.job_id,next.candidate_sha,next.test_status,next.blocker,next.updated_at,next.id);
     const taskState=next.state==='REPORTED'?'REPORTED':next.state==='BLOCKED'?'BLOCKED':next.stage==='QA'?'QA_PENDING':next.stage==='SELF_FIX'?'DEVELOPER_SELF_FIX':'DEVELOPER_ACTIVE';
     this.db.prepare('UPDATE tasks SET state=?,assigned_role=?,updated_at=? WHERE id=?').run(taskState,stageRoles[next.stage]??'director',next.updated_at,next.task_id);
@@ -116,11 +121,15 @@ export class Director {
   async step(run,principal,project){
     const task=this.db.prepare('SELECT * FROM tasks WHERE id=?').get(run.task_id);
     if(!run.job_id){
-      const baseline_sha=await this.snapshot(project.workspace,project);
-      if(run.stage==='QA'&&baseline_sha!==run.candidate_sha){this.block(run,'CANDIDATE_CHANGED_DURING_QA');return;}
       const profile=project.pipeline[run.stage==='SELF_FIX'?'self_fix':run.stage.toLowerCase()];
-      // Fixed configured argv receives a JSON instruction as ONE argument. No shell.
-      const instruction=JSON.stringify({version:1,run_id:run.id,project_id:project.id,task_id:task.id,title:task.title,instruction:task.description,stage:run.stage,attempt:run.attempt,baseline_sha,candidate_sha:run.candidate_sha,boundaries:['NO_MERGE','NO_PRODUCTION','NO_PAID_API','NO_OTHER_REPOSITORY'],executor:run.stage==='QA'?'local-ci':'codex'});
+      let instruction=run.instruction_json;
+      if(!instruction){
+        const baseline_sha=await this.snapshot(project.workspace,project);
+        if(run.stage==='QA'&&baseline_sha!==run.candidate_sha){this.block(run,'CANDIDATE_CHANGED_DURING_QA');return;}
+        // Persist exact input BEFORE enqueue so a restart reuses identical argv.
+        instruction=JSON.stringify({version:1,run_id:run.id,project_id:project.id,task_id:task.id,title:task.title,instruction:task.description,stage:run.stage,attempt:run.attempt,baseline_sha,candidate_sha:run.candidate_sha,boundaries:['NO_MERGE','NO_PRODUCTION','NO_PAID_API','NO_OTHER_REPOSITORY'],executor:run.stage==='QA'?'local-ci':'codex'});
+        this.db.prepare('UPDATE director_runs SET instruction_json=? WHERE id=?').run(instruction,run.id);
+      }
       const result=await this.workerCall(principal,project,{action:'submit',profile,approval_ref:run.approval_ref,idempotency_key:`director:${run.id}:${run.stage}:${run.attempt}:${run.recovery_count}`,instruction});
       if(typeof result.job_id!=='string'||!/^([a-f0-9]{32}|[a-f0-9-]{36})$/.test(result.job_id))throw new Error('invalid job response');
       this.db.exec('BEGIN IMMEDIATE');try{

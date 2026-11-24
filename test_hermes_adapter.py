@@ -70,7 +70,8 @@ class AdapterTests(unittest.TestCase):
 
     def test_duplicate_submission_is_idempotent(self):
         one = self.submit("print('once')", "same-key")
-        two = self.submit("print('twice')", "same-key")
+        two = self.submit("print('once')", "same-key")
+        self.assertRaises(ValueError, self.submit, "print('twice')", "same-key")
         self.assertEqual(one["job_id"], two["job_id"])
         self.assertTrue(one["created"])
         self.assertFalse(two["created"])

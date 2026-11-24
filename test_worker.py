@@ -98,7 +98,8 @@ class WorkerTests(unittest.TestCase):
 
     def test_duplicate_key_returns_same_job(self):
         one, created1 = self.q.submit([PY, "-c", "print('ok')"], self.tmp.name, 3, "build-42")
-        two, created2 = self.q.submit([PY, "-c", "print('different')"], self.tmp.name, 3, "build-42")
+        two, created2 = self.q.submit([PY, "-c", "print('ok')"], self.tmp.name, 3, "build-42")
+        self.assertRaises(ValueError, self.q.submit, [PY, "-c", "print('different')"], self.tmp.name, 3, "build-42")
         self.assertEqual(one, two)
         self.assertTrue(created1)
         self.assertFalse(created2)

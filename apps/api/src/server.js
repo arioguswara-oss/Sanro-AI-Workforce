@@ -34,7 +34,7 @@ function approvalStatus(auth,principal,projectId,ref,scope='engineering:execute'
   if(!ref||!principal.projects?.[projectId]?.approval_refs?.includes(ref))return null;
   const record=auth.approvals[ref];if(!record||record.project_id!==projectId||record.subject!==principal.subject||record.status!=='APPROVED'||!Array.isArray(record.scopes)||!record.scopes.includes(scope))return null;
   if(!record.expires_at||!Number.isFinite(Date.parse(record.expires_at))||Date.parse(record.expires_at)<=Date.now())return null;
-  return {id:ref,project_id:projectId,scope,status:'APPROVED',scopes:record.scopes.slice(),expires_at:record.expires_at};
+  return {id:ref,project_id:projectId,scope,status:'APPROVED',scopes:record.scopes.slice(),expires_at:record.expires_at,repository:record.repository,branch:record.branch,environment:record.environment,owner_actor:record.owner_actor,max_cost_usd:record.max_cost_usd,allowed_actions:record.allowed_actions,forbidden_actions:record.forbidden_actions};
 }
 function privateDirectory(path){mkdirSync(path,{recursive:true,mode:0o700});const s=lstatSync(path);if(s.isSymbolicLink()||!s.isDirectory()||s.uid!==process.getuid())throw new Error('state directory must be real and owned by current user');if((s.mode&0o077)!==0)throw new Error('state directory permissions must be 0700');}
 async function workerCall(stateDir,auth,principal,project,request){

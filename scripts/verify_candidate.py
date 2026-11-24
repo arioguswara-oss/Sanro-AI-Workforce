@@ -80,8 +80,6 @@ def main():
     report['python']={'run':result.testsRun,'pass':result.testsRun-len(result.failures)-len(result.errors)-len(result.skipped),'fail':len(result.failures),'error':len(result.errors),'not_tested':len(result.skipped),'skipped':[{'test':case.id(),'reason':reason} for case,reason in result.skipped],'failed_tests':[case.id() for case,_ in result.failures+result.errors]}
     passed=result.wasSuccessful()
     node=['node','--test']
-    if not abi:
-        node.append('--test-name-pattern=^(?!approved fixed-profile jobs)')
     passed=command(node,ROOT/'apps/api',report) and passed
     web=ROOT/'apps/web'
     if not (web/'node_modules/vite').exists():

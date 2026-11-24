@@ -6,11 +6,12 @@ import {join,resolve} from 'node:path';
 import {createHash,randomBytes} from 'node:crypto';
 import {EventEmitter} from 'node:events';
 import {Writable} from 'node:stream';
-import {spawn} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
 import {DatabaseSync} from 'node:sqlite';
 import {createApp} from '../src/server.js';
 
 const repoRoot=resolve('../..');
+const landlock=Number(spawnSync('python3',['-c','from landlock_sandbox import landlock_abi; print(landlock_abi())'],{cwd:repoRoot,encoding:'utf8'}).stdout?.trim()??0);
 async function fixture(t){
   const token=randomBytes(32).toString('hex');
   const dir=mkdtempSync(join(tmpdir(),'workforce-api-test-')),workspace=join(dir,'project-a');mkdirSync(workspace,{mode:0o700});
@@ -51,7 +52,7 @@ test('API denies by default, scopes project reads, and persists threads/messages
   assert.equal((await f.invoke(restarted.handler,'/api/projects/project-a/tasks')).data.tasks[0].state,'REPORTED');restarted.store.close();
 });
 
-test('approved fixed-profile jobs are non-blocking, FIFO, deduplicated, cancellable and recover without replay',async t=>{
+test('approved fixed-profile jobs are non-blocking, FIFO, deduplicated, cancellable and recover without replay',{skip:landlock?false:'NOT TESTED: Landlock unavailable; real worker remains fail-closed'},async t=>{
   const f=await fixture(t),path='/api/projects/project-a/jobs';
   const submit=async (profile,key,approval_ref='test-approval-1')=>f.request(path,post('',{profile,idempotency_key:key,approval_ref}));
   assert.equal((await submit('print','job-key-denied',null)).status,403);
