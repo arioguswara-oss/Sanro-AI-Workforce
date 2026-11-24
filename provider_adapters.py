@@ -36,7 +36,11 @@ class ProviderResponse:
 def _http_transport(url: str, headers: dict[str, str], body: bytes, timeout: float) -> ProviderResponse:
     request = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        # Never follow redirects with a provider credential or prompt.
+        class NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, req, fp, code, msg, headers, newurl):
+                return None
+        with urllib.request.build_opener(NoRedirect).open(request, timeout=timeout) as response:
             return ProviderResponse(response.status, response.read(2_000_000), dict(response.headers.items()))
     except urllib.error.HTTPError as error:
         return ProviderResponse(error.code, error.read(16_384), dict(error.headers.items()))
@@ -65,6 +69,8 @@ class OpenAICompatibleProvider:
         self.route, self.transport, self.timeout = route, transport, timeout
 
     def complete(self, messages: list[dict], *, tools: list[dict] | None = None) -> dict:
+        if self.route.reliability != "verified":
+            raise RouteRejected("unverified provider is disabled")
         if tools and (not self.route.engineering_tools or self.route.reliability != "verified"):
             raise RouteRejected("route is not qualified for tool-calling engineering work")
         key = os.environ.get(self.route.key_env)
@@ -124,6 +130,8 @@ class RoutingCheckpoint:
         prior = self.state["requests"].get(request_id)
         if prior and prior["fingerprint"] != fingerprint:
             raise RouteRejected("request_id was reused with different request content")
+        if prior and prior.get("status") in {"COMPLETED", "RUNNING", "BLOCKED", "INTERRUPTED"}:
+            raise RouteRejected("request already completed or has uncertain side effects; automatic replay denied")
         row = prior or {"fingerprint": fingerprint, "status": "RUNNING", "attempted_routes": [], "last_success": None}
         row["status"] = "RUNNING"; self.state["requests"][request_id] = row; self.save()
         return row
@@ -149,6 +157,7 @@ class FreeModelEngine:
         attempted = set(state["attempted_routes"])
         eligible = [r for r in self.router.routes if r.reliability == "verified" and not tools]
         if not eligible:
+            self.checkpoint.update(request_id, status="PAUSED")
             raise RouteRejected("no verified conversation route available")
         candidates = [r for r in eligible if self.router._state["cooldowns"].get(self.router._key(r), 0) <= time.time()]
         for route in candidates:
@@ -161,6 +170,11 @@ class FreeModelEngine:
                 attempted.add(key)
                 self.checkpoint.update(request_id, attempted_routes=sorted(attempted))
                 continue
+            if provider.route != route:
+                self.checkpoint.update(request_id, status="BLOCKED")
+                raise RouteRejected("provider route does not match configured capability and cost policy")
+            attempted.add(key)
+            self.checkpoint.update(request_id, status="RUNNING", attempted_routes=sorted(attempted))
             try:
                 result = provider.complete(messages, tools=tools)
             except ProviderFailure as error:
@@ -194,5 +208,9 @@ class FreeModelEngine:
         if not self.resume_eligible(request_id):
             raise RouteRejected("no eligible provider has recovered; checkpoint remains PAUSED")
         # Keep attempts as evidence, but permit a fresh model attempt after quota reset.
+        fingerprint = hashlib.sha256(json.dumps({"messages": messages, "tools": None}, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        if row["fingerprint"] != fingerprint:
+            raise RouteRejected("resume content differs from paused request")
         row["attempted_routes"] = []
+        self.checkpoint.save()
         return self.complete(messages, request_id=request_id, engineering=False)

@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "engineering_executor": "codex",
+  "providers": [
+    {"id":"9router","enabled":false,"protocol":"openai-chat-completions","source":"https://github.com/decolua/9router","base_url_example":"http://127.0.0.1:20128/v1","cost_policy":"UNKNOWN_UNTIL_DOWNSTREAM_ALLOWLIST_VERIFIED","quota_status":"UNAVAILABLE","reason":"Aggregator supports free, paid and subscription tiers; prohibit implicit paid fallback; installed configuration not inspected"},
+    {"id":"freellmapi","enabled":false,"protocol":"openai-chat-completions","source":"https://github.com/Pendia/FreeLLMAPI","base_url_example":"http://127.0.0.1:3001/v1","cost_policy":"FREE_TIER_CATALOG_IS_NOT_ACCOUNT_COST_EVIDENCE","quota_status":"UNAVAILABLE","reason":"Personal experimentation scope; operational use and upstream terms unverified; no incremental service installed"}
+  ]
+}

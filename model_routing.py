@@ -8,6 +8,8 @@ provider retries, fallback switching, and its normal approval/tool controls.
 from __future__ import annotations
 
 import json
+import math
+from urllib.parse import urlsplit
 import os
 import tempfile
 import time
@@ -34,11 +36,14 @@ class FreeRoute:
     def validate(self) -> None:
         if not self.provider_id or not self.model or not self.key_env:
             raise RouteRejected("route identity and key_env are required")
-        if self.cost_usd_per_million != 0:
+        if type(self.cost_usd_per_million) not in (int, float) or self.cost_usd_per_million != 0:
             raise RouteRejected("free-only policy rejects paid or unknown-cost routes")
-        if not self.base_url.startswith(("https://", "http://127.0.0.1:", "http://localhost:")):
+        url = urlsplit(self.base_url)
+        if url.username or url.password or url.query or url.fragment or not url.hostname:
+            raise RouteRejected("route endpoint cannot contain credentials, query or fragment")
+        if not (url.scheme == "https" or url.scheme == "http" and url.hostname in {"127.0.0.1", "localhost", "::1"}):
             raise RouteRejected("route endpoint must use HTTPS or loopback")
-        if self.quota_cooldown_seconds < 1:
+        if type(self.quota_cooldown_seconds) is not int or not 1 <= self.quota_cooldown_seconds <= 86400:
             raise RouteRejected("quota cooldown must be positive")
         if self.engineering_tools and self.reliability != "verified":
             raise RouteRejected("engineering tools require an explicitly verified route")
@@ -75,7 +80,7 @@ class FreeOnlyRouter:
                 known = {self._key(r) for r in self.routes}
                 self._state = {
                     "version": self.VERSION,
-                    "cooldowns": {k: float(v) for k, v in data["cooldowns"].items() if k in known},
+                    "cooldowns": {k: float(v) for k, v in data["cooldowns"].items() if k in known and math.isfinite(float(v))},
                     "last_success": data.get("last_success") if data.get("last_success") in known else None,
                 }
         except (OSError, ValueError, TypeError):
@@ -101,7 +106,7 @@ class FreeOnlyRouter:
     def choose(self, *, engineering_tools: bool = False, now: float | None = None) -> FreeRoute:
         now = time.time() if now is None else now
         cooldowns = self._state["cooldowns"]
-        candidates = [r for r in self.routes if not engineering_tools or r.engineering_tools]
+        candidates = [r for r in self.routes if r.reliability == "verified" and (not engineering_tools or r.engineering_tools)]
         for route in candidates:
             if float(cooldowns.get(self._key(route), 0)) <= now:
                 return route
@@ -110,7 +115,7 @@ class FreeOnlyRouter:
     def record_quota(self, route: FreeRoute, *, retry_after_seconds: int | None = None, now: float | None = None) -> None:
         if route not in self.routes:
             raise RouteRejected("route is outside this router's allowlist")
-        delay = route.quota_cooldown_seconds if retry_after_seconds is None else max(1, int(retry_after_seconds))
+        delay = route.quota_cooldown_seconds if retry_after_seconds is None else max(1, min(86400, int(retry_after_seconds)))
         self._state["cooldowns"][self._key(route)] = (time.time() if now is None else now) + delay
         self._save()
 
@@ -132,4 +137,4 @@ class FreeOnlyRouter:
     def hermes_fallback_entries(self) -> list[dict[str, str]]:
         """Emit Hermes' documented custom endpoint fallback entry shape, in route order."""
         return [{"provider": "custom", "model": r.model, "base_url": r.base_url, "key_env": r.key_env}
-                for r in self.routes]
+                for r in self.routes if r.reliability == "verified"]

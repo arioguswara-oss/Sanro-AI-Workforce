@@ -51,7 +51,7 @@ class ProviderAdapterTests(unittest.TestCase):
         self.router.record_quota(self.routes[0], retry_after_seconds=300)
         self.router.record_quota(self.routes[1], retry_after_seconds=300)
         provider = OpenAICompatibleProvider(self.routes[0], transport=lambda *_: ProviderResponse(200,b'{"choices":[{"message":{"content":"ok"}}]}',{}))
-        engine = FreeModelEngine(self.router, {"9router":provider,"freellmapi":provider}, self.checkpoint)
+        engine = FreeModelEngine(self.router, {r.provider_id: OpenAICompatibleProvider(r, transport=provider.transport) for r in self.routes}, self.checkpoint)
         with self.assertRaises(RouteRejected):
             engine.complete([{"role":"user","content":"x"}], request_id="paused-1")
         self.assertEqual(json.loads(self.checkpoint.read_text())["requests"]["paused-1"]["status"], "PAUSED")
@@ -79,3 +79,34 @@ class ProviderAdapterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class RoutingSafetyTests(unittest.TestCase):
+    setUp = ProviderAdapterTests.setUp
+    def test_unverified_disabled_and_empty_eligibility_pauses(self):
+        route = FreeRoute('unknown', 'model', 'https://router.invalid/v1', 'KEY', 0)
+        provider = OpenAICompatibleProvider(route, transport=lambda *_: self.fail('network called'))
+        self.assertRaises(RouteRejected, provider.complete, [])
+        router = FreeOnlyRouter([route], Path(self.temp.name) / 'unverified.json')
+        self.assertRaises(RouteRejected, router.choose)
+        self.assertEqual(router.hermes_fallback_entries(), [])
+        engine = FreeModelEngine(router, {}, self.checkpoint)
+        self.assertRaises(RouteRejected, engine.complete, [], request_id='no-provider')
+        self.assertEqual(engine.checkpoint.state['requests']['no-provider']['status'], 'PAUSED')
+
+    def test_completed_or_uncertain_request_is_not_replayed(self):
+        calls = []
+        def transport(*args):
+            calls.append(1)
+            return ProviderResponse(200, b'{"choices":[{"message":{"content":"ok"}}]}', {})
+        engine = FreeModelEngine(self.router, {r.provider_id: OpenAICompatibleProvider(r, transport=transport) for r in self.routes}, self.checkpoint)
+        engine.complete([], request_id='once')
+        self.assertRaises(RouteRejected, engine.complete, [], request_id='once')
+        restarted = FreeModelEngine(self.router, {}, self.checkpoint)
+        self.assertRaises(RouteRejected, restarted.complete, [], request_id='once')
+        self.assertEqual(len(calls), 1)
+        engine.checkpoint.begin('uncertain', {'messages': [], 'tools': None})
+        self.assertRaises(RouteRejected, engine.complete, [], request_id='uncertain')
+
+    def test_endpoint_credentials_and_loopback_lookalikes_denied(self):
+        for url in ['https://user:pass@router.invalid/v1', 'http://localhost:3@evil.invalid/v1', 'https://router.invalid/v1?key=value']:
+            self.assertRaises(RouteRejected, FreeRoute('x', 'm', url, 'KEY', 0).validate)

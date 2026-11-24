@@ -11,7 +11,7 @@ class FreeOnlyRouterTests(unittest.TestCase):
         self.checkpoint = Path(self.temp.name) / "route-state.json"
         self.primary = FreeRoute("local-gateway", "free-a", "http://127.0.0.1:8080/v1", "LOCAL_KEY", 0,
                                  reliability="verified", engineering_tools=True, quota_cooldown_seconds=45)
-        self.secondary = FreeRoute("local-gateway", "free-b", "http://127.0.0.1:8080/v1", "LOCAL_KEY", 0)
+        self.secondary = FreeRoute("local-gateway", "free-b", "http://127.0.0.1:8080/v1", "LOCAL_KEY", 0, reliability="verified")
 
     def tearDown(self):
         self.temp.cleanup()
