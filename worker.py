@@ -18,10 +18,16 @@ import time
 import uuid
 
 from landlock_sandbox import apply_landlock
+from process_sandbox import apply_process_policy
 
 
 def now():
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="milliseconds")
+
+
+def apply_job_sandbox(workspace, job_tmp):
+    apply_landlock(workspace, job_tmp)
+    apply_process_policy()
 
 
 def redact_text(value):
@@ -136,7 +142,7 @@ def worker_loop(q, idle_exit=False):
             try:
                 env = {"PATH": os.defpath, "HOME": row["cwd"], "TMPDIR": job_tmp, "LANG": "C.UTF-8", "PYTHONNOUSERSITE": "1"}
                 proc = subprocess.Popen(command, cwd=row["cwd"], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
-                    preexec_fn=lambda: apply_landlock(row["cwd"], job_tmp))
+                    preexec_fn=lambda: apply_job_sandbox(row["cwd"], job_tmp))
                 def copy_output():
                     for line in iter(proc.stdout.readline, b""):
                         log.write(redact_text(line.decode("utf-8", errors="replace")).encode())
@@ -163,6 +169,10 @@ def worker_loop(q, idle_exit=False):
                         break
                     try: code = proc.wait(timeout=min(.1, remaining))
                     except subprocess.TimeoutExpired: pass
+                # A very short child may exit between Popen() and the first loop
+                # iteration; capture its return code even when wait() was skipped.
+                if code is None and proc is not None and proc.poll() is not None:
+                    code = proc.returncode
                 if state == "succeeded" and code != 0:
                     state, error = "failed", f"exit code {code}"
             except Exception as e:

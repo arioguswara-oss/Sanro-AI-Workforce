@@ -67,6 +67,21 @@ class WorkerTests(unittest.TestCase):
         p = self.start_worker(); self.assertEqual(p.wait(timeout=5), 0)
         self.assertEqual(self.state(jid), "timed_out")
 
+    def test_fast_process_exit_preserves_return_code(self):
+        jid = self.submit("pass")
+        p = self.start_worker(); self.assertEqual(p.wait(timeout=5), 0)
+        self.assertEqual(self.state(jid), "succeeded", self.q.status(jid))
+
+    def test_child_network_and_process_group_escape_are_denied(self):
+        code = "import socket;\ntry: socket.socket()\nexcept PermissionError: print('network-denied')\nelse: raise SystemExit(3)\nimport os;\ntry: os.setsid()\nexcept PermissionError: print('escape-denied')\nelse: raise SystemExit(4)"
+        jid = self.submit(code)
+        p = self.start_worker(); self.assertEqual(p.wait(timeout=5), 0)
+        row = self.q.status(jid)[0]
+        self.assertEqual(row["state"], "succeeded", row)
+        output = pathlib.Path(row["log_path"]).read_text()
+        self.assertIn("network-denied", output)
+        self.assertIn("escape-denied", output)
+
     def test_queued_cancellation(self):
         jid = self.submit("print('must not run')")
         self.assertTrue(self.q.cancel(jid))
