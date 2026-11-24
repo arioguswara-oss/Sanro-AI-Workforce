@@ -57,7 +57,7 @@ Recovered clean local branch `feature/hermes-workforce-foundation` at `57137d59b
 - JD-03 historical baseline: **29 PASS / 0 FAIL**; unchanged and not rerun.
 - Current focused Python JD-04 + routing/provider suite: **32 PASS / 0 FAIL** (worker, adapter, native plugin, routing, provider mock tests).
 - Current Node API and worker-controller suite: **3 PASS / 0 FAIL**.
-- Combined checkpoint evidence: **64 PASS / 0 FAIL** (29 inherited JD-03 + 32 current Python + 3 current Node; not one monolithic run).
+- Prior JD-03/JD-04 combined baseline: **56 PASS / 0 FAIL**. Current checkpoint adds a focused **32 PASS / 0 FAIL** Python run and **3 PASS / 0 FAIL** Node run; suites overlap prior JD-04 coverage, so these totals are reported separately and are not added together. The unchanged JD-03 suite remains at its historical **29 PASS / 0 FAIL** and was not rerun.
 - Latest isolated API run: submit **0.2734 s**, foreground read **0.00057 s**. These are direct-handler synthetic measurements; no network listener or Telegram response was measured.
 - `node:sqlite` emits Node's experimental warning. React/Vite build, browser behavior, live model calls, provider quota, live Hermes, and external network behavior remain NOT TESTED.
 
