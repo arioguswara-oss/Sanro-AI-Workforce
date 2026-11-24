@@ -37,7 +37,7 @@ Proceed with WF-002: scaffold the local API and web application around project-s
 
 ### Recovered state and scope
 
-Recovered clean local branch `feature/hermes-workforce-foundation` at `57137d59ba17011e06382047a566faa9da33eb70`; remote state had not changed before this work. Current changes are isolated in the authorized feature clone and have not yet been pushed. No JD-03, live Hermes, Gateway, Telegram, cron, production, or SANRO Studio files were changed.
+Recovered clean local branch `feature/hermes-workforce-foundation` at `57137d59ba17011e06382047a566faa9da33eb70`; remote state had not changed before this work. The implementation is recorded in three local commits pending authorized push: worker boundary `cb66bde86fc88292ca5ebfa6844b9949d6e91efe`, provider routing candidate `8bbbcdeb5a856df0fb41f8c7e9b971f150dad734`, and Workforce API/UI foundation `6c40f944b070bf946d569cd02c5c7be6afd9ecd6`. No JD-03, live Hermes, Gateway, Telegram, cron, production, or SANRO Studio files were changed.
 
 ### Implementation state
 
