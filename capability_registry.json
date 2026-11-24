@@ -1,14 +1,17 @@
 {
   "schema_version": 1,
   "capabilities": [
-    {"id":"project_registry","status":"IMPLEMENTED","verification":"PROJECTS_SEEDED_FROM_PRIVATE_ACL; PROJECT_MUTATION_DISABLED"},
-    {"id":"agent_registry","status":"IMPLEMENTED","verification":"LOGICAL_PROFILES_ONLY; NO_MODEL_AGENT_RUNTIME"},
-    {"id":"conversation_threads","status":"IMPLEMENTED","verification":"OWNER_PROJECT_SCOPED_SQLITE_TESTS"},
-    {"id":"task_ledger_workflow","status":"IMPLEMENTED","verification":"SYNTHETIC_DIRECTOR_DEVELOPER_QA_SELF_FIX_RELEASE_CHECKPOINT_TESTS"},
-    {"id":"engineering_worker","status":"IMPLEMENTED","verification":"SYNTHETIC_FIFO_APPROVAL_CANCEL_TIMEOUT_RECOVERY_AND_SECCOMP_TESTS"},
-    {"id":"multi_model_routing","status":"IMPLEMENTED","verification":"MOCKED_OPENAI_COMPAT_QUOTA_FALLBACK_FAILBACK_CHECKPOINT_TESTS; NO_LIVE_PROVIDER"},
-    {"id":"react_web_build","status":"NOT_TESTED","verification":"REGISTRY_NETWORK_UNAVAILABLE_FOR_FREE_REACT_VITE_INSTALL"},
-    {"id":"telegram_reporting","status":"NOT_IMPLEMENTED","verification":"NO_BOT_OR_LIVE_SERVICE_MUTATION"},
-    {"id":"live_hermes_activation","status":"BLOCKED","verification":"NATIVE_APPROVAL_AND_FULL_PROCESS_ISOLATION_NOT_LIVE_VERIFIED"}
+    {"id":"project_registry","status":"IMPLEMENTED","verification":"PRIVATE_WORKSPACE_REPO_BRANCH_ENVIRONMENT_ACL_AND_REAL_GIT_FIXTURE"},
+    {"id":"agent_registry","status":"IMPLEMENTED","verification":"LOGICAL_PROFILES_AND_PERSISTED_HEARTBEATS; LIVE_AGENTS_UNAVAILABLE"},
+    {"id":"conversation_threads","status":"IMPLEMENTED","verification":"LEGACY_SOURCE_PRESERVED; STANDALONE_CHAT_DEFERRED"},
+    {"id":"task_ledger_director","status":"IMPLEMENTED","verification":"AUTOMATIC_SYNTHETIC_PIPELINE_SELF_FIX_CHECKPOINT_REPORT"},
+    {"id":"approval_registry","status":"IMPLEMENTED","verification":"SCOPED_ZERO_COST_DIRECTOR_MANDATES; NATIVE_RUNTIME_NOT_TESTED"},
+    {"id":"engineering_worker","status":"BLOCKED","verification":"SOURCE_PRESENT; REAL_EXECUTION_FAIL_CLOSED_WITHOUT_LANDLOCK"},
+    {"id":"durable_recovery","status":"IMPLEMENTED","verification":"EXACT_STAGE_INPUT_RESTART_DEDUP_AND_REVIEWED_EXECUTION_GENERATION"},
+    {"id":"multi_model_routing","status":"IMPLEMENTED","verification":"MOCK_FREE_ONLY_CIRCUIT_FALLBACK_FAILBACK_PAUSE_REPLAY_GUARD; LIVE_PROVIDERS_DISABLED"},
+    {"id":"react_build","status":"VERIFIED","verification":"ORIGINAL_AND_MONITOR_LIBRARY_BUILDS; COMPILED_RENDER_SMOKE"},
+    {"id":"telegram_reporting","status":"IMPLEMENTED","verification":"DURABLE_OUTBOX_AND_INJECTED_EXISTING_TRANSPORT; LIVE_DELIVERY_NOT_TESTED"},
+    {"id":"readonly_monitoring","status":"VERIFIED","verification":"ISOLATED_HTTP_ACL_FRESHNESS_ZERO_DB_MUTATIONS_AND_ZERO_EXECUTOR_CALLS"},
+    {"id":"live_hermes_activation","status":"BLOCKED","verification":"CLOUDFLARE_AUTH_REQUIRED; NO_NATIVE_RUNTIME_ACCEPTANCE; NO_ACTIVATION"}
   ]
 }

@@ -1,17 +1,19 @@
-# Capability registry — 2026-11-24
+# Capability registry — 25 November 2026 Jakarta
 
-| Capability | Status | Verification | Boundary / gap |
+| Capability | Implemented source | Isolated verification | Live status |
 |---|---|---|---|
-| JD-03 approval classifier candidate | IMPLEMENTED / VERIFIED | 11 synthetic tests pass | Characterization regex only; known false positives; native approval unchanged; no production use. |
-| JD-03 structured metadata inspection | IMPLEMENTED / VERIFIED | 18 synthetic tests pass, including plugin registration contract | Inactive; real host identity, metadata source, and approval integration NOT TESTED. |
-| JD-04 serial FIFO worker | IMPLEMENTED / VERIFIED | 32 focused Python tests pass with adapter/routing additions; includes fast-exit, cancellation, timeout, FIFO, recovery, and seccomp checks | Synthetic only; no live Gateway or Telegram concurrency verification. |
-| JD-04 native project-plugin shim | IMPLEMENTED / VERIFIED (isolated pilot) | Installed Hermes PluginManager loaded/registers tool; synthetic jobs completed FIFO with checkpoint recovery | Live approval flow NOT TESTED; no plugin activation. |
-| Job ACL, idempotency, cancellation, status, logs/results | IMPLEMENTED / VERIFIED (synthetic) | Adapter tests cover project/session authorization, duplicate prevention, cancellation, and results | Real ACL/user mapping NOT TESTED. |
-| Worker execution boundary | IMPLEMENTED / VERIFIED (synthetic) | Landlock confines filesystem; seccomp denies network sockets, session escape, process inspection/signals; child environment is reduced; timeout/cancel tested | Same UID/kernel; no VM/container or kernel boundary; workspace contents can still include secrets. Live activation BLOCKED. |
-| Free-only routing/provider adapters | IMPLEMENTED / VERIFIED (mocked protocol) | Eight routing/provider tests cover explicit zero-cost policy, 429 cooldown/fallback, failback, paused checkpoint/resume, capability filtering | OpenAI-compatible adapter shape only; 9Router/FreeLLMAPI not installed or called, and downstream router tier pricing is not certified. No engineering model is qualified. |
-| Node API / SQLite | IMPLEMENTED / VERIFIED (direct-handler integration simulation) | 3 Node tests cover ACL, persistence, project isolation, task workflow, approvals, FIFO worker, cancellation, recovery/resume and latency | No socket listener test: sandbox denies loopback `listen()`; API is not deployed. |
-| React web UI source | IMPLEMENTED / NOT TESTED (build) | JSX parser syntax check; package manifest pins React/Vite | Registry connection reset prevented dependency installation and Vite build. Agent responses, realtime, mentions and Telegram are not connected. |
-| Project/agent registries, thread/task/job ledger, audit and checkpoint APIs | IMPLEMENTED / VERIFIED (synthetic) | Private SQLite persistence and deny-by-default project/session scopes in API suite | Project changes are provisioned through private ACL config; group threads are owner-scoped and do not yet support multiple member identities. |
-| New Telegram bots/group and message sync | NOT IMPLEMENTED | NOT TESTED | No bot tokens/group IDs or live integration. |
-| Logical Director→Developer→QA→self-fix→release workflow | IMPLEMENTED / VERIFIED (state machine only) | Role-scoped transitions, one self-fix, checkpoint and report state tested | No AI orchestration or external QA execution; evidence SHA is caller-supplied and explicitly unverified. |
-| Telegram reporting, live Hermes, autonomous E2E | NOT IMPLEMENTED / BLOCKED | NOT TESTED | Existing Telegram untouched; native approval path and live identity/session integration remain unverified. |
+| Structured metadata inspection | JD-03 strict schema/host UID | 18 synthetic cases PASS | NOT TESTED |
+| Native session/approval shim | Turn-bound actor/session; literal approval true; scope before gate | Denial/pending/route-vs-actor tests PASS; upstream AST signature checked | Installed Hermes version and human approval NOT TESTED |
+| FIFO worker | Durable SQLite, finite timeout, content-bound dedup, cancel/recovery | Non-executing cases PASS; fail-closed boundary PASS | Real confined worker acceptance BLOCKED here |
+| Process/network/filesystem boundary | Landlock + seccomp ABI/x32 checks; reduced env; unsafe DB rejection | Real job rejected when confinement unavailable | Same UID/kernel; credential and Codex broker review required |
+| Free conversation routing | OpenAI-compatible adapter; circuit/cooldown/fallback/failback; replay guard | 11 routing/provider tests PASS | 9Router/FreeLLMAPI disabled; quota/cost/terms not account-verified |
+| Project Registry | Private config binds workspace/repo/branch/environment; Git snapshot checks scope | Real synthetic Git repo tests PASS | No other repository modified |
+| Agent Registry | Director/Developer/QA/DevOps + marketing/content/service/support profiles | Fixed logical profiles and persisted observations | Profiles do not prove running remote agents |
+| Approval Registry | Subject/project/scope/expiry; Director repo/branch/env/zero-cost actions/forbidden actions | Scoped rejection cases PASS | Private snapshot; native dequeue/revocation remains host gate |
+| Task Ledger/Director | Automatic fixed-profile stages; one self-fix; clean QA SHA evidence | Synthetic executor pipeline PASS | Actual Codex delivery NOT TESTED |
+| Durable checkpoint/audit/isolation | Exact stage input before enqueue; reviewed recovery generation; project/owner ACL | Restart/dedup/cross-scope cases PASS | No live autonomy claim |
+| Reporting | Durable consolidated release/blocker/critical-approval outbox; existing transport injection | Synthetic acknowledgement/dedup PASS | Existing Telegram transport not connected here |
+| Monitoring | Dedicated `monitor:read`, GET-only fixed projection, freshness/zero mutations | Handler and real HTTP security tests PASS | Hermes health UNAVAILABLE; Superadmin untouched |
+| Reusable UI | Preserve React/Vite; presentation-only Virtual Office table | Both builds and compiled render/escaping PASS | Standalone chat deferred; browser flow NOT TESTED |
+
+Current test-case totals: 70 PASS, 0 FAIL, 12 NOT TESTED. See [acceptance matrix](ACCEPTANCE_MATRIX.md) and [final evidence](evidence/HERMES_FIRST_FINAL_ACCEPTANCE.json). Service activation remains NO-GO.

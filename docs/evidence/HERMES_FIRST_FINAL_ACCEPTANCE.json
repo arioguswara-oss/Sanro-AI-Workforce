@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "source_sha": "44ed2cedb2f5d40829b3f215e1dd09026a91ed6d",
+  "source_tree": "d25cbd37c120b311f5d5d615a19d2f6aa5322faa",
+  "landlock_abi": 0,
+  "scope": "ISOLATED_SYNTHETIC_CANDIDATE",
+  "live_runtime": "NOT_TESTED",
+  "commands": [
+    {
+      "command": [
+        "node",
+        "--test"
+      ],
+      "status": "PASS",
+      "output_sha256": "7c67d24f0d287813bad007b1537a11a3350f6152102c828caf3eff65dced4c76"
+    },
+    {
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "status": "PASS",
+      "output_sha256": "f0af95e0d90e35ef3850d1f66661d95e2d3c9cb81b41cad7f2e4aab42212e9e4"
+    },
+    {
+      "command": [
+        "node",
+        "node_modules/vite/bin/vite.js",
+        "build",
+        "--config",
+        "vite.monitor.config.js"
+      ],
+      "status": "PASS",
+      "output_sha256": "6446702062aa2b2f143f0f996d9d741ba1955417964f2f60daadf90567070e0c"
+    },
+    {
+      "command": [
+        "node",
+        "--test",
+        "test/monitor-render.test.js"
+      ],
+      "status": "PASS",
+      "output_sha256": "db09a12141321d9f5b63dd172d94c0d6a06c95483aba474cbe43c0f1c3b824dc"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/secret_scan.py"
+      ],
+      "status": "PASS",
+      "output_sha256": "fb6cce3a14eada7f904ae01b6fe22ac1e383da45aa0ddb22b615cdb966621369"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "status": "PASS",
+      "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "python": {
+    "run": 69,
+    "pass": 58,
+    "fail": 0,
+    "error": 0,
+    "not_tested": 11,
+    "skipped": [
+      {
+        "test": "test_hermes_adapter.AdapterTests.test_45_second_job_nonblocking_and_foreground_response",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_hermes_adapter.AdapterTests.test_completion_result_and_secret_redaction",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_hermes_adapter.AdapterTests.test_landlock_denies_host_and_other_project_paths_but_allows_project_work",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_hermes_adapter.AdapterTests.test_supervisor_shutdown_interrupts_active_job",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_hermes_native_plugin.NativePluginTests.test_verified_register_tool_contract_and_scoped_job",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_worker.WorkerTests.test_child_network_and_process_group_escape_are_denied",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_worker.WorkerTests.test_conversation_responsive_while_job_runs",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_worker.WorkerTests.test_fast_process_exit_preserves_return_code",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_worker.WorkerTests.test_fifo_completion_and_logs",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_worker.WorkerTests.test_running_cancellation",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_worker.WorkerTests.test_timeout",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      }
+    ],
+    "failed_tests": []
+  },
+  "portable_result": "PASS",
+  "worker_runtime": "BLOCKED_LANDLOCK_UNAVAILABLE",
+  "activation": "NO_GO",
+  "node_api": {
+    "pass": 11,
+    "fail": 0,
+    "not_tested": 1
+  },
+  "compiled_component": {
+    "pass": 1,
+    "fail": 0,
+    "not_tested": 0
+  },
+  "test_totals": {
+    "pass": 70,
+    "fail_error": 0,
+    "not_tested": 12
+  }
+}

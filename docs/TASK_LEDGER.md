@@ -40,3 +40,15 @@ Job group: `WF-HF-20261125`. Scope: authorized feature branch and Draft PR #2 on
 | WF-HF-05 | WF-HF-04 | Sanitized monitor contract, reusable view and isolated E2E | PLANNED |
 
 No remote worker delegation, live activation, cron changes or other-repository writes are authorized or claimed.
+
+## WF-HF-20261125 — execution checkpoint
+
+| ID | Result | Evidence / remaining boundary |
+|---|---|---|
+| WF-HF-01 | IMPLEMENTED | Hermes-first BUILD_PLAN, ADR, README; no new chat/bots |
+| WF-HF-02 | IMPLEMENTED CANDIDATE / HOST BLOCKED | Native bound actor/strict approval; worker DB/dedup/ABI hardening; real worker acceptance NOT TESTED without Landlock |
+| WF-HF-03 | IMPLEMENTED / MOCK VERIFIED | Disabled catalog, free-only routing safety; no provider calls/cost |
+| WF-HF-04 | IMPLEMENTED / SYNTHETIC VERIFIED | Automatic Director, exact input checkpoints, one self-fix, recovery generations and consolidated outbox |
+| WF-HF-05 | IMPLEMENTED / ISOLATED VERIFIED | Real HTTP monitoring, zero mutations, private scope, freshness, builds/render; Superadmin untouched |
+
+Tested remote source `44ed2cedb2f5d40829b3f215e1dd09026a91ed6d`; 70 PASS / 0 FAIL / 12 NOT TESTED. GitHub source tree matched local before testing. Source/GitHub and isolated verification do not imply live operation. Final evidence and one host handoff are committed with this checkpoint. No remote worker was delegated or activated.
