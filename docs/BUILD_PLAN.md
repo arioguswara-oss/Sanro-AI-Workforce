@@ -80,6 +80,9 @@ Bangun responsif desktop/Android: sidebar proyek/agent, chat personal, group cha
 Buat empat identitas bot via BotFather oleh Owner (token masuk langsung secret store runtime), satu private group dengan Topics. Build Telegram gateway / webhook atau polling yang terisolasi, inbound allowlist, outbound outbox, topic mapping, web-sync, anti-loop.
 **Selesai jika:** masing-masing bot tampil sebagai pengirim berbeda; pesan Owner di topic yang benar muncul di Web Chat, respons penting dari Web muncul di Telegram, tidak terjadi echo/duplikasi; pesan dari non-Owner tidak bisa memberi mandat. Tidak mengganggu bot Hermes existing.
 
+### P0 — Hermes Multi-Model Engine (WF-MME-001)
+Lihat [spesifikasi modul](HERMES_MULTI_MODEL_ENGINE.md). Audit read-only sebagai bagian WF-001; pilot routing terisolasi sebelum aktivasi Fase 4; acceptance fallback/resume dan zero incremental AI spend menjadi release gate Fase 5. Status PLANNED / NOT TESTED.
+
 ### Fase 4 — Director + Hermes worker orchestration (P0)
 Integrasikan profil proyek, approval/mandate policy, job queue, shared Codex lock, Supervisor bridge dan existing CI/Playwright; mulailah dari adapter READ-ONLY. Baru aktifkan Developer→QA→limited self-fix→Draft PR dalam lane terisolasi yang disetujui; DevOps hanya staging target berizin.
 **Selesai jika:** satu job idempotent dengan SHA & evidence berpindah agent secara otomatis, task resume setelah gangguan, penolakan tindakan di luar mandat, Draft PR tanpa merge. Ketersediaan Codex dan biaya API diverifikasi dahulu.
