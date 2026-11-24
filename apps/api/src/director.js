@@ -116,9 +116,11 @@ export class Director {
   async step(run,principal,project){
     const task=this.db.prepare('SELECT * FROM tasks WHERE id=?').get(run.task_id);
     if(!run.job_id){
+      const baseline_sha=await this.snapshot(project.workspace,project);
+      if(run.stage==='QA'&&baseline_sha!==run.candidate_sha){this.block(run,'CANDIDATE_CHANGED_DURING_QA');return;}
       const profile=project.pipeline[run.stage==='SELF_FIX'?'self_fix':run.stage.toLowerCase()];
       // Fixed configured argv receives a JSON instruction as ONE argument. No shell.
-      const instruction=JSON.stringify({version:1,run_id:run.id,project_id:project.id,task_id:task.id,title:task.title,instruction:task.description,stage:run.stage,attempt:run.attempt,candidate_sha:run.candidate_sha,boundaries:['NO_MERGE','NO_PRODUCTION','NO_PAID_API','NO_OTHER_REPOSITORY'],executor:run.stage==='QA'?'local-ci':'codex'});
+      const instruction=JSON.stringify({version:1,run_id:run.id,project_id:project.id,task_id:task.id,title:task.title,instruction:task.description,stage:run.stage,attempt:run.attempt,baseline_sha,candidate_sha:run.candidate_sha,boundaries:['NO_MERGE','NO_PRODUCTION','NO_PAID_API','NO_OTHER_REPOSITORY'],executor:run.stage==='QA'?'local-ci':'codex'});
       const result=await this.workerCall(principal,project,{action:'submit',profile,approval_ref:run.approval_ref,idempotency_key:`director:${run.id}:${run.stage}:${run.attempt}:${run.recovery_count}`,instruction});
       if(typeof result.job_id!=='string'||!/^([a-f0-9]{32}|[a-f0-9-]{36})$/.test(result.job_id))throw new Error('invalid job response');
       this.db.exec('BEGIN IMMEDIATE');try{

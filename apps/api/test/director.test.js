@@ -70,3 +70,9 @@ test('explicit recovery preserves checkpoint and uses a new deduplicated executi
   assert.equal(done.state,'REPORTED');assert.equal(done.recovery_count,1);assert.notEqual(done.job_id,original);assert.equal(f.jobs.size,3);
   assert.equal(JSON.stringify(f.store.db.prepare('SELECT * FROM audit_events').all()).includes(review.recovery_note),false);
 });
+
+test('unsafe initial Git scope is blocked before any engineering job is submitted',async t=>{
+  const f=fixture(t);const options={...f.options,snapshot:async()=>{throw new Error('wrong repository or branch');}};
+  const director=new Director(options),r=director.submit(f.principal,f.project,{task_id:f.task,approval_ref:'approved',idempotency_key:'unsafe-workspace'});
+  await director.tick();assert.equal(director.get(r.id).state,'BLOCKED');assert.equal(f.jobs.size,0);
+});
