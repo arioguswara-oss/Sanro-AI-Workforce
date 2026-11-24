@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Small durable FIFO worker for the JD-04A prototype (stdlib only)."""
 import argparse
+import math
 import datetime as dt
 import json
 import os
@@ -51,6 +52,12 @@ class Queue:
                 raise PermissionError(f"worker state subdirectory must be private and user-owned: {subdir.name}")
             subdir.chmod(0o700)
         self.db = self.root / "jobs.sqlite3"
+        if self.db.exists() or self.db.is_symlink():
+            info = self.db.lstat()
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+                raise PermissionError("worker database must be a private regular file")
+        fd = os.open(self.db, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        os.close(fd)
         self.conn = sqlite3.connect(self.db, timeout=30, isolation_level=None)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
@@ -63,8 +70,8 @@ class Queue:
         self.conn.execute("CREATE INDEX IF NOT EXISTS jobs_fifo ON jobs(state, created)")
 
     def submit(self, command, cwd, timeout, dedupe_key):
-        if timeout <= 0:
-            raise ValueError("timeout must be positive")
+        if not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or not 0 < timeout <= 86400:
+            raise ValueError("timeout must be finite and between zero and 86400 seconds")
         cwd = str(pathlib.Path(cwd).resolve())
         if not pathlib.Path(cwd).is_dir():
             raise ValueError("job cwd must be an existing directory")
@@ -198,6 +205,7 @@ def worker_loop(q, idle_exit=False):
                         q.conn.execute("INSERT OR IGNORE INTO job_notifications VALUES (?,?,?,?,?,?,?,NULL)",
                             (row["id"], event, owner["project_id"], owner["workspace"], owner["subject"],
                              f"Engineering job {row['id']} {event.lower()}.", time.time()))
+    lock_file.close()
     return 0
 
 

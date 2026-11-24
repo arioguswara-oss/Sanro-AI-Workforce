@@ -70,11 +70,11 @@ def register(ctx) -> None:
         if not isinstance(item, dict):
             return json.dumps({"error": "project is not configured"})
         try:
-            from gateway.session_context import get_session_env
-            platform = get_session_env("HERMES_SESSION_PLATFORM", "")
-            user_id = get_session_env("HERMES_SESSION_USER_ID", "")
-            chat_id = get_session_env("HERMES_SESSION_CHAT_ID", "")
-            session_key = get_session_env("HERMES_SESSION_KEY", "")
+            from gateway.session_context import bound_session_env
+            platform = bound_session_env("HERMES_SESSION_PLATFORM")
+            user_id = bound_session_env("HERMES_SESSION_USER_ID")
+            chat_id = bound_session_env("HERMES_SESSION_CHAT_ID")
+            session_key = bound_session_env("HERMES_SESSION_KEY")
             if platform != "telegram" or not user_id or not session_key:
                 raise PermissionError("Telegram user and active session identity are required")
             authorized_users = {str(v) for v in item.get("telegram_user_ids", [])}
@@ -89,6 +89,11 @@ def register(ctx) -> None:
             if not isinstance(configured_scopes, list) or not all(s in {"engineering:execute", "engineering:read", "engineering:cancel", "engineering:admin"} for s in configured_scopes):
                 raise PermissionError("project scopes are invalid")
             scopes = frozenset(configured_scopes)
+            required_scope = {"submit": "engineering:execute", "cancel": "engineering:cancel",
+                              "status": "engineering:read", "logs": "engineering:read",
+                              "result": "engineering:read", "notifications": "engineering:read"}.get(action)
+            if required_scope is None or required_scope not in scopes:
+                raise PermissionError("action scope is not authorized")
             approval_refs = frozenset()
             if action == "submit":
                 profile_name = args.get("profile")
@@ -109,8 +114,8 @@ def register(ctx) -> None:
                 decision = request_tool_approval(
                     "jd04_engineering_job", f"Submit project {project_id} command hash {digest}",
                     rule_key=f"jd04:{project_id}:{digest}", approval_callback=kwargs.get("callback"))
-                if not decision.get("approved"):
-                    return json.dumps({"status": "approval_denied", "message": decision.get("message")})
+                if not isinstance(decision, dict) or decision.get("approved") is not True:
+                    return json.dumps({"status": "approval_denied", "message": "native approval was not granted"})
                 approval_refs = frozenset({hashlib.sha256((subject + digest).encode()).hexdigest()})
             auth = Authorization(subject, scopes, frozenset({project_id}), frozenset({workspace}), approval_refs)
             api, process_supervisor = services()
@@ -131,7 +136,7 @@ def register(ctx) -> None:
                 response = {"notifications": api.drain_notifications(auth, project_id=project_id, workspace=workspace)}
             else:
                 response = {"error": "unknown action"}
-            if action != "notifications":
+            if action != "notifications" and "engineering:read" in scopes:
                 notifications = api.drain_notifications(auth, project_id=project_id, workspace=workspace)
                 if notifications:
                     response["notifications"] = notifications

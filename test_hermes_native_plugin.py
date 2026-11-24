@@ -45,7 +45,7 @@ class NativePluginTests(unittest.TestCase):
         session_context = types.ModuleType("gateway.session_context")
         session_values = {"HERMES_SESSION_PLATFORM": "telegram", "HERMES_SESSION_USER_ID": "1007",
                           "HERMES_SESSION_CHAT_ID": "chat-9", "HERMES_SESSION_KEY": "telegram:chat-9"}
-        session_context.get_session_env = lambda name, default="": session_values.get(name, default)
+        session_context.bound_session_env = lambda name: session_values.get(name, "")
         tools = types.ModuleType("tools"); tools.__path__ = []
         approval = types.ModuleType("tools.approval")
         approval.request_tool_approval = lambda *a, **kw: {"approved": True, "message": None}
@@ -99,7 +99,7 @@ class NativePluginTests(unittest.TestCase):
         }}})
         PLUGIN.register(ctx)
         module = sys.modules["gateway.session_context"]
-        module.get_session_env = lambda name, default="": "" if name == "HERMES_SESSION_USER_ID" else default
+        module.bound_session_env = lambda name: ""
         response = json.loads(ctx.tools["jd04_engineering_job"]["handler"]({"action": "submit", "project_id": "proj-native",
             "profile": "python", "arguments": ["pass"], "idempotency_key": "unauth"}))
         self.assertIn("error", response)
