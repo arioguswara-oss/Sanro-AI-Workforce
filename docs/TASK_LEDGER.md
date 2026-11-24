@@ -27,3 +27,16 @@ No Gateway restart, runtime config or approval-gate change, cron activation, pro
 - BLOCKED / NOT TESTED: Vite production build and browser run (registry failure); actual API network listener (sandbox `listen()` returns `EPERM`); model provider and quota behavior live; Telegram reporting; native Hermes approval/session mapping; full host/namespace isolation; live Gateway/runtime.
 - Resume policy is explicit: interrupted jobs remain interrupted and are not replayed. A new job is created only after scoped recovery approval, caller confirms side effects are reconciled, and supplies a new resume key. The application stores a hash of the review note, not the note itself.
 - Public source excludes real tokens/configuration/logs. Temporary API auth/state fixtures are created outside the repository and deleted by tests.
+
+## Master execution mandate — 25 November 2026
+Job group: `WF-HF-20261125`. Scope: authorized feature branch and Draft PR #2 only.
+
+| ID | Dependency | Output | State |
+|---|---|---|---|
+| WF-HF-01 | checkpoint reconciliation | Hermes-first BUILD_PLAN, ADR, workboard, reuse mapping | IMPLEMENTED |
+| WF-HF-02 | WF-HF-01 | JD-03/JD-04 session/approval integration and isolation regression | IN PROGRESS |
+| WF-HF-03 | WF-HF-02 | Disabled provider catalog, safe routing/recovery | PLANNED |
+| WF-HF-04 | WF-HF-03 | Durable automatic Director pipeline and existing-transport outbox | PLANNED |
+| WF-HF-05 | WF-HF-04 | Sanitized monitor contract, reusable view and isolated E2E | PLANNED |
+
+No remote worker delegation, live activation, cron changes or other-repository writes are authorized or claimed.
