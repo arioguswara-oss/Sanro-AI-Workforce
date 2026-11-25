@@ -8,3 +8,4 @@
 - ADR-006: Serial FIFO by default, durable checkpoints, idempotent stage submission, no automatic replay after uncertain side effects. Native Hermes approvals remain authoritative.
 - ADR-007: Dedicated `monitor:read` scope, GET-only fixed projection. Monitoring reads persisted evidence; never calls worker lifecycle, native tools or side-effecting job status adapters.
 - ADR-008: No live activation under this mandate. Both autonomous cron jobs remain PAUSED. No Superadmin code changes.
+- ADR-009: TokenEconomizer is OPTIONAL / EXPERIMENTAL. It is not a dependency of Codex CLI, Workforce, or the primary development workflow. Evaluation is isolated and opt-in; no global activation is required.
