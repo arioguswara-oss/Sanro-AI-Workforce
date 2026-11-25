@@ -12,6 +12,10 @@ Hermes remains the operational AI engine and conversation interface through its 
 - Dedicated `monitor:read` API: sanitized project-scoped DTO, freshness, heartbeat, job/queue/checkpoint/test/blocker data, no worker or task mutation. Future Superadmin Virtual Office component prepared. Superadmin is not modified.
 - Existing React/Vite source is preserved; standalone chat development is deferred. Original build and reusable monitoring component build pass; compiled component render/security smoke test passes.
 
+## Optional experimental optimization
+
+TokenEconomizer is an **OPTIONAL / EXPERIMENTAL** developer optimization. Codex CLI and SANRO AI Workforce do not require it; its absence, disabled state, or untrusted hooks must not block primary development. Any evaluation stays isolated and opt-in. No global activation is part of this project.
+
 Source/GitHub verification, isolated synthetic execution and live runtime verification are distinct. Real engineering execution fails closed when Landlock is unavailable. Mock executor acceptance does not prove Codex delivery or autonomous Hermes operation. Cron jobs are not changed, and live runtime state is not asserted without access.
 
 See [BUILD_PLAN](docs/BUILD_PLAN.md), [architecture decisions](docs/ARCHITECTURE_DECISIONS.md), [Director contract](docs/ORCHESTRATION_CONTRACT.md), [monitoring contract](docs/MONITORING_API.md), [provider qualification](docs/PROVIDER_QUALIFICATION.md), [checkpoint](docs/DEVELOPMENT_CHECKPOINT.md) and [consolidated host handoff](docs/HERMES_EXECUTION_HANDOFF.md).
