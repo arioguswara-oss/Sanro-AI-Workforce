@@ -8,7 +8,7 @@
 
 This is an isolated pilot preparation, not activation across workers. The pilot uses a synthetic-only discount calculator fixture and a separate Codex home/state root. The plugin is enabled only in that home. No worker, project repository, Gateway, 9Router, FreeLLMAPI, or global Codex configuration was changed.
 
-**Owner gate: blocked by the no-credential constraint.** The five hooks have not been trusted or invoked. I launched the isolated CLI under the Landlock boundary with `--no-daemon`; Codex v0.162.1 stopped at its sign-in screen (ChatGPT, Device Code, or API key) before exposing `/hooks`. I did not sign in or access credentials. The prompt to Trust All therefore is not currently reachable in this isolated home.
+**Owner gate: pending.** The five hooks have not been trusted or invoked. The pilot launcher permits outbound TCP 443 only for official sign-in; TCP bind and other ports remain denied. Launch `/tmp/sanro-tokeneconomizer-pilot-20261125/start-pilot-codex.sh`; choose **Sign in with ChatGPT** (Device Code suitable, no API key), then `/hooks` → **Trust all and continue** after reviewing the five hooks and this evidence. This bundled Owner approval applies to the isolated pilot home only. Exit/restart the same script and notify us for a short smoke. Never paste credentials/codes into chat or bypass trust.
 
 Using the normal/global Codex UI would change trust outside the pilot, so it was not used. Do not sign in to the pilot while the no-credential boundary stands. A Codex UI session that is already authenticated only in the normal home cannot safely grant pilot-only trust. This is the current blocker to the official approval gate.
 
@@ -36,7 +36,7 @@ This verifies the plugin's config loader resolves the actual host/repository sta
 - Pilot Codex reports `tokeneconomizer@tokeneconomizer installed, enabled 0.1.0` in the isolated home. The existing Codex CLI binary/version is used; no CLI update was run. The pilot cache was materialized from the configured local Microsoft source at the same v0.1.0; the global install/config/cache were not changed.
 - The pilot uses a clean environment whitelist. Its `HOME`, `CODEX_HOME`, `TOKENECONOMIZER_HOME`, temporary directory, and XDG cache/config paths all point inside the pilot root. No auth or credentials files exist in the pilot homes; no credential values were read.
 - Landlock reports ABI 8. The pilot launcher applies a restrictive filesystem ruleset before starting Codex: standard runtime paths and the official source/Codex package are read-only; writable paths are limited to the pilot root. It allows only the current process's procfs view, not a general view of other user processes.
-- Confinement preflight passed: attempts to open the existing global Codex auth/credentials files, open another project tree, and write the read-only official source were denied. These checks opened no secret contents. A TCP socket creation probe failed with `EPERM` under the host policy; the Landlock ruleset also denies TCP bind/connect. No external network request was made by the pilot.
+- Confinement preflight passed: attempts to open the existing global Codex auth/credentials files, open another project tree, and write the read-only official source were denied. These checks opened no secret contents. For official sign-in, Landlock permits outbound TCP 443 only; bind and other ports remain denied. Local port 9 denial and launcher preflight passed. No external network request was made by the agent.
 - `bwrap` user namespaces were unavailable and the Docker socket was not accessible; the pilot uses Landlock instead. This has not been used to run hooks yet.
 
 Synthetic task fixture: `repo/PILOT_TASK.md`, `repo/discount.py`, and `repo/tests/test_discount.py`. The starter implementation is intentionally incorrect; no tests were run before trust approval.
@@ -49,13 +49,13 @@ Synthetic task fixture: `repo/PILOT_TASK.md`, `repo/discount.py`, and `repo/test
 | Plugin in isolated Codex home | **PASS** | `codex plugin list` reports installed/enabled v0.1.0 |
 | Pilot state permissions | **PASS** | state root `0700`, config `0600` |
 | Exclusion of global credential/project paths | **PASS** | confined open attempts denied; no contents read |
-| Network isolation | **PASS** | TCP socket creation denied; Landlock bind/connect denied |
+| Network confinement | **PASS** | TCP 443 egress only; local port 9 denied; no external request |
 | Five-hook trust and activation | **BLOCKED** | isolated Codex requires sign-in before `/hooks`; not approved, no hook executed |
 | Hook smoke test and latency | **BLOCKED** | requires Owner trust; no trust bypass or global UI used |
 | Coding-quality comparison | **BLOCKED / constrained** | equivalent model execution would require credentials/network |
 | Token savings | **NOT MEASURED** | no baseline/treated model sessions; no savings claim |
 
-The no-credential/no-network boundary prevents a Codex model call from this pilot. After trust, hook event smoke and latency can be measured without credentials. A comparable model-quality or token comparison cannot be claimed unless a credentialless, no-additional-cost model path is made available; do not inject another project's auth into the pilot.
+Before Owner sign-in no model call is available. Owner may use ChatGPT included-plan sign-in in this isolated pilot; no API key or another project's auth. After trust/restart run one short synthetic fix/test smoke. Token savings stay unmeasured pending gradual comparable evidence during authorized development.
 
 ## Rollback
 
