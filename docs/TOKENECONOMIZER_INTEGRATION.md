@@ -3,11 +3,11 @@
 **Date:** 2026-11-25  
 **Scope:** Installed Codex plugin and its five Codex hook events, for the SANRO AI Workforce repository only. No Gateway, 9Router, FreeLLMAPI, worker, active development session, or production configuration was changed.
 
-## Decision requested from Owner
+## Trust recommendation and scope
 
-**Recommendation: Trust All = GO, conditional on reviewing this file and the checked-in conservative `config.json`.** Approve the five hooks together through Codex's native `/hooks` review. Do not use a trust bypass. Codex does not run them in the session that grants trust; restart Codex after approval. If the Owner does not accept local session/tool-event logging described below, the combined recommendation is NO-GO.
+**Pilot-only Trust All: GO after Owner reviews this evidence and completes the bundled sign-in/trust action. Global/worker-wide Trust All: NO-GO at this stage.** Approve the five hooks together in the isolated pilot through Codex native `/hooks`; do not use a trust bypass. Exit and restart the pilot after approval. This does not approve hooks globally.
 
-This is a recommendation, not evidence that the hooks have been trusted or activated. At audit time the plugin is enabled in the user Codex configuration, but the trust decision is not exposed by the inspected configuration. The Codex UI trust review remains authoritative.
+This recommendation is not evidence that hooks have been trusted or activated. Trust remains pending; Codex UI review is authoritative.
 
 ## Configuration correction and pilot follow-up
 
