@@ -68,6 +68,16 @@ Owner reports Herdr Core `0.1.22`, Android SSH PASS, terminal `t1`, Codex CLI `0
 
 Official CLI surface: [Herdr Core v0.1.22 commands](https://github.com/herdrdev/herdr-core/blob/v0.1.22/docs/commands.md) and [worker session instructions](https://github.com/herdrdev/herdr-core/blob/v0.1.22/crates/herdr-core/src/SKILL.md). Installed VPS documentation is NOT TESTED.
 
+## Herdr runtime discovery continuation — 2026-11-25
+
+- Synced authorized branch and Draft PR #2 head: `4e6634a4b6bbceb2cfc9d93f8b5bb388c4764c92`; PR is OPEN, DRAFT, base `main`, merge state CLEAN. Isolated checkout: `/tmp/sanro-herdr-integration`; no concurrent local edits were present.
+- Current local `hc server status` reports Herdr Core `0.1.22`, core `vmi3646685`, `live: 1`, and `keeps_running_after_logout: true` for user `sanro`. `hc ls --all` and `hc get sanro-monitor-test` report `t2` (`sleep 600`, project label `workforce`) as LIVE, parentless, and `die_with_parent: false`. This is current Herdr registry evidence only; independent process-table confirmation was unavailable in the execution namespace, so no separate persistence claim is made. No session was stopped or changed.
+- `hc machine ls` reports no configured remote machines. Visible process inspection did not expose VPS worker processes; therefore Codex/Hermes/Claude/Gemini/OpenCode inventory and independent PID/PPID/cwd/execution-state classification remain NOT TESTED. Do not infer unmanaged workers absent from this environment.
+- Code review confirms the adapter creates one project-scoped Herdr terminal for a fixed serial Workforce queue consumer, not a distinct terminal per job/AI worker. It does not yet register per-worker job ID, role, model, lifecycle/checkpoint/resume metadata, nor adopt existing Codex/Hermes sessions. Changing this to per-job dispatch now would bypass the queue's current approval/dedup/recovery boundary and risks duplicate execution; no such runtime change was made.
+- The candidate is opt-in and disabled by default, co-located only, and gated by project ACL, `worker:manage`, approval and explicit core-environment attestation. Existing Herdr controller tests remain mock CLI tests; no isolated second Core/runtime is configured. Android Spaces visibility is not agent lifecycle reporting.
+- Targeted verification at this SHA: API Herdr acceptance **2 PASS / 0 FAIL**, controller **8 PASS / 0 FAIL**, Codex bridge **4 PASS / 0 FAIL**, `git diff --check` PASS. The attempted name-pattern Node invocation selected zero individual cases and is not counted as test coverage. No source changes; capability registry and checkpoint/ledger were updated. Existing implementation remains a candidate, not complete runtime integration.
+- Disposition: **GO** for continued isolated implementation and synthetic tests; **NO-GO** for shared runtime activation/autonomous end-to-end claim. The next implementation must bind each job's visible metadata to the existing serial queue without bypassing approval, idempotency, timeout or recovery controls. Production activation is not requested by this checkpoint.
+
 
 ## TokenEconomizer isolated pilot checkpoint — 2026-11-25
 

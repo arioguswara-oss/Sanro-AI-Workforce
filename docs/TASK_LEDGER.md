@@ -86,3 +86,16 @@ Implementation commit: `d7b945ee1d2f882f82d41abd6bdea8832e7f373a`. It remains an
 | TokenEconomizer hooks | BLOCKED / UNTRUSTED | No hook activation or invocation; compatibility with a Herdr Codex child remains unverified. |
 
 Focused results for changed code: API **5 PASS / 0 FAIL**, Herdr controller **8 PASS / 0 FAIL**, Codex bridge **4 PASS / 0 FAIL** (total **17 PASS / 0 FAIL**, disjoint focused suites). Mocked Herdr-path submission **0.711 s**; separate FIFO simulation foreground read **0.000872 s**. Runtime acceptance remains NO-GO pending authenticated isolated host verification and Android Owner confirmation. No live Hermes/Codex process or service was changed.
+
+## Herdr runtime discovery continuation — 2026-11-25
+
+| Work | State | Evidence |
+|---|---|---|
+| Authorized source and PR checkpoint | VERIFIED | Isolated clone at `4e6634a4b6bbceb2cfc9d93f8b5bb388c4764c92`; PR #2 OPEN/DRAFT, CLEAN; no local concurrent changes |
+| Current Herdr Core and pilot terminal | VERIFIED VIA HC | Core `0.1.22`, `vmi3646685`; `t2` `sanro-monitor-test` currently LIVE in Herdr registry, parentless; process-table corroboration unavailable |
+| Existing VPS worker inventory | NOT TESTED | `hc machine ls` empty; execution namespace did not expose target process table; do not infer worker absence |
+| Per-job/worker terminal registration | NOT IMPLEMENTED | Existing code manages one project queue-consumer terminal; worker/job metadata is not individually registered in Herdr |
+| Existing Codex/Hermes adoption and Android lifecycle reporting | NOT TESTED | No authenticated inventory or Inbox reporting evidence; Spaces visibility alone is insufficient |
+| Candidate focused tests | PASS | API Herdr acceptance 2/2; controller 8/8; Codex bridge 4/4; diff check PASS |
+
+Runtime/shared activation remains NO-GO. Do not dispatch per-job terminals until each terminal remains attached to the authorized serial queue, approval, deduplication and recovery path. No worker, service or terminal was changed.
