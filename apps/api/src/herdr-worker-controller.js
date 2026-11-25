@@ -18,10 +18,11 @@ function statusOf(terminal){
   }
   return {status:'INTERRUPTED',session:terminal.address??terminal.name??null,reason:terminal.reason??'unknown'};
 }
-function projectIdentity(projectId){
+function projectIdentity(projectId,workerName){
   const slug=projectId.toLowerCase().replace(/[^a-z0-9_-]+/g,'-').replace(/[-_]{2,}/g,'-').replace(/^-|-$/g,'').slice(0,17)||'project';
   const tag=createHash('sha256').update(projectId).digest('hex').slice(0,8);
-  return {name:`wf-${slug}-${tag}`.slice(0,32),tag};
+  if(workerName!==undefined&&workerName!==null&&!/^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$/.test(workerName))throw new TypeError('invalid workerName');
+  return {name:workerName??`wf-${slug}-${tag}`.slice(0,32),tag};
 }
 
 /**
@@ -32,11 +33,11 @@ function projectIdentity(projectId){
  */
 export class HerdrWorkerController {
   constructor({projectId,workspace,stateDir,workerScript,hc='hc',python='python3',machine=null,
-    coreEnvironmentAttested=false,requiredVersion=PINNED_HERDR_CORE_VERSION,runner=null}={}){
+    coreEnvironmentAttested=false,requiredVersion=PINNED_HERDR_CORE_VERSION,runner=null,workerName=null}={}){
     if(!projectId||!workspace||!stateDir||!workerScript)throw new TypeError('projectId, workspace, stateDir and workerScript are required');
     if(!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(projectId))throw new TypeError('invalid projectId');
     this.projectId=projectId;
-    this.project=projectIdentity(projectId);
+    this.project=projectIdentity(projectId,workerName);
     this.workspace=resolve(workspace);this.stateDir=resolve(stateDir);this.workerScript=resolve(workerScript);
     if(machine!==null)throw new Error('remote Herdr machines are unsupported until Workforce queue and workspace are colocated');
     this.hc=hc;this.python=python;this.coreEnvironmentAttested=coreEnvironmentAttested;
@@ -60,10 +61,17 @@ export class HerdrWorkerController {
     if(context?.workspace!==undefined&&resolve(context.workspace)!==this.workspace)throw new Error('cross-workspace worker access denied');
   }
   async discover(){
-    const {stdout}=await this.call(['ls','--all','--json','--label','sanro.workforce=jack-worker']);
+    const {stdout}=await this.call(['ls','--all','--json','--label','sanro.workforce=jack-worker','--label',`sanro.project=${this.project.tag}`]);
     const payload=parseJson(stdout,'terminal list');
     const terminals=Array.isArray(payload)?payload:(payload.terminals??[]);
-    return terminals.filter(t=>t?.labels?.['sanro.workforce']==='jack-worker'&&t?.labels?.['sanro.project']===this.project.tag);
+    const verified=[];
+    for(const listed of terminals){
+      const address=listed?.address??listed?.name;
+      if(typeof address!=='string'||!address)continue;
+      const detail=terminalOf(parseJson((await this.call(['get','--json',address])).stdout,'terminal detail'));
+      if(detail?.labels?.['sanro.workforce']==='jack-worker'&&detail?.labels?.['sanro.project']===this.project.tag)verified.push(detail);
+    }
+    return verified;
   }
   async coreRunning(){
     await this.assertVersion();
@@ -81,9 +89,9 @@ export class HerdrWorkerController {
       const active=existing.find(t=>t.state==='live');
       if(active){this.address=active.address??active.name;return {started:false,status:'RUNNING',session:this.address};}
       const name=this.project.name;
-      const args=['run','--bg','--json','--name',name,'--cwd',this.workspace,'--no-parent',
+      const args=['run','--bg','--json','--name',name,'--cwd',this.workspace,'--no-parent','--outlive-parent',
         '--label','sanro.workforce=jack-worker','--label',`sanro.project=${this.project.tag}`,'--label',`sanro.project_id=${this.projectId}`,
-        '--label',`sanro.worker_name=${name}`,'--label','sanro.execution_engine=hermes','--label','sanro.queue=serial'];
+        '--label',`sanro.worker_name=${name}`,'--label','sanro.worker_role=serial-workforce-supervisor','--label','sanro.execution_engine=hermes','--label','sanro.queue=serial'];
       args.push('--','/usr/bin/env','-i','PATH=/usr/bin:/bin',`HOME=${this.workspace}`,`TMPDIR=${this.stateDir}/tmp`,'LANG=C.UTF-8','PYTHONNOUSERSITE=1','WORKFORCE_HERDR_STATUS=1',`WORKFORCE_HERDR_PROJECT_ID=${this.projectId}`,`WORKFORCE_HERDR_WORKER_NAME=${name}`,this.python,this.workerScript,'--root',this.stateDir,'serve');
       const {stdout}=await this.call(args,15000);
       const payload=parseJson(stdout,'worker start');

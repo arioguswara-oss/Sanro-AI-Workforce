@@ -67,7 +67,7 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
     if(startWorker)throw new Error('Herdr worker autostart is forbidden; use the scoped worker-control route after approval');
     const projectId=process.env.WORKFORCE_HERDR_PROJECT_ID,project=auth.projects.get(projectId);
     if(!project)throw new Error('WORKFORCE_HERDR_PROJECT_ID must identify an authorized project');
-    workerController=new HerdrWorkerController({projectId,workspace:project.workspace,stateDir,workerScript:join(root,'worker.py'),machine:process.env.WORKFORCE_HERDR_MACHINE||null,coreEnvironmentAttested:process.env.WORKFORCE_HERDR_CORE_ENV_ATTESTED==='1',...(herdrRunner?{runner:herdrRunner}:{})});
+    workerController=new HerdrWorkerController({projectId,workspace:project.workspace,stateDir,workerScript:join(root,'worker.py'),workerName:process.env.WORKFORCE_HERDR_WORKER_NAME||null,machine:process.env.WORKFORCE_HERDR_MACHINE||null,coreEnvironmentAttested:process.env.WORKFORCE_HERDR_CORE_ENV_ATTESTED==='1',...(herdrRunner?{runner:herdrRunner}:{})});
   }else{workerController=new WorkerController(stateDir);if(startWorker)workerController.start();}
   const stopWorker=()=>workerController.shutdown(herdrBackend?{projectId:workerController.projectId,scopes:new Set(['worker:manage'])}:undefined);
   const dispatchWorker=async(principal,project,request)=>{

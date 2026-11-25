@@ -111,4 +111,17 @@ Runtime/shared activation remains NO-GO. Do not dispatch per-job terminals until
 | Synthetic test suites | PASS | API selection 13/13; worker + Hermes adapter 21/21; real isolated Core synthetic job PASS |
 | Android Spaces / Inbox visibility | NOT TESTED | Isolated Core was not connected to the Android client; prior `sanro-monitor-test` visibility remains Owner-reported evidence only |
 
-Hermes/FIFO remains the execution authority; no shared runtime, existing worker, service, hook, or production configuration changed. Candidate remains opt-in. Shared activation is NO-GO until project-scoped `worker:manage` approval and target-worker inventory are available.
+Hermes/FIFO remains the execution authority; no existing worker, service, hook, or production configuration changed. Candidate remains opt-in. The following owner-authorized one-worker synthetic runtime pilot supersedes the earlier shared-activation blocker only for this project and job.
+
+## Owner-authorized VPS pilot — 2026-11-25
+
+| Work | State | Evidence |
+|---|---|---|
+| Executor/process inventory | VERIFIED READ-ONLY | Host `vmi3646685`; two Herdr Core processes (server + holder); 2 Hermes and 5 Codex CLI processes observed, all existing AI processes UNMANAGED; no Claude/Gemini/OpenCode detected |
+| One project-scoped pilot | PASS SYNTHETIC | `sanro-ai-workforce`, worker `sanro-workforce-pilot`, Herdr `t3`, isolated workspace, serial queue |
+| Synthetic job lifecycle | PASS | `788abd731ec242509dc359df4d746f0b`: queued → running → succeeded, exit 0; OSC 7501 record `done` |
+| Herdr status discovery | FIXED / PASS | Live CLI omits labels in `hc ls --json`; controller revalidates filtered terminal labels via `hc get --json`; 9 controller and 2 API focused tests pass |
+| Android Spaces / Inbox | NOT TESTED | Core protocol record and terminal live; Owner visual confirmation still required; agent Inbox reporting is not inferred from Spaces |
+| Existing workers | UNMANAGED | PID/project/session ownership unknown; no adoption, restart or stop performed |
+
+The synthetic command did not invoke an AI model or prove a Hermes model session. Do not generalize this result to all workers or autonomous end-to-end AI execution.
