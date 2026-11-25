@@ -61,3 +61,12 @@ No remote worker delegation, live activation, cron changes or other-repository w
 | WF-HF-05 | IMPLEMENTED / ISOLATED VERIFIED | Real HTTP monitoring, zero mutations, private scope, freshness, builds/render; Superadmin untouched |
 
 Tested remote source `44ed2cedb2f5d40829b3f215e1dd09026a91ed6d`; 70 PASS / 0 FAIL / 12 NOT TESTED. GitHub source tree matched local before testing. Source/GitHub and isolated verification do not imply live operation. Final evidence and one host handoff are committed with this checkpoint. No remote worker was delegated or activated.
+
+
+## Herdr runtime activation continuation — 2026-11-25
+- IMPLEMENTED earlier: opt-in co-located Herdr controller candidate, version pin 0.1.22, project/workspace ACL, fixed serial consumer, cancellation/status/output, duplicate-session reuse, no automatic replay; test totals remain the previously recorded 21 Node + 10 Python PASS, not rerun because source is unchanged.
+- VERIFIED now: supplied Android public key is syntactically valid; fingerprint `SHA256:4VZviw2bb9DF6F1n0axjEQzeKug3yD/7DG0MrdEese0`. Strict SSH host-key check matched known-hosts fingerprint `SHA256:Y2QmgEV3aB9cc7lUrMOynkLWVQ5FTl2rTOUYyQXFYSM`.
+- BLOCKED: SSH account authentication for `sanro@13.140.185.9:22` returned `Permission denied (publickey)`; the supplied key was not registered. No authorized_keys, permissions, VPS packages, services, or worker processes changed. No private key was accessed.
+- NOT TESTED: VPS resources, Core installation/checksum, Herdr terminal/session, Workforce-connected Codex worker, Android session visibility, live TokenEconomizer hooks. Herdr adapter only covers the co-located queue; remote dispatch is intentionally rejected.
+- PR #2 is open/draft, current readback says mergeable; earlier false result was inconsistent/transient. No merge or force push.
+- Owner-facing readiness: **HERDR ANDROID NOT READY**. Wait for confirmation that key registration, pinned Core, and isolated session are verified before pressing **Check again**.
