@@ -52,7 +52,7 @@ async function workerCall(stateDir,auth,principal,project,request){
   });
 }
 
-export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=process.env.WORKFORCE_STATE_DIR,startWorker=process.env.WORKFORCE_WORKER_AUTOSTART==='1',allowWorkerControl=process.env.WORKFORCE_ALLOW_WORKER_CONTROL==='1',startDirector=false,executor,snapshot,monitorMaxAgeMs=60000}={}){
+export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=process.env.WORKFORCE_STATE_DIR,startWorker=process.env.WORKFORCE_WORKER_AUTOSTART==='1',allowWorkerControl=process.env.WORKFORCE_ALLOW_WORKER_CONTROL==='1',startDirector=false,executor,snapshot,monitorMaxAgeMs=60000,herdrRunner}={}){
   if(!Number.isFinite(monitorMaxAgeMs)||monitorMaxAgeMs<1000||monitorMaxAgeMs>3600000)throw new Error('invalid monitoring freshness bound');
   const auth=loadAuth(authPath);
   if(!stateDir)throw new Error('WORKFORCE_STATE_DIR is required');
@@ -67,10 +67,23 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
     if(startWorker)throw new Error('Herdr worker autostart is forbidden; use the scoped worker-control route after approval');
     const projectId=process.env.WORKFORCE_HERDR_PROJECT_ID,project=auth.projects.get(projectId);
     if(!project)throw new Error('WORKFORCE_HERDR_PROJECT_ID must identify an authorized project');
-    workerController=new HerdrWorkerController({projectId,workspace:project.workspace,stateDir,workerScript:join(root,'worker.py'),machine:process.env.WORKFORCE_HERDR_MACHINE||null,coreEnvironmentAttested:process.env.WORKFORCE_HERDR_CORE_ENV_ATTESTED==='1'});
+    workerController=new HerdrWorkerController({projectId,workspace:project.workspace,stateDir,workerScript:join(root,'worker.py'),machine:process.env.WORKFORCE_HERDR_MACHINE||null,coreEnvironmentAttested:process.env.WORKFORCE_HERDR_CORE_ENV_ATTESTED==='1',...(herdrRunner?{runner:herdrRunner}:{})});
   }else{workerController=new WorkerController(stateDir);if(startWorker)workerController.start();}
   const stopWorker=()=>workerController.shutdown(herdrBackend?{projectId:workerController.projectId,scopes:new Set(['worker:manage'])}:undefined);
-  const director=new Director({db,auth,workerCall:executor??((principal,project,request)=>workerCall(stateDir,auth,principal,project,request)),authorize:(principal,project,ref,scope)=>approvalStatus(auth,principal,project,ref,scope),...(snapshot?{snapshot}:{})});
+  const dispatchWorker=async(principal,project,request)=>{
+    if(herdrBackend&&project.id!==workerController.projectId)
+      throw Object.assign(new Error('Herdr supervisor is provisioned for one project only'),{status:404});
+    const grants=principal.projects?.[project.id];
+    if(herdrBackend&&request.action==='submit'&&(!allowWorkerControl||!grants?.scopes?.includes('worker:manage')))
+      throw Object.assign(new Error('approved job dispatch also requires enabled project worker:manage scope'),{status:403});
+    const result=await workerCall(stateDir,auth,principal,project,request);
+    if(herdrBackend&&request.action==='submit'){
+      const context={projectId:workerController.projectId,workspace:project.workspace,scopes:new Set(grants.scopes)};
+      void workerController.start(context).catch(()=>{});
+    }
+    return result;
+  };
+  const director=new Director({db,auth,workerCall:executor??dispatchWorker,authorize:(principal,project,ref,scope)=>approvalStatus(auth,principal,project,ref,scope),...(snapshot?{snapshot}:{})});
   if(startDirector)director.start();
   async function handler(req,res){
     try{
@@ -134,13 +147,13 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
           if(!access.grants.scopes.includes('engineering:execute'))return reply(res,200,{profiles:[]});const profiles=Object.entries(auth.profiles).filter(([,profile])=>profile.projects?.includes(projectId)).map(([id])=>({id,approval_required:true}));return reply(res,200,{profiles});
         }
         if(resource==='jobs'&&req.method==='GET'){
-          if(!access.grants.scopes.includes('engineering:read'))return reply(res,403,{error:'engineering:read scope required'});const owned=db.prepare('SELECT * FROM worker_jobs WHERE project_id=? AND owner=? ORDER BY created_at').all(projectId,principal.subject);const jobs=[];for(const j of owned){try{const status=await workerCall(stateDir,auth,principal,project,{action:'status',job_id:j.job_id});persistCheckpoint(j,status);jobs.push({...status,profile:j.profile,created_at:j.created_at,parent_job_id:j.parent_job_id});}catch(e){return reply(res,e.status??503,{error:'worker adapter unavailable'});}}return reply(res,200,{jobs});
+          if(!access.grants.scopes.includes('engineering:read'))return reply(res,403,{error:'engineering:read scope required'});const owned=db.prepare('SELECT * FROM worker_jobs WHERE project_id=? AND owner=? ORDER BY created_at').all(projectId,principal.subject);const jobs=[];for(const j of owned){try{const status=await dispatchWorker(principal,project,{action:'status',job_id:j.job_id});persistCheckpoint(j,status);jobs.push({...status,profile:j.profile,created_at:j.created_at,parent_job_id:j.parent_job_id});}catch(e){return reply(res,e.status??503,{error:'worker adapter unavailable'});}}return reply(res,200,{jobs});
         }
         if(resource==='jobs'&&req.method==='POST'){
           if(!access.grants.scopes.includes('engineering:execute'))return reply(res,403,{error:'engineering:execute scope required'});const b=await readBody(req);if(typeof b.profile!=='string'||typeof b.idempotency_key!=='string'||b.idempotency_key.length<8||b.idempotency_key.length>200)return reply(res,400,{error:'profile and bounded idempotency_key required'});
           const profile=auth.profiles[b.profile];if(!profile||!Array.isArray(profile.projects)||!profile.projects.includes(projectId))return reply(res,403,{error:'command profile is not permitted for this project'});
           const approval=b.approval_ref;if(!approvalStatus(auth,principal,projectId,approval))return reply(res,403,{error:'valid, unexpired project approval required'});
-          const result=await workerCall(stateDir,auth,principal,project,{action:'submit',profile:b.profile,approval_ref:approval,idempotency_key:b.idempotency_key,timeout:b.timeout});const created=date();db.prepare('INSERT OR IGNORE INTO worker_jobs(job_id,project_id,owner,profile,created_at,checkpoint_json) VALUES(?,?,?,?,?,?)').run(result.job_id,projectId,principal.subject,b.profile,created,JSON.stringify({status:'QUEUED',updated_at:created,project_id:projectId,owner:principal.subject,profile:b.profile}));audit(projectId,principal.subject,'ENGINEERING_JOB_SUBMITTED',result.job_id);return reply(res,202,{...result,project_id:projectId});
+          const result=await dispatchWorker(principal,project,{action:'submit',profile:b.profile,approval_ref:approval,idempotency_key:b.idempotency_key,timeout:b.timeout});const created=date();db.prepare('INSERT OR IGNORE INTO worker_jobs(job_id,project_id,owner,profile,created_at,checkpoint_json) VALUES(?,?,?,?,?,?)').run(result.job_id,projectId,principal.subject,b.profile,created,JSON.stringify({status:'QUEUED',updated_at:created,project_id:projectId,owner:principal.subject,profile:b.profile}));audit(projectId,principal.subject,'ENGINEERING_JOB_SUBMITTED',result.job_id);return reply(res,202,{...result,project_id:projectId});
         }
       }
       m=path.match(/^\/api\/projects\/([^/]+)\/jobs\/([a-f0-9-]+)(?:\/(logs|result|cancel|checkpoint|resume))?$/);
@@ -153,9 +166,9 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
           const profile=auth.profiles[body.profile];if(!profile||!profile.projects?.includes(projectId))return reply(res,403,{error:'command profile is not permitted for this project'});
           const approval=approvalStatus(auth,principal,projectId,body.approval_ref,'engineering:recover');if(!approval||!approvalStatus(auth,principal,projectId,body.approval_ref,'engineering:execute'))return reply(res,403,{error:'active recovery and execution approvals are required'});
           const prior=await workerCall(stateDir,auth,principal,access.project,{action:'status',job_id:jobId});if(prior.status!=='INTERRUPTED')return reply(res,409,{error:'only an interrupted job can be resumed'});
-          const result=await workerCall(stateDir,auth,principal,access.project,{action:'submit',profile:body.profile,approval_ref:body.approval_ref,idempotency_key:`resume:${jobId}:${body.resume_key}`,timeout:body.timeout});const checkpoint=JSON.stringify({status:result.status,parent_job_id:jobId,side_effects_reconciled:true,recovery_note_sha256:createHash('sha256').update(body.recovery_note).digest('hex'),updated_at:date()});db.prepare('INSERT OR IGNORE INTO worker_jobs(job_id,project_id,owner,profile,created_at,parent_job_id,resume_key,checkpoint_json) VALUES(?,?,?,?,?,?,?,?)').run(result.job_id,projectId,principal.subject,body.profile,date(),jobId,body.resume_key,checkpoint);audit(projectId,principal.subject,'ENGINEERING_JOB_RESUMED_FROM_INTERRUPTED',result.job_id);return reply(res,202,{...result,project_id:projectId,parent_job_id:jobId});
+          const result=await dispatchWorker(principal,access.project,{action:'submit',profile:body.profile,approval_ref:body.approval_ref,idempotency_key:`resume:${jobId}:${body.resume_key}`,timeout:body.timeout});const checkpoint=JSON.stringify({status:result.status,parent_job_id:jobId,side_effects_reconciled:true,recovery_note_sha256:createHash('sha256').update(body.recovery_note).digest('hex'),updated_at:date()});db.prepare('INSERT OR IGNORE INTO worker_jobs(job_id,project_id,owner,profile,created_at,parent_job_id,resume_key,checkpoint_json) VALUES(?,?,?,?,?,?,?,?)').run(result.job_id,projectId,principal.subject,body.profile,date(),jobId,body.resume_key,checkpoint);audit(projectId,principal.subject,'ENGINEERING_JOB_RESUMED_FROM_INTERRUPTED',result.job_id);return reply(res,202,{...result,project_id:projectId,parent_job_id:jobId});
         }
-        const operation=action==='logs'?'logs':action==='result'?'result':action==='cancel'?'cancel':'status';const result=await workerCall(stateDir,auth,principal,access.project,{action:operation,job_id:jobId});persistCheckpoint(owned,result);if(action==='cancel')audit(projectId,principal.subject,'ENGINEERING_JOB_CANCEL_REQUESTED',jobId);return reply(res,200,result);
+        const operation=action==='logs'?'logs':action==='result'?'result':action==='cancel'?'cancel':'status';const result=await dispatchWorker(principal,access.project,{action:operation,job_id:jobId});persistCheckpoint(owned,result);if(action==='cancel')audit(projectId,principal.subject,'ENGINEERING_JOB_CANCEL_REQUESTED',jobId);return reply(res,200,result);
       }
       m=path.match(/^\/api\/projects\/([^/]+)\/threads\/([a-f0-9-]+)\/messages$/);
       if(m){const [,projectId,threadId]=m;const access=projectAccess(auth,principal,projectId,'read');if(!access)return reply(res,404,{error:'not found'});const thread=db.prepare('SELECT * FROM threads WHERE id=? AND project_id=? AND owner=?').get(threadId,projectId,principal.subject);if(!thread)return reply(res,404,{error:'not found'});

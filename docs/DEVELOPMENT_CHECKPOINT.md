@@ -42,6 +42,31 @@ Landlock ABI 0 blocks actual worker subprocess acceptance in this environment; s
 
 All remaining Hermes-specific work is consolidated in [HERMES_EXECUTION_HANDOFF](HERMES_EXECUTION_HANDOFF.md). GO for continued isolated development/host acceptance within mandate; **NO-GO for live activation or autonomous operation claim**. Live activation, production/merge and Superadmin changes require separate scoped approval after the missing runtime/security gates pass. No approval is needed to review this committed candidate.
 
+## Herdr adapter implementation checkpoint — 2026-11-25
+
+Starting synced feature SHA: `bcaf43feb31af4c17d39c39d49ebba9d9178cbe4`.
+
+### Source changes
+
+- Added deterministic project-specific Herdr terminal name and hashed project label. Discovery/cleanup only sees the matching project session, while the fixed supervisor runs from the authorized project's workspace.
+- An approved API job submission can asynchronously create/reuse the project's Herdr terminal after checking the opt-in worker-control gate and project-scoped `worker:manage`. Job queue, FIFO, dedup, approval, timeout and durable checkpoint remain owned by Workforce. The API response does not wait for startup.
+- Codex profiles in the bridge must use the `codex` binary directly; `--no-daemon` is inserted once. Wrapper executors are rejected.
+- No live runtime, SSH config/key, TokenEconomizer hook, Gateway, or Android service changed.
+
+### Verification for this source delta
+
+- API suite: **5 PASS / 0 FAIL**; synthetic Herdr dispatch/completion/status/logs/result through a mocked CLI and a real local synthetic Python queue worker, plus a second-authorized-project rejection before enqueue.
+- Herdr controller: **8 PASS / 0 FAIL** (mocked CLI contract).
+- Codex bridge: **4 PASS / 0 FAIL**.
+- Total: **17 PASS / 0 FAIL**. Mocked Herdr-path submission: **0.711 s**; foreground read during a background synthetic worker: **0.000872 s** in the separate FIFO API simulation.
+- Syntax/compile checks, secret-pattern scan, and `git diff --check`: pending until final source set is staged. No test result here represents a live Core/Codex/Android run.
+
+### Runtime evidence and disposition
+
+Owner reports Herdr Core `0.1.22`, Android SSH PASS, terminal `t1`, Codex CLI `0.162.1 --no-daemon`, 6-second response, and Android Spaces discovery. These claims are OWNER-REPORTED. This execution's strict SSH attempt to `sanro@13.140.185.9:22` returned `Permission denied (publickey)`, so installed `hc` docs/version, session visibility, Codex execution, TokenEconomizer compatibility, VPS resources, and cleanup could not be independently verified. The attempt did not alter or interrupt sessions. Adapter remains opt-in. HERDR ANDROID READY and autonomous E2E readiness are not claimed; runtime disposition: **NO-GO** pending authenticated runtime acceptance.
+
+Official CLI surface: [Herdr Core v0.1.22 commands](https://github.com/herdrdev/herdr-core/blob/v0.1.22/docs/commands.md) and [worker session instructions](https://github.com/herdrdev/herdr-core/blob/v0.1.22/crates/herdr-core/src/SKILL.md). Installed VPS documentation is NOT TESTED.
+
 
 ## TokenEconomizer isolated pilot checkpoint — 2026-11-25
 

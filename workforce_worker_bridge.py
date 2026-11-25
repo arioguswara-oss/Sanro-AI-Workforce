@@ -7,11 +7,25 @@ import sys
 from hermes_adapter import Authorization, HermesAdapter
 
 
+def require_codex_no_daemon(profile):
+    """Make the configured Codex CLI stay in the supervised foreground."""
+    command = profile.get("command")
+    if profile.get("executor") != "codex":
+        return
+    if not isinstance(command, list) or not command or command[0].rstrip("/").split("/")[-1] != "codex":
+        raise PermissionError("Codex executor profile must invoke the Codex CLI directly")
+    if "--no-daemon" not in command[1:]:
+        command.insert(1, "--no-daemon")
+
+
 def main():
     request = json.load(sys.stdin)
     state_root = os.environ["WORKFORCE_WORKER_STATE"]
     projects = request["projects"]
     profiles = request["profiles"]
+    for profile in profiles.values():
+        if isinstance(profile, dict):
+            require_codex_no_daemon(profile)
     allowed = [entry["command"] for entry in profiles.values()]
     adapter = HermesAdapter(state_root, {k: v["workspace"] for k, v in projects.items()}, allowed)
     try:

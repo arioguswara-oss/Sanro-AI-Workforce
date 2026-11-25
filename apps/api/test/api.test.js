@@ -14,15 +14,19 @@ import {HerdrWorkerController} from '../src/herdr-worker-controller.js';
 
 const repoRoot=fileURLToPath(new URL('../../../',import.meta.url));
 const landlock=Number(spawnSync('python3',['-c','from landlock_sandbox import landlock_abi; print(landlock_abi())'],{cwd:repoRoot,encoding:'utf8'}).stdout?.trim()??0);
-async function fixture(t){
+async function fixture(t,{herdrBackend=false,herdrRunner,workerManage=false,secondProject=false}={}){
   const token=randomBytes(32).toString('hex');
   const dir=mkdtempSync(join(tmpdir(),'workforce-api-test-')),workspace=join(dir,'project-a');mkdirSync(workspace,{mode:0o700});
-  const workspaceB=join(dir,'project-b');mkdirSync(workspaceB,{mode:0o700});const config={version:1,projects:[{id:'project-a',name:'Project A',workspace},{id:'project-b',name:'Project B',workspace:workspaceB}],principals:[{subject:'owner-test',token_sha256:createHash('sha256').update(token).digest('hex'),projects:{'project-a':{workspace,scopes:['read','thread:write','task:create','workflow:director','workflow:developer','workflow:qa','engineering:execute','engineering:read','engineering:cancel','engineering:recover'],approval_refs:['test-approval-1']}}}],approvals:{'test-approval-1':{project_id:'project-a',subject:'owner-test',status:'APPROVED',scopes:['engineering:execute','engineering:recover'],expires_at:new Date(Date.now()+3600000).toISOString()}},command_profiles:{print:{command:['/usr/bin/printf','synthetic-result\\n'],projects:['project-a'],approval_required:true},sleep:{command:['/usr/bin/sleep','5'],projects:['project-a'],approval_required:true}}};
+  const workspaceB=join(dir,'project-b');mkdirSync(workspaceB,{mode:0o700});const scopes=['read','thread:write','task:create','workflow:director','workflow:developer','workflow:qa','engineering:execute','engineering:read','engineering:cancel','engineering:recover',...(workerManage?['worker:manage','worker:read']:[])];const projectAccess={'project-a':{workspace,scopes,approval_refs:['test-approval-1']}};if(secondProject)projectAccess['project-b']={workspace:workspaceB,scopes,approval_refs:['test-approval-b']};const config={version:1,projects:[{id:'project-a',name:'Project A',workspace},{id:'project-b',name:'Project B',workspace:workspaceB}],principals:[{subject:'owner-test',token_sha256:createHash('sha256').update(token).digest('hex'),projects:projectAccess}],approvals:{'test-approval-1':{project_id:'project-a',subject:'owner-test',status:'APPROVED',scopes:['engineering:execute','engineering:recover'],expires_at:new Date(Date.now()+3600000).toISOString()},...(secondProject?{'test-approval-b':{project_id:'project-b',subject:'owner-test',status:'APPROVED',scopes:['engineering:execute','engineering:recover'],expires_at:new Date(Date.now()+3600000).toISOString()}}:{})},command_profiles:{print:{command:['/usr/bin/printf','synthetic-result\\n'],projects:secondProject?['project-a','project-b']:['project-a'],approval_required:true},sleep:{command:['/usr/bin/sleep','5'],projects:['project-a'],approval_required:true}}};
   const authPath=join(dir,'auth.json');writeFileSync(authPath,JSON.stringify(config),{mode:0o600});chmodSync(authPath,0o600);const stateDir=join(dir,'state');mkdirSync(stateDir,{mode:0o700});
-  const app=createApp({authPath,stateDir});let childWorker;
+  const names=['WORKFORCE_WORKER_BACKEND','WORKFORCE_HERDR_PROJECT_ID','WORKFORCE_HERDR_MACHINE','WORKFORCE_HERDR_CORE_ENV_ATTESTED'];const previous=Object.fromEntries(names.map(name=>[name,process.env[name]]));
+  if(herdrBackend){process.env.WORKFORCE_WORKER_BACKEND='herdr';process.env.WORKFORCE_HERDR_PROJECT_ID='project-a';process.env.WORKFORCE_HERDR_CORE_ENV_ATTESTED='1';delete process.env.WORKFORCE_HERDR_MACHINE;}
+  let app;
+  try{app=createApp({authPath,stateDir,allowWorkerControl:herdrBackend,herdrRunner});}finally{for(const name of names){if(previous[name]===undefined)delete process.env[name];else process.env[name]=previous[name];}}
+  let childWorker;
   async function invoke(handler,path,{method='GET',body,credential=token}={}){const req=new EventEmitter();req.method=method;req.url=path;req.headers=credential?{authorization:`Bearer ${credential}`,'content-type':'application/json'}:{};process.nextTick(()=>{if(body!==undefined)req.emit('data',Buffer.from(JSON.stringify(body)));req.emit('end');});let status=0,output='';const res=new Writable({write(chunk,_encoding,callback){output+=chunk.toString();callback();}});res.writeHead=(code)=>{status=code;};await handler(req,res);return {status,data:JSON.parse(output||'{}')};}
   const request=(path,options)=>invoke(app.handler,path,options);
-  t.after(async()=>{if(childWorker&&childWorker.exitCode===null){childWorker.kill('SIGTERM');await new Promise(r=>childWorker.once('exit',r));}try{app.store.close();}catch{}try{rmSync(dir,{recursive:true,force:true});}catch{}});
+  t.after(async()=>{if(childWorker&&childWorker.exitCode===null){childWorker.kill('SIGTERM');await new Promise(r=>childWorker.once('exit',r));}try{await app.stopWorker();}catch{}try{app.store.close();}catch{}try{rmSync(dir,{recursive:true,force:true});}catch{}});
   return {app,dir,workspace,stateDir,request,invoke,token,get childWorker(){return childWorker;},set childWorker(v){childWorker=v;}};
 }
 const post=(path,body,credential)=>({method:'POST',path,body,credential});
@@ -67,6 +71,50 @@ test('Herdr backend is opt-in and binds its controller to one provisioned projec
   }finally{
     for(const name of names){if(previous[name]===undefined)delete process.env[name];else process.env[name]=previous[name];}
   }
+});
+
+test('approved Herdr job runs a project worker end to end through a synthetic hc session',{skip:landlock?false:'NOT TESTED: Landlock unavailable; real worker remains fail-closed'},async t=>{
+  const calls=[];const version='herdr-core 0.1.22\n';let f,child,runArgs;
+  const herdrRunner=async args=>{
+    calls.push(args);
+    if(args[0]==='--version')return {stdout:version};
+    if(args[0]==='server')return {stdout:'{"pid":1200}'};
+    if(args[0]==='ls'){
+      const terminals=child?[{address:'t-pilot',name:runArgs[runArgs.indexOf('--name')+1],state:child.exitCode===null?'live':'finished',exit_code:child.exitCode,finished_ms:Date.now(),labels:{'sanro.workforce':'jack-worker','sanro.project':f.app.workerController.project.tag},status:{state:child.exitCode===null?'working':'idle'}}]:[];
+      return {stdout:JSON.stringify({terminals})};
+    }
+    if(args[0]==='run'){
+      runArgs=args;const command=args.slice(args.indexOf('--')+1);const executable=command.indexOf('python3');
+      const env=Object.fromEntries(command.slice(2,executable).map(item=>{const split=item.indexOf('=');return [item.slice(0,split),item.slice(split+1)];}));
+      child=spawn('python3',command.slice(executable+1),{cwd:env.HOME,env,stdio:'ignore'});return {stdout:'{"address":"t-pilot"}'};
+    }
+    if(args[0]==='kill'){if(child&&child.exitCode===null){child.kill('SIGTERM');await new Promise(resolve=>child.once('exit',resolve));}return {stdout:'{"terminal":{"address":"t-pilot","state":"finished","reason":"killed","exit_code":null}}'};}
+    if(args[0]==='read')return {stdout:'{"text":"synthetic worker status","complete":true}'};
+    throw new Error(`unexpected hc command ${args[0]}`);
+  };
+  f=await fixture(t,{herdrBackend:true,herdrRunner,workerManage:true});
+  const submissionStart=performance.now();
+  const response=await f.request('/api/projects/project-a/jobs',post('',{profile:'print',idempotency_key:'herdr-auto-job-001',approval_ref:'test-approval-1'}));
+  const herdrSubmitUs=(performance.now()-submissionStart)*1000;
+  assert.ok(herdrSubmitUs<2_000_000,`Herdr job submission ${(herdrSubmitUs/1000).toFixed(1)}ms`);
+  assert.equal(response.status,202,JSON.stringify(response.data));assert.match(response.data.job_id,/^[a-f0-9]{32}$/);
+  const startupDeadline=Date.now()+2000;while(!calls.some(args=>args[0]==='run')&&Date.now()<startupDeadline)await new Promise(resolve=>setTimeout(resolve,5));
+  const run=calls.find(args=>args[0]==='run');assert.ok(run,'automatic Herdr terminal creation');
+  assert.equal(run[run.indexOf('--cwd')+1],f.workspace);assert.equal(run[run.indexOf('--name')+1],f.app.workerController.project.name);assert.ok(run.includes(`sanro.project=${f.app.workerController.project.tag}`));
+  const deadline=Date.now()+5000;let jobs=[];while(Date.now()<deadline){jobs=(await f.request('/api/projects/project-a/jobs')).data.jobs;if(jobs[0]?.status==='COMPLETED')break;await new Promise(resolve=>setTimeout(resolve,25));}
+  assert.equal(jobs[0]?.job_id,response.data.job_id);assert.equal(jobs[0]?.status,'COMPLETED');
+  assert.match((await f.request(`/api/projects/project-a/jobs/${response.data.job_id}/logs`)).data.logs,/synthetic-result/);
+  assert.equal((await f.request(`/api/projects/project-a/jobs/${response.data.job_id}/result`)).data.status,'COMPLETED');
+  const workerStatus=await f.request('/api/projects/project-a/worker');assert.equal(workerStatus.status,200);assert.equal(workerStatus.data.status,'RUNNING');
+  console.log(`HERDR_METRIC submission_us=${herdrSubmitUs.toFixed(1)}`);
+});
+
+test('Herdr one-project binding rejects another authorized project before job enqueue',async t=>{
+  let workerStarts=0;const herdrRunner=async args=>{if(args[0]==='--version')return {stdout:'herdr-core 0.1.22\\n'};if(args[0]==='server')return {stdout:'{"pid":1200}'};if(args[0]==='ls')return {stdout:'{"terminals":[]}'};if(args[0]==='run'){workerStarts++;return {stdout:'{"address":"t-other"}'};}throw new Error(`unexpected hc command ${args[0]}`);};
+  const f=await fixture(t,{herdrBackend:true,herdrRunner,workerManage:true,secondProject:true});
+  const response=await f.request('/api/projects/project-b/jobs',post('',{profile:'print',idempotency_key:'cross-project-herdr-001',approval_ref:'test-approval-b'}));
+  assert.equal(response.status,404,JSON.stringify(response.data));assert.equal(workerStarts,0);
+  assert.equal(f.app.store.db.prepare('SELECT COUNT(*) AS n FROM worker_jobs WHERE project_id=?').get('project-b').n,0);
 });
 
 test('approved fixed-profile jobs are non-blocking, FIFO, deduplicated, cancellable and recover without replay',{skip:landlock?false:'NOT TESTED: Landlock unavailable; real worker remains fail-closed'},async t=>{

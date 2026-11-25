@@ -30,6 +30,12 @@ Both Vite builds, secret-pattern scan and `git diff --check` also PASS; these ar
 
 The first combined acceptance run found two obsolete dedup test expectations plus an unsupported worker case that a test-name filter did not exclude. These were corrected: duplicate content remains idempotent, conflicting content raises an error, and unsupported worker acceptance is explicitly NOT TESTED. Initial evidence is retained as `HERMES_FIRST_INITIAL_ACCEPTANCE.json`; final authoritative result is `HERMES_FIRST_FINAL_ACCEPTANCE.json`. The earlier baseline full root run had 10 failures and 1 error caused by unavailable confinement; no protections were disabled.
 
+## Herdr adapter code-delta tests — 2026-11-25
+
+Changed adapter tests only: API **5/5 PASS**, Herdr controller **8/8 PASS**, bridge `--no-daemon` **4/4 PASS**. Total **17 PASS / 0 FAIL**. The API test's mock `hc` runner launches the actual synthetic Python queue consumer locally, confirms approved job completion, logs/result retrieval, worker status and test cleanup, and rejects another authorized project before enqueue. This is isolated simulation; the Herdr CLI is mocked. It does not establish VPS/Core/Android/Codex-model acceptance. Mocked Herdr submission **0.711 s**; foreground request during a synthetic background worker **0.000872 s**.
+
+Progress delta is implementation scope: added project-specific worker identity/isolation, async post-approval startup, and Codex `--no-daemon` enforcement. The ten-gate functional coverage percentage above is not recomputed because these changes refine existing Herdr/worker gates and do not add a separately accepted live runtime gate. Live acceptance remains NOT TESTED.
+
 ## Focused follow-up after upstream reconciliation
 
 The full `apps/api` suite passed **21/21**, including synthetic Git-snapshot, Director, monitoring, Herdr adapter wiring and worker-controller cases. The Python worker suite passed **10/10** with Landlock ABI 8. These focused totals overlap the historical 70-test evidence and are not additive. Latest simulated API submission latency was **0.220 s** and foreground read latency **0.000535 s**. Herdr CLI tests use a mock runner; Herdr Core, SSH target, VPS resources and Android app were not exercised.

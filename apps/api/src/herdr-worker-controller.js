@@ -1,6 +1,7 @@
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {resolve} from 'node:path';
+import {createHash} from 'node:crypto';
 
 const execFileAsync=promisify(execFile);
 export const PINNED_HERDR_CORE_VERSION='0.1.22';
@@ -17,6 +18,11 @@ function statusOf(terminal){
   }
   return {status:'INTERRUPTED',session:terminal.address??terminal.name??null,reason:terminal.reason??'unknown'};
 }
+function projectIdentity(projectId){
+  const slug=projectId.toLowerCase().replace(/[^a-z0-9_-]+/g,'-').replace(/[-_]{2,}/g,'-').replace(/^-|-$/g,'').slice(0,17)||'project';
+  const tag=createHash('sha256').update(projectId).digest('hex').slice(0,8);
+  return {name:`wf-${slug}-${tag}`.slice(0,32),tag};
+}
 
 /**
  * Optional Herdr view/supervisor for the existing serial Workforce worker.
@@ -30,6 +36,7 @@ export class HerdrWorkerController {
     if(!projectId||!workspace||!stateDir||!workerScript)throw new TypeError('projectId, workspace, stateDir and workerScript are required');
     if(!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(projectId))throw new TypeError('invalid projectId');
     this.projectId=projectId;
+    this.project=projectIdentity(projectId);
     this.workspace=resolve(workspace);this.stateDir=resolve(stateDir);this.workerScript=resolve(workerScript);
     if(machine!==null)throw new Error('remote Herdr machines are unsupported until Workforce queue and workspace are colocated');
     this.hc=hc;this.python=python;this.coreEnvironmentAttested=coreEnvironmentAttested;
@@ -37,7 +44,7 @@ export class HerdrWorkerController {
       const result=await execFileAsync(this.hc,args,{timeout,maxBuffer:1024*1024,windowsHide:true});
       return {stdout:result.stdout,stderr:result.stderr};
     });
-    this.starting=null;this.address=null;
+    this.starting=null;this.address=null;this.startError=null;
   }
   async call(args,timeout){return this.runner(args,timeout);}
   async assertVersion(){
@@ -56,7 +63,7 @@ export class HerdrWorkerController {
     const {stdout}=await this.call(['ls','--all','--json','--label','sanro.workforce=jack-worker']);
     const payload=parseJson(stdout,'terminal list');
     const terminals=Array.isArray(payload)?payload:(payload.terminals??[]);
-    return terminals.filter(t=>t?.labels?.['sanro.workforce']==='jack-worker');
+    return terminals.filter(t=>t?.labels?.['sanro.workforce']==='jack-worker'&&t?.labels?.['sanro.project']===this.project.tag);
   }
   async coreRunning(){
     await this.assertVersion();
@@ -67,31 +74,34 @@ export class HerdrWorkerController {
     this.authorize(context);
     if(!this.coreEnvironmentAttested)throw new Error('Herdr core environment is not attested for the isolated worker');
     if(this.starting)return this.starting;
+    this.startError=null;
     this.starting=(async()=>{
       await this.assertVersion();
       const existing=await this.discover();
       const active=existing.find(t=>t.state==='live');
       if(active){this.address=active.address??active.name;return {started:false,status:'RUNNING',session:this.address};}
-      const name='workforce-jack-worker';
+      const name=this.project.name;
       const args=['run','--bg','--json','--name',name,'--cwd',this.workspace,'--no-parent',
-        '--label','sanro.workforce=jack-worker','--label','sanro.queue=serial'];
+        '--label','sanro.workforce=jack-worker','--label',`sanro.project=${this.project.tag}`,'--label','sanro.queue=serial'];
       args.push('--','/usr/bin/env','-i','PATH=/usr/bin:/bin',`HOME=${this.workspace}`,`TMPDIR=${this.stateDir}/tmp`,'LANG=C.UTF-8','PYTHONNOUSERSITE=1','WORKFORCE_HERDR_STATUS=1',this.python,this.workerScript,'--root',this.stateDir,'serve');
       const {stdout}=await this.call(args,15000);
       const payload=parseJson(stdout,'worker start');
       this.address=payload.address??payload.terminal?.address??payload.name;
       if(typeof this.address!=='string'||!this.address)throw new Error('Herdr did not return a session address');
-      return {started:true,status:'RUNNING',session:this.address};
+      return {started:true,status:'RUNNING',session:this.address,worker_name:name,project_id:this.projectId};
     })();
-    try{return await this.starting;}finally{this.starting=null;}
+    try{return await this.starting;}catch(error){this.startError=error?.name??'startup failed';throw error;}finally{this.starting=null;}
   }
   async snapshot(){
+    if(this.starting)return {status:'STARTING',backend:'herdr',worker_name:this.project.name,project_id:this.projectId};
+    if(this.startError)return {status:'FAILED',backend:'herdr',worker_name:this.project.name,project_id:this.projectId,error:this.startError};
     if(!await this.coreRunning()){this.address=null;return {status:'STOPPED',backend:'herdr'};}
     const sessions=await this.discover();
     const live=sessions.find(t=>t.state==='live');
     const terminal=live??sessions.sort((a,b)=>(b.finished_ms??0)-(a.finished_ms??0))[0]??null;
-    if(!terminal){this.address=null;return {status:'STOPPED',backend:'herdr'};}
+    if(!terminal){this.address=null;return {status:'STOPPED',backend:'herdr',worker_name:this.project.name,project_id:this.projectId};}
     this.address=terminal.address??terminal.name??null;
-    return {...statusOf(terminal),backend:'herdr'};
+    return {...statusOf(terminal),backend:'herdr',worker_name:this.project.name,project_id:this.projectId};
   }
   async output(lines=100){
     if(!Number.isInteger(lines)||lines<1||lines>1000)throw new RangeError('lines must be 1..1000');

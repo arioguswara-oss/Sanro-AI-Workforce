@@ -70,3 +70,18 @@ Tested remote source `44ed2cedb2f5d40829b3f215e1dd09026a91ed6d`; 70 PASS / 0 FAI
 - NOT TESTED: VPS resources, Core installation/checksum, Herdr terminal/session, Workforce-connected Codex worker, Android session visibility, live TokenEconomizer hooks. Herdr adapter only covers the co-located queue; remote dispatch is intentionally rejected.
 - PR #2 is open/draft, current readback says mergeable; earlier false result was inconsistent/transient. No merge or force push.
 - Owner-facing readiness: **HERDR ANDROID NOT READY**. Wait for confirmation that key registration, pinned Core, and isolated session are verified before pressing **Check again**.
+
+## Herdr Workforce adapter continuation — 2026-11-25
+
+Job group: `WF-HF-20261125`; based on remote feature checkpoint `bcaf43feb31af4c17d39c39d49ebba9d9178cbe4`.
+
+| Work | State | Evidence |
+|---|---|---|
+| Project-specific terminal identity and discovery | IMPLEMENTED | Stable hashed project tag/name; exact project/workforce label filtering; scoped workspace and cleanup |
+| Automatic terminal start after approved job submit | IMPLEMENTED CANDIDATE | API queues the job then starts the fixed supervisor asynchronously; gated by Herdr opt-in, `worker:manage`, command profile, project ACL and approval |
+| Codex foreground mode | IMPLEMENTED | Bridge ensures direct Codex CLI with one `--no-daemon`; rejects wrapper executables; four focused Python cases |
+| End-to-end worker dispatch/status/logs/result | VERIFIED SYNTHETIC | Mock `hc` created a local synthetic supervisor; API job reached COMPLETED, logs/result retrieved, status read; fixture stopped child during cleanup |
+| Herdr Core/VPS/Android/Codex model execution | NOT TESTED HERE | SSH denied public-key authentication; no live process or `t1` session touched. Owner-supplied runtime pilot remains OWNER-REPORTED, not independently verified. |
+| TokenEconomizer hooks | BLOCKED / UNTRUSTED | No hook activation or invocation; compatibility with a Herdr Codex child remains unverified. |
+
+Focused results for changed code: API **5 PASS / 0 FAIL**, Herdr controller **8 PASS / 0 FAIL**, Codex bridge **4 PASS / 0 FAIL** (total **17 PASS / 0 FAIL**, disjoint focused suites). Mocked Herdr-path submission **0.711 s**; separate FIFO simulation foreground read **0.000872 s**. Runtime acceptance remains NO-GO pending authenticated isolated host verification and Android Owner confirmation. No live Hermes/Codex process or service was changed.
