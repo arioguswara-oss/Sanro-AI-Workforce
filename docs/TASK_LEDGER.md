@@ -125,3 +125,16 @@ Hermes/FIFO remains the execution authority; no existing worker, service, hook, 
 | Existing workers | UNMANAGED | PID/project/session ownership unknown; no adoption, restart or stop performed |
 
 The synthetic command did not invoke an AI model or prove a Hermes model session. Do not generalize this result to all workers or autonomous end-to-end AI execution.
+
+## Owner Android partial acceptance follow-up — 2026-11-25
+
+| Work | State | Evidence |
+|---|---|---|
+| Core/t3 online state | VERIFIED at server during check | `hc server status`: Core and holder live, one terminal; `hc get t3`: live/idle, prior record done/reported; `hc read t3`: blank screen |
+| OFFLINE indicator cause | UNDETERMINED | Transient Android report conflicts with server-side live state; no Android SSH session attribution |
+| Empty terminal cause | IDENTIFIED / SOURCE FIXED | Supervisor previously emitted OSC only; now prints safe running/completed lines without child stdout |
+| Updated runtime + synthetic visible job | NOT TESTED | Existing t3 still has old code loaded; no active API dispatch path safely identified |
+| Android Inbox reporting | NOT VERIFIED | Core `reported=true` is protocol ingestion evidence only, not Inbox visual acceptance |
+| Focused validation | PASS | Python 22/22, controller 9/9, diff check PASS |
+
+Acceptance stays **NO-GO** until the updated supervisor runs a synthetic job and Owner verifies updated Spaces and Inbox. See [partial Android acceptance evidence](evidence/HERDR_ANDROID_PARTIAL_ACCEPTANCE_20261125.json).

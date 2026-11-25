@@ -9,7 +9,7 @@ import time
 import unittest
 from contextlib import redirect_stdout
 
-from worker import Queue, herdr_job_status, herdr_status, worker_loop
+from worker import Queue, herdr_console_event, herdr_job_status, herdr_status, worker_loop
 
 ROOT = pathlib.Path(__file__).resolve().parent
 PY = sys.executable
@@ -101,6 +101,20 @@ class WorkerTests(unittest.TestCase):
                 else: os.environ[key] = value
         encoded = "cHJvamVjdD1wcm9qZWN0LWEgd29ya2VyPXdmLXByb2plY3QtYSBqb2I9MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
         self.assertEqual(output.getvalue(), f"\x1b]7501;state=working:id=0123456789abcdef0123456789abcdef:app=sanro-workforce:title={encoded}\x1b\\")
+
+    def test_opt_in_herdr_console_event_is_safe_visible_text(self):
+        output = io.StringIO()
+        prior = {key: os.environ.get(key) for key in ("WORKFORCE_HERDR_STATUS", "WORKFORCE_HERDR_PROJECT_ID", "WORKFORCE_HERDR_WORKER_NAME")}
+        try:
+            os.environ.update(WORKFORCE_HERDR_STATUS="1", WORKFORCE_HERDR_PROJECT_ID="project-a", WORKFORCE_HERDR_WORKER_NAME="sanro-workforce-pilot")
+            with redirect_stdout(output):
+                herdr_console_event("running", "0123456789abcdef0123456789abcdef")
+                herdr_console_event("done", "invalid")
+        finally:
+            for key, value in prior.items():
+                if value is None: os.environ.pop(key, None)
+                else: os.environ[key] = value
+        self.assertEqual(output.getvalue(), "[SANRO] project=project-a worker=sanro-workforce-pilot job=0123456789abcdef0123456789abcdef state=running\n")
 
     def test_child_network_and_process_group_escape_are_denied(self):
         code = "import socket;\ntry: socket.socket()\nexcept PermissionError: print('network-denied')\nelse: raise SystemExit(3)\nimport os;\ntry: os.setsid()\nexcept PermissionError: print('escape-denied')\nelse: raise SystemExit(4)"

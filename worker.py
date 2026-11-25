@@ -56,6 +56,20 @@ def herdr_job_status(state, job_id):
     sys.stdout.flush()
 
 
+def herdr_console_event(state, job_id):
+    """Write safe lifecycle text to Spaces alongside machine-readable OSC."""
+    if os.environ.get("WORKFORCE_HERDR_STATUS") != "1":
+        return
+    project_id = os.environ.get("WORKFORCE_HERDR_PROJECT_ID", "unknown")
+    worker_name = os.environ.get("WORKFORCE_HERDR_WORKER_NAME", "workforce-worker")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", project_id):
+        project_id = "unknown"
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,31}", worker_name):
+        worker_name = "workforce-worker"
+    if re.fullmatch(r"[a-f0-9]{32}", str(job_id)):
+        print(f"[SANRO] project={project_id} worker={worker_name} job={job_id} state={state}", flush=True)
+
+
 def redact_text(value):
     value = re.sub(r"(?i)(\b(?:api[_-]?key|access[_-]?token|auth(?:orization)?|password|secret)\b\s*[:=]\s*)([^\s,;]+)", r"\1[REDACTED]", value)
     value = re.sub(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+", "[REDACTED]", value)
@@ -178,6 +192,7 @@ def worker_loop(q, idle_exit=False):
             continue
         set_status("working")
         herdr_job_status("working", row["id"])
+        herdr_console_event("running", row["id"])
         command = json.loads(row["command"])
         started = time.monotonic()
         code, state, error = None, "succeeded", None
@@ -231,6 +246,7 @@ def worker_loop(q, idle_exit=False):
             log.write((f"\n[{now()}] finish state={state} exit={code} elapsed={time.monotonic()-started:.3f}s\n").encode())
         q.conn.execute("UPDATE jobs SET state=?,finished=?,exit_code=?,error=? WHERE id=?", (state, now(), code, error, row["id"]))
         herdr_job_status("done" if state in ("succeeded", "cancelled") else "error", row["id"])
+        herdr_console_event("completed" if state == "succeeded" else state, row["id"])
         set_status("done" if state in ("succeeded", "cancelled") else "error")
         # Optional JD-04 Hermes outbox: commit a minimal, deduplicated completion event
         # from the worker process without opening a gateway or platform transport.
