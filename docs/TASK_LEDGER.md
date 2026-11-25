@@ -74,6 +74,7 @@ Tested remote source `44ed2cedb2f5d40829b3f215e1dd09026a91ed6d`; 70 PASS / 0 FAI
 ## Herdr Workforce adapter continuation — 2026-11-25
 
 Job group: `WF-HF-20261125`; based on remote feature checkpoint `bcaf43feb31af4c17d39c39d49ebba9d9178cbe4`.
+Implementation commit: `d7b945ee1d2f882f82d41abd6bdea8832e7f373a`. It remains an ancestor of the latest branch head `e30036f01c3637a7bc1d0b83d554bc706ef0dbb9`; four concurrent TokenEconomizer documentation commits were preserved.
 
 | Work | State | Evidence |
 |---|---|---|

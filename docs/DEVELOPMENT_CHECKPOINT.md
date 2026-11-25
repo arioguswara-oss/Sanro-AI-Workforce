@@ -45,6 +45,7 @@ All remaining Hermes-specific work is consolidated in [HERMES_EXECUTION_HANDOFF]
 ## Herdr adapter implementation checkpoint — 2026-11-25
 
 Starting synced feature SHA: `bcaf43feb31af4c17d39c39d49ebba9d9178cbe4`.
+Implementation commit: `d7b945ee1d2f882f82d41abd6bdea8832e7f373a`. The authorized branch later advanced to `e30036f01c3637a7bc1d0b83d554bc706ef0dbb9` through four concurrent TokenEconomizer documentation commits; the Herdr implementation commit is an ancestor and was preserved. This Herdr change itself touched no TokenEconomizer code or hooks.
 
 ### Source changes
 
@@ -59,7 +60,7 @@ Starting synced feature SHA: `bcaf43feb31af4c17d39c39d49ebba9d9178cbe4`.
 - Herdr controller: **8 PASS / 0 FAIL** (mocked CLI contract).
 - Codex bridge: **4 PASS / 0 FAIL**.
 - Total: **17 PASS / 0 FAIL**. Mocked Herdr-path submission: **0.711 s**; foreground read during a background synthetic worker: **0.000872 s** in the separate FIFO API simulation.
-- Syntax/compile checks, secret-pattern scan, and `git diff --check`: pending until final source set is staged. No test result here represents a live Core/Codex/Android run.
+- Syntax checks for changed Node files, Python byte-compilation, tracked-file secret scan (**76 files, 0 findings**), and staged `git diff --check`: PASS. No test result here represents a live Core/Codex/Android run.
 
 ### Runtime evidence and disposition
 
