@@ -51,16 +51,13 @@ The entries have bounded timeouts (15s, 10s, 60s, 10s, 3s respectively). Each ev
 
 - **PASS:** official source ref equality and clean worktree; installed/source plugin file comparison (with expected dropped source link); host Python meets requirement; Codex CLI version matches.
 - **PASS — isolated pilot preparation:** separate Codex home and state; synthetic-only fixture; plugin CLI reports installed/enabled v0.1.0; effective config loader output matches the conservative values; state permissions and Landlock filesystem/network preflight pass. Details and hashes are recorded in [pilot evidence](TOKENECONOMIZER_PILOT.md).
-- **NOT VERIFIED / pending Owner:** trust and hook activation. No hook was invoked. Global Codex configuration and worker scope were not changed.
+- **BLOCKED:** trust and hook activation. Isolated Codex v0.162.1 requires sign-in before `/hooks` is available; no credentials were accessed and no hook was invoked. Global Codex approval would exceed pilot scope, so was not used.
 - **NOT MEASURED:** hook runtime smoke/latency, coding quality, baseline-vs-treated tokens and savings. Pilot has no credentials and network access is denied; no model run was made.
 - **No changes:** no CLI update, worker/session disruption, Gateway/9Router/FreeLLMAPI change, merge or deployment.
 
 ## Owner approval, smoke test and measurement
 
-1. Launch only the isolated pilot with `/tmp/sanro-tokeneconomizer-pilot-20261125/start-pilot-codex.sh`.
-2. In that Codex UI, use `/hooks` and approve **Trust all and continue** only after reviewing the five hooks and pilot evidence. That UI uses the separate pilot `CODEX_HOME`; its trust does not approve hooks in the normal/global Codex home. Do not use `--dangerously-bypass-hook-trust`.
-3. Exit and restart the same pilot command. Verify hook trust and status, then run the harmless synthetic task and check normal tools remain available, no loop redirect occurs, and logs/state remain in the pilot root. Measure hook latency from that isolated runtime.
-4. Do not claim coding quality or token savings from this no-credential pilot. A comparable model test requires an explicitly available no-cost, credentialless model path; never copy another project's credentials into the pilot.
+The isolated UI was prepared, but it stops at sign-in before `/hooks`. Under the no-credential constraint, the Trust All review cannot be reached. Do not approve from the normal/global Codex UI because its trust scope would extend beyond this pilot. Do not use `--dangerously-bypass-hook-trust`. The pilot remains blocked before hook execution; no smoke test or latency measurement has been run. Coding quality and token comparisons also require a no-cost, credentialless model path, which is not available in this pilot.
 
 ## Rollback
 
@@ -69,4 +66,4 @@ The entries have bounded timeouts (15s, 10s, 60s, 10s, 3s respectively). Each ev
 - `TE_DISABLE=1` disables hooks for a process. To turn mechanisms off while retaining pilot trust, use `te --host codex --cwd <pilot-repo> config set microskills=off toolprune=off loopguard=off repomap=off`.
 - No tool-prune deny list was applied, so `toolprune restore` is not needed.
 
-**Current integration state:** source verified; effective conservative runtime config verified in isolated pilot; pilot-only trust pending Owner; smoke/latency pending; coding quality and token savings unmeasured; global activation not authorized.
+**Current integration state:** source verified; effective conservative runtime config verified in isolated pilot; pilot trust blocked by required sign-in; no smoke or latency run; coding quality and token savings unmeasured; global activation not authorized.
