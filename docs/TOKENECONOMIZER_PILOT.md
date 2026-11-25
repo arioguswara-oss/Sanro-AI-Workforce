@@ -10,7 +10,7 @@ This is an isolated pilot preparation, not activation across workers. The pilot 
 
 **Owner gate: pending.** The five hooks have not been trusted or invoked. The pilot launcher permits outbound TCP 443 only for official sign-in; TCP bind and other ports remain denied. Launch `/tmp/sanro-tokeneconomizer-pilot-20261125/start-pilot-codex.sh`; choose **Sign in with ChatGPT** (Device Code suitable, no API key), then `/hooks` → **Trust all and continue** after reviewing the five hooks and this evidence. This bundled Owner approval applies to the isolated pilot home only. Exit/restart the same script and notify us for a short smoke. Never paste credentials/codes into chat or bypass trust.
 
-Using the normal/global Codex UI would change trust outside the pilot, so it was not used. Do not sign in to the pilot while the no-credential boundary stands. A Codex UI session that is already authenticated only in the normal home cannot safely grant pilot-only trust. This is the current blocker to the official approval gate.
+Using the normal/global Codex UI would change trust outside the pilot, so it was not used. Do not sign in to the pilot while the no-credential boundary stands. A Codex UI session that is already authenticated only in the normal home cannot safely grant pilot-only trust. 
 
 ## Runtime configuration — verified in pilot
 
@@ -22,7 +22,7 @@ For this pilot, the already-installed v0.1.0 plugin CLI was run with a clean env
 - synthetic repo: `/tmp/sanro-tokeneconomizer-pilot-20261125/repo`
 - Codex host: `codex`
 
-The CLI `config set` wrote to `state/repos/repo-a00c0b0da2/config.json`, mode `0600`; state root mode is `0700`. SHA-256: runtime config `ea572716394e05048ebef67de4a6177086b18a5501515f261f863c8aaabf93a2`; Landlock launcher `4e5f1de159835a68186c7173e447b610a9d38489bc67d8119c85a4deb0848e85`; pilot start script `45e6cb43eef164d8517a12a243dff2e27b47c1246e104166351cf40c797d69ee`. A subsequent `te --host codex --cwd <synthetic repo> config show`, run again under the pilot filesystem/network confinement, returned without warnings:
+The CLI `config set` wrote to `state/repos/repo-a00c0b0da2/config.json`, mode `0600`; state root mode is `0700`. SHA-256: runtime config `ea572716394e05048ebef67de4a6177086b18a5501515f261f863c8aaabf93a2`; current Landlock launcher `f1355160bb0b20e613e86626686d1b47dd870042756deb2cab68eb281855ba15`; pilot start script `45e6cb43eef164d8517a12a243dff2e27b47c1246e104166351cf40c797d69ee`. A subsequent `te --host codex --cwd <synthetic repo> config show`, run again under the pilot filesystem/network confinement, returned without warnings:
 
 - microskills: `envfacts`, maximum 5 facts / 200 tokens
 - toolprune: `off`
@@ -50,9 +50,9 @@ Synthetic task fixture: `repo/PILOT_TASK.md`, `repo/discount.py`, and `repo/test
 | Pilot state permissions | **PASS** | state root `0700`, config `0600` |
 | Exclusion of global credential/project paths | **PASS** | confined open attempts denied; no contents read |
 | Network confinement | **PASS** | TCP 443 egress only; local port 9 denied; no external request |
-| Five-hook trust and activation | **BLOCKED** | isolated Codex requires sign-in before `/hooks`; not approved, no hook executed |
-| Hook smoke test and latency | **BLOCKED** | requires Owner trust; no trust bypass or global UI used |
-| Coding-quality comparison | **BLOCKED / constrained** | equivalent model execution would require credentials/network |
+| Five-hook trust and activation | **PENDING OWNER** | sign-in and native trust review are pending; no hook executed |
+| Hook smoke test and latency | **PENDING** | run one short smoke after Owner trust and restart |
+| Coding-quality comparison | **PENDING / scoped** | synthetic task after pilot sign-in; do not claim beyond that task |
 | Token savings | **NOT MEASURED** | no baseline/treated model sessions; no savings claim |
 
 Before Owner sign-in no model call is available. Owner may use ChatGPT included-plan sign-in in this isolated pilot; no API key or another project's auth. After trust/restart run one short synthetic fix/test smoke. Token savings stay unmeasured pending gradual comparable evidence during authorized development.
@@ -65,4 +65,4 @@ Before Owner sign-in no model call is available. Owner may use ChatGPT included-
 
 ## Next action
 
-No action is safe under the current constraints that can expose the pilot's official `/hooks` approval UI: isolated Codex requires sign-in, and global Codex trust would exceed the pilot scope. Hook runtime, latency, coding quality, and token comparisons remain blocked. Global activation remains unrequested and requires separate Owner approval. Draft PR #2 remains unmerged and undeployed.
+Owner sign-in and bundled five-hook trust in the isolated pilot are pending. After Owner confirms restart, run one brief smoke and record runtime config, hook events, filesystem placement, tool/test availability and latency. Token savings are not measured. Global activation is NO-GO without separate Owner approval. Draft PR #2 remains unmerged and undeployed.
