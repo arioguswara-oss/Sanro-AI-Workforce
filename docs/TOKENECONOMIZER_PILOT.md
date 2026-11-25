@@ -8,13 +8,9 @@
 
 This is an isolated pilot preparation, not activation across workers. The pilot uses a synthetic-only discount calculator fixture and a separate Codex home/state root. The plugin is enabled only in that home. No worker, project repository, Gateway, 9Router, FreeLLMAPI, or global Codex configuration was changed.
 
-**Owner gate: pending.** The five hooks have not been trusted or invoked. To review/approve through Codex's native mechanism, launch the isolated pilot from a terminal:
+**Owner gate: blocked by the no-credential constraint.** The five hooks have not been trusted or invoked. I launched the isolated CLI under the Landlock boundary with `--no-daemon`; Codex v0.162.1 stopped at its sign-in screen (ChatGPT, Device Code, or API key) before exposing `/hooks`. I did not sign in or access credentials. The prompt to Trust All therefore is not currently reachable in this isolated home.
 
-```sh
-/tmp/sanro-tokeneconomizer-pilot-20261125/start-pilot-codex.sh
-```
-
-In that Codex UI, use `/hooks` and choose **Trust all and continue** only if the hook list and this evidence are acceptable. The isolated `CODEX_HOME` means that approval is scoped to this pilot and does not approve hooks in the normal/global Codex home. Restart using the same script after approval. Do not use a trust bypass. Send confirmation after approval so the smoke phase can continue.
+Using the normal/global Codex UI would change trust outside the pilot, so it was not used. Do not sign in to the pilot while the no-credential boundary stands. A Codex UI session that is already authenticated only in the normal home cannot safely grant pilot-only trust. This is the current blocker to the official approval gate.
 
 ## Runtime configuration — verified in pilot
 
@@ -54,9 +50,9 @@ Synthetic task fixture: `repo/PILOT_TASK.md`, `repo/discount.py`, and `repo/test
 | Pilot state permissions | **PASS** | state root `0700`, config `0600` |
 | Exclusion of global credential/project paths | **PASS** | confined open attempts denied; no contents read |
 | Network isolation | **PASS** | TCP socket creation denied; Landlock bind/connect denied |
-| Five-hook trust and activation | **PENDING OWNER** | not approved, no hook executed |
-| Hook smoke test and latency | **PENDING** | run after Owner trust |
-| Coding-quality comparison | **PENDING / constrained** | requires equivalent model execution; pilot has no credentials/network |
+| Five-hook trust and activation | **BLOCKED** | isolated Codex requires sign-in before `/hooks`; not approved, no hook executed |
+| Hook smoke test and latency | **BLOCKED** | requires Owner trust; no trust bypass or global UI used |
+| Coding-quality comparison | **BLOCKED / constrained** | equivalent model execution would require credentials/network |
 | Token savings | **NOT MEASURED** | no baseline/treated model sessions; no savings claim |
 
 The no-credential/no-network boundary prevents a Codex model call from this pilot. After trust, hook event smoke and latency can be measured without credentials. A comparable model-quality or token comparison cannot be claimed unless a credentialless, no-additional-cost model path is made available; do not inject another project's auth into the pilot.
@@ -69,4 +65,4 @@ The no-credential/no-network boundary prevents a Codex model call from this pilo
 
 ## Next action
 
-Owner approval in the isolated Codex UI is the only gate before invoking hook runtime. Global activation remains unrequested and requires a separate Owner approval. Draft PR #2 remains unmerged and undeployed.
+No action is safe under the current constraints that can expose the pilot's official `/hooks` approval UI: isolated Codex requires sign-in, and global Codex trust would exceed the pilot scope. Hook runtime, latency, coding quality, and token comparisons remain blocked. Global activation remains unrequested and requires separate Owner approval. Draft PR #2 remains unmerged and undeployed.
