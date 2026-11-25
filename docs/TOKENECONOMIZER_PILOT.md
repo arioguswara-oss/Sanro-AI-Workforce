@@ -10,7 +10,7 @@ This is an isolated pilot preparation, not activation across workers. The pilot 
 
 **Owner gate: pending.** The five hooks have not been trusted or invoked. The pilot launcher permits outbound TCP 443 only for official sign-in; TCP bind and other ports remain denied. Launch `/tmp/sanro-tokeneconomizer-pilot-20261125/start-pilot-codex.sh`; choose **Sign in with ChatGPT** (Device Code suitable, no API key), then `/hooks` → **Trust all and continue** after reviewing the five hooks and this evidence. This bundled Owner approval applies to the isolated pilot home only. Exit/restart the same script and notify us for a short smoke. Never paste credentials/codes into chat or bypass trust.
 
-Using the normal/global Codex UI would change trust outside the pilot, so it was not used. Do not sign in to the pilot while the no-credential boundary stands. A Codex UI session that is already authenticated only in the normal home cannot safely grant pilot-only trust. 
+Global Codex trust remains separate and is NO-GO pending separate Owner approval. 
 
 ## Runtime configuration — verified in pilot
 
@@ -36,7 +36,7 @@ This verifies the plugin's config loader resolves the actual host/repository sta
 - Pilot Codex reports `tokeneconomizer@tokeneconomizer installed, enabled 0.1.0` in the isolated home. The existing Codex CLI binary/version is used; no CLI update was run. The pilot cache was materialized from the configured local Microsoft source at the same v0.1.0; the global install/config/cache were not changed.
 - The pilot uses a clean environment whitelist. Its `HOME`, `CODEX_HOME`, `TOKENECONOMIZER_HOME`, temporary directory, and XDG cache/config paths all point inside the pilot root. No auth or credentials files exist in the pilot homes; no credential values were read.
 - Landlock reports ABI 8. The pilot launcher applies a restrictive filesystem ruleset before starting Codex: standard runtime paths and the official source/Codex package are read-only; writable paths are limited to the pilot root. It allows only the current process's procfs view, not a general view of other user processes.
-- Confinement preflight passed: attempts to open the existing global Codex auth/credentials files, open another project tree, and write the read-only official source were denied. These checks opened no secret contents. For official sign-in, Landlock permits outbound TCP 443 only; bind and other ports remain denied. Local port 9 denial and launcher preflight passed. No external network request was made by the agent.
+- Confinement preflight passed: attempts to open the existing global Codex auth/credentials files, open another project tree, and write the read-only official source were denied. These checks opened no secret contents. For official sign-in, Landlock permits outbound TCP 443 to any destination; it does not apply a host allowlist. TCP bind and other ports remain denied. Local port 9 denial and launcher preflight passed. No external network request was made by the agent.
 - `bwrap` user namespaces were unavailable and the Docker socket was not accessible; the pilot uses Landlock instead. This has not been used to run hooks yet.
 
 Synthetic task fixture: `repo/PILOT_TASK.md`, `repo/discount.py`, and `repo/tests/test_discount.py`. The starter implementation is intentionally incorrect; no tests were run before trust approval.
@@ -49,7 +49,7 @@ Synthetic task fixture: `repo/PILOT_TASK.md`, `repo/discount.py`, and `repo/test
 | Plugin in isolated Codex home | **PASS** | `codex plugin list` reports installed/enabled v0.1.0 |
 | Pilot state permissions | **PASS** | state root `0700`, config `0600` |
 | Exclusion of global credential/project paths | **PASS** | confined open attempts denied; no contents read |
-| Network confinement | **PASS** | TCP 443 egress only; local port 9 denied; no external request |
+| Network confinement | **PASS** | TCP 443 egress to any host; other ports/bind denied; local port 9 denied; no request by agent |
 | Five-hook trust and activation | **PENDING OWNER** | sign-in and native trust review are pending; no hook executed |
 | Hook smoke test and latency | **PENDING** | run one short smoke after Owner trust and restart |
 | Coding-quality comparison | **PENDING / scoped** | synthetic task after pilot sign-in; do not claim beyond that task |
