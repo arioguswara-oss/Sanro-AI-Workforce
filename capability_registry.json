@@ -1,19 +1,80 @@
 {
   "schema_version": 1,
   "capabilities": [
-    {"id":"project_registry","status":"IMPLEMENTED","verification":"PRIVATE_WORKSPACE_REPO_BRANCH_ENVIRONMENT_ACL_AND_REAL_GIT_FIXTURE"},
-    {"id":"agent_registry","status":"IMPLEMENTED","verification":"LOGICAL_PROFILES_AND_PERSISTED_HEARTBEATS; LIVE_AGENTS_UNAVAILABLE"},
-    {"id":"conversation_threads","status":"IMPLEMENTED","verification":"LEGACY_SOURCE_PRESERVED; STANDALONE_CHAT_DEFERRED"},
-    {"id":"task_ledger_director","status":"IMPLEMENTED","verification":"AUTOMATIC_SYNTHETIC_PIPELINE_SELF_FIX_CHECKPOINT_REPORT"},
-    {"id":"approval_registry","status":"IMPLEMENTED","verification":"SCOPED_ZERO_COST_DIRECTOR_MANDATES; NATIVE_RUNTIME_NOT_TESTED"},
-    {"id":"engineering_worker","status":"VERIFIED","verification":"CURRENT_HOST_LANDLOCK_ABI_8; 10_SYNTHETIC_WORKER_TESTS_PASS; TARGET_HOST_NOT_TESTED"},
-    {"id":"durable_recovery","status":"IMPLEMENTED","verification":"EXACT_STAGE_INPUT_RESTART_DEDUP_AND_REVIEWED_EXECUTION_GENERATION"},
-    {"id":"multi_model_routing","status":"IMPLEMENTED","verification":"MOCK_FREE_ONLY_CIRCUIT_FALLBACK_FAILBACK_PAUSE_REPLAY_GUARD; LIVE_PROVIDERS_DISABLED"},
-    {"id":"react_build","status":"VERIFIED","verification":"ORIGINAL_AND_MONITOR_LIBRARY_BUILDS; COMPILED_RENDER_SMOKE"},
-    {"id":"telegram_reporting","status":"IMPLEMENTED","verification":"DURABLE_OUTBOX_AND_INJECTED_EXISTING_TRANSPORT; LIVE_DELIVERY_NOT_TESTED"},
-    {"id":"readonly_monitoring","status":"VERIFIED","verification":"ISOLATED_HTTP_ACL_FRESHNESS_ZERO_DB_MUTATIONS_AND_ZERO_EXECUTOR_CALLS"},
-    {"id":"herdr_supervisor_adapter","status":"IMPLEMENTED_CANDIDATE","verification":"MOCKED_HC_CLI_TESTS; FIXED_COLOCATED_WORKFORCE_WORKER; OSC_7501_SYNTHETIC_LIFECYCLE; NO_LIVE_CORE_OR_ANDROID"},
-    {"id":"herdr_vps_android_pilot","status":"BLOCKED","verification":"PUBLIC_KEY_NOT_SUPPLIED; EXISTING_SSH_AUTH_FAILED; VPS_RUNTIME_AND_ANDROID_SESSION_NOT_VERIFIED"},
-    {"id":"live_hermes_activation","status":"BLOCKED","verification":"CLOUDFLARE_AUTH_REQUIRED; NO_NATIVE_RUNTIME_ACCEPTANCE; NO_ACTIVATION"}
+    {
+      "id": "project_registry",
+      "status": "IMPLEMENTED",
+      "verification": "PRIVATE_WORKSPACE_REPO_BRANCH_ENVIRONMENT_ACL_AND_REAL_GIT_FIXTURE"
+    },
+    {
+      "id": "agent_registry",
+      "status": "IMPLEMENTED",
+      "verification": "LOGICAL_PROFILES_AND_PERSISTED_HEARTBEATS; LIVE_AGENTS_UNAVAILABLE"
+    },
+    {
+      "id": "conversation_threads",
+      "status": "IMPLEMENTED",
+      "verification": "LEGACY_SOURCE_PRESERVED; STANDALONE_CHAT_DEFERRED"
+    },
+    {
+      "id": "task_ledger_director",
+      "status": "IMPLEMENTED",
+      "verification": "AUTOMATIC_SYNTHETIC_PIPELINE_SELF_FIX_CHECKPOINT_REPORT"
+    },
+    {
+      "id": "approval_registry",
+      "status": "IMPLEMENTED",
+      "verification": "SCOPED_ZERO_COST_DIRECTOR_MANDATES; NATIVE_RUNTIME_NOT_TESTED"
+    },
+    {
+      "id": "engineering_worker",
+      "status": "VERIFIED",
+      "verification": "CURRENT_HOST_LANDLOCK_ABI_8; 10_SYNTHETIC_WORKER_TESTS_PASS; TARGET_HOST_NOT_TESTED"
+    },
+    {
+      "id": "durable_recovery",
+      "status": "IMPLEMENTED",
+      "verification": "EXACT_STAGE_INPUT_RESTART_DEDUP_AND_REVIEWED_EXECUTION_GENERATION"
+    },
+    {
+      "id": "multi_model_routing",
+      "status": "IMPLEMENTED",
+      "verification": "MOCK_FREE_ONLY_CIRCUIT_FALLBACK_FAILBACK_PAUSE_REPLAY_GUARD; LIVE_PROVIDERS_DISABLED"
+    },
+    {
+      "id": "react_build",
+      "status": "VERIFIED",
+      "verification": "ORIGINAL_AND_MONITOR_LIBRARY_BUILDS; COMPILED_RENDER_SMOKE"
+    },
+    {
+      "id": "telegram_reporting",
+      "status": "IMPLEMENTED",
+      "verification": "DURABLE_OUTBOX_AND_INJECTED_EXISTING_TRANSPORT; LIVE_DELIVERY_NOT_TESTED"
+    },
+    {
+      "id": "readonly_monitoring",
+      "status": "VERIFIED",
+      "verification": "ISOLATED_HTTP_ACL_FRESHNESS_ZERO_DB_MUTATIONS_AND_ZERO_EXECUTOR_CALLS"
+    },
+    {
+      "id": "herdr_supervisor_adapter",
+      "status": "IMPLEMENTED_CANDIDATE",
+      "verification": "MOCKED_HC_CLI_TESTS; FIXED_COLOCATED_WORKFORCE_WORKER; OSC_7501_SYNTHETIC_LIFECYCLE; NO_LIVE_CORE_OR_ANDROID"
+    },
+    {
+      "id": "herdr_vps_android_pilot",
+      "status": "BLOCKED",
+      "verification": "PUBLIC_KEY_NOT_SUPPLIED; EXISTING_SSH_AUTH_FAILED; VPS_RUNTIME_AND_ANDROID_SESSION_NOT_VERIFIED"
+    },
+    {
+      "id": "live_hermes_activation",
+      "status": "BLOCKED",
+      "verification": "CLOUDFLARE_AUTH_REQUIRED; NO_NATIVE_RUNTIME_ACCEPTANCE; NO_ACTIVATION"
+    },
+    {
+      "id": "tokeneconomizer_pilot",
+      "status": "PILOT_PREPARED",
+      "verification": "ISOLATED_CODEX_HOME_V0_1_0; RUNTIME_CONFIG_SHOW_PASS; SYNTHETIC_FIXTURE; LANCell_ABI8_FILESYSTEM_AND_NETWORK_PREFLIGHT_PASS; HOOK_TRUST_PENDING_OWNER; LATENCY_AND_MODEL_QUALITY_TOKENS_UNMEASURED"
+    }
   ]
 }
