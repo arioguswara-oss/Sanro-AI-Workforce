@@ -80,3 +80,15 @@ Prepared synthetic-only Codex pilot (existing v0.1.0) with separate `CODEX_HOME`
 - Draft PR #2 readback: open/draft, head `944424fccdaedf543d4d264e62a5e0e8691a4cd4`, base `78fd2ab1f7cf4d77c01f5659e04c3217f489f5d2). Compare reports 38 commits ahead and 0 behind. Initial metadata returned `mergeable=false`, then full PR readback returned `mergeable=true`; treat the first value as transient/inconsistent, with no merge/conflict currently reported. No merge attempted.
 - TokenEconomizer evidence remains limited to the previously prepared isolated Codex pilot. Hooks remain untrusted/uninvoked; Herdr-to-Codex/TokenEconomizer session execution was not verified. No token use or savings claim.
 - **Disposition:** development candidate remains intact; isolated VPS pilot blocked on an authenticated non-root SSH session. Live/Android readiness: NO-GO.
+
+
+## TokenEconomizer authentication blocker and product classification — 2026-11-25
+
+- **Product boundary:** TokenEconomizer is **OPTIONAL / EXPERIMENTAL**, not a dependency of Codex CLI, SANRO AI Workforce, or primary development. Evaluation remains isolated and opt-in. No global activation is required or authorized here.
+- **Authentication diagnosis:** one official Device Code attempt in isolated pilot session 34885 failed before code issuance at `https://auth.openai.com/api/accounts/deviceauth/usercode` with client error `-32603`. The pilot-context HTTPS probe reported DNS resolution failure (curl exit 6); TLS was not reached. The pilot was stopped after this failure; no repeated attempt.
+- **Credential-free comparison:** ordinary network DNS resolved `auth.openai.com`; HTTPS to the official host returned 302 with TLS verification result 0. A sandbox-restricted ordinary probe could not resolve the host. `/etc/resolv.conf` points at the local systemd-resolved stub `127.0.0.53`.
+- **Boundary review:** existing launcher uses `env -i`; the Landlock helper handles TCP networking and allows outbound TCP connect on port 443 only. The pilot has no explicit DNS exception. Filesystem restrictions remain; no credential values were read. The observed blocker is DNS/network availability inside the pilot boundary, before OAuth credentials or TLS are evaluated. The exact denied resolver syscall was not instrumented.
+- **Disposition:** hooks remain untrusted and uninvoked; no runtime smoke, token benchmark, install/update, global config change, worker interruption, merge, or production deployment. Existing installation and configuration were left intact. Authentication and pilot runtime acceptance are **NO-GO**.
+- **One resolution:** provide an independently approved pilot egress path with an explicit DNS resolver and HTTPS allowlist for required official OpenAI auth/runtime endpoints, while preserving Landlock filesystem rules and denying arbitrary direct egress. Do not pass proxy credentials into the agent environment.
+
+See [credential-free authentication evidence](evidence/TOKENECONOMIZER_AUTH_DIAGNOSIS_2026-11-25.md).
