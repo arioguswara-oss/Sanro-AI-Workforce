@@ -16,5 +16,6 @@
 | Monitoring | Dedicated `monitor:read`, GET-only fixed projection, freshness/zero mutations | Handler and real HTTP security tests PASS | Hermes health UNAVAILABLE; Superadmin untouched |
 | Reusable UI | Preserve React/Vite; presentation-only Virtual Office table | Both builds and compiled render/escaping PASS | Standalone chat deferred; browser flow NOT TESTED |
 | Herdr supervisor adapter | Fixed co-located serial Workforce consumer; project/workspace scoped start-stop; reduced environment; OSC 7501 status | Mocked `hc` CLI tests and synthetic lifecycle test PASS | Core not installed; SSH/VPS resources/Android NOT TESTED; remote machine rejected; Herdr is not a sandbox |
+| TokenEconomizer isolated pilot | v0.1.0 in separate Codex home; conservative per-repo config active for hook loader | Effective config PASS; synthetic fixture and Landlock ABI 8 filesystem/TCP-443-only preflight PASS | Five-hook trust and smoke pending Owner; token savings not measured; global activation NO-GO |
 
 Current test-case totals: 70 PASS, 0 FAIL, 12 NOT TESTED. See [acceptance matrix](ACCEPTANCE_MATRIX.md) and [final evidence](evidence/HERMES_FIRST_FINAL_ACCEPTANCE.json). Service activation remains NO-GO.
