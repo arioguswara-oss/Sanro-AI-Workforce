@@ -46,3 +46,12 @@ All remaining Hermes-specific work is consolidated in [HERMES_EXECUTION_HANDOFF]
 ## TokenEconomizer isolated pilot checkpoint — 2026-11-25
 
 Prepared synthetic-only Codex pilot (existing v0.1.0) with separate `CODEX_HOME` and state. Effective runtime configuration: `envfacts` only (max 5 facts/200 tokens), `toolprune=off`, `loopguard=off`, `repomap=off`; config/state permissions `0600`/`0700`. No workers, global Codex, Gateway, 9Router, FreeLLMAPI, or project data changed. Landlock permits TCP 443 egress only for official sign-in; bind and other ports are denied. Filesystem exclusion preflight passed without reading credential values. No authentication, hook execution, model task, or benchmark occurred. **Owner gate:** sign in through ChatGPT in the pilot, then `/hooks` → **Trust all and continue**; restart and notify us before one brief synthetic smoke. Pilot trust only; global activation NO-GO pending separate approval. Token savings and quality comparison remain unmeasured. See TokenEconomizer pilot evidence.
+
+## Herdr activation attempt — 2026-11-25
+
+- Owner supplied the Android Ed25519 public key. OpenSSH validation passed; fingerprint: `SHA256:4VZviw2bb9DF6F1n0axjEQzeKug3yD/7DG0MrdEese0`. No private key was requested or read.
+- Strict host-key checking matched the existing ED25519 known-hosts fingerprint `SHA256:Y2QmgEV3aB9cc7lUrMOynkLWVQ5FTl2rTOUYyQXFYSM`. SSH authentication as `sanro` was denied (`Permission denied (publickey)`); this did not verify the account or allow key registration. No VPS files, runtime, services, or active workers were changed.
+- VPS architecture/resources, installed `hc`, Herdr session, Codex execution, and Android visibility remain NOT TESTED. Herdr Android is NOT READY; Owner should wait before pressing **Check again**.
+- Draft PR #2 readback: open/draft, head `944424fccdaedf543d4d264e62a5e0e8691a4cd4`, base `78fd2ab1f7cf4d77c01f5659e04c3217f489f5d2). Compare reports 38 commits ahead and 0 behind. Initial metadata returned `mergeable=false`, then full PR readback returned `mergeable=true`; treat the first value as transient/inconsistent, with no merge/conflict currently reported. No merge attempted.
+- TokenEconomizer evidence remains limited to the previously prepared isolated Codex pilot. Hooks remain untrusted/uninvoked; Herdr-to-Codex/TokenEconomizer session execution was not verified. No token use or savings claim.
+- **Disposition:** development candidate remains intact; isolated VPS pilot blocked on an authenticated non-root SSH session. Live/Android readiness: NO-GO.
