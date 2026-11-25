@@ -9,6 +9,7 @@ import {Store,AGENTS} from './store.js';
 import {monitoringSnapshot} from './monitoring.js';
 import {Director} from './director.js';
 import {WorkerController} from './worker-controller.js';
+import {HerdrWorkerController} from './herdr-worker-controller.js';
 
 const root=resolve(fileURLToPath(new URL('../../../',import.meta.url)));
 const date=()=>new Date().toISOString();
@@ -60,7 +61,15 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
   try{const s=lstatSync(dbPath);if(s.isSymbolicLink()||!s.isFile()||s.uid!==process.getuid()||(s.mode&0o077)!==0)throw new Error('unsafe database file');}catch(e){if(e.code!=='ENOENT')throw e;}
   process.umask(0o077);const store=new Store(dbPath);chmodSync(dbPath,0o600);store.seedProjects([...auth.projects.values()]);
   const db=store.db;
-  const workerController=new WorkerController(stateDir);if(startWorker)workerController.start();
+  const herdrBackend=process.env.WORKFORCE_WORKER_BACKEND==='herdr';
+  let workerController;
+  if(herdrBackend){
+    if(startWorker)throw new Error('Herdr worker autostart is forbidden; use the scoped worker-control route after approval');
+    const projectId=process.env.WORKFORCE_HERDR_PROJECT_ID,project=auth.projects.get(projectId);
+    if(!project)throw new Error('WORKFORCE_HERDR_PROJECT_ID must identify an authorized project');
+    workerController=new HerdrWorkerController({projectId,workspace:project.workspace,stateDir,workerScript:join(root,'worker.py'),machine:process.env.WORKFORCE_HERDR_MACHINE||null,coreEnvironmentAttested:process.env.WORKFORCE_HERDR_CORE_ENV_ATTESTED==='1'});
+  }else{workerController=new WorkerController(stateDir);if(startWorker)workerController.start();}
+  const stopWorker=()=>workerController.shutdown(herdrBackend?{projectId:workerController.projectId,scopes:new Set(['worker:manage'])}:undefined);
   const director=new Director({db,auth,workerCall:executor??((principal,project,request)=>workerCall(stateDir,auth,principal,project,request)),authorize:(principal,project,ref,scope)=>approvalStatus(auth,principal,project,ref,scope),...(snapshot?{snapshot}:{})});
   if(startDirector)director.start();
   async function handler(req,res){
@@ -91,9 +100,9 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
         return reply(res,405,{error:'method not allowed'});
       }
       m=path.match(/^\/api\/projects\/([^/]+)\/worker$/);
-      if(m){const projectId=m[1],access=projectAccess(auth,principal,projectId,'read');if(!access)return reply(res,404,{error:'not found'});
-        if(req.method==='GET'&&access.grants.scopes.includes('worker:read'))return reply(res,200,{status:workerController.status()});
-        if(req.method==='POST'&&access.grants.scopes.includes('worker:manage')){if(!allowWorkerControl)return reply(res,403,{error:'local worker control is disabled'});const b=await readBody(req);if(b.action==='start')return reply(res,200,{started:workerController.start(),status:workerController.status()});if(b.action==='stop')return reply(res,200,{stopped:await workerController.shutdown(),status:workerController.status()});return reply(res,400,{error:'action must be start or stop'});}
+      if(m){const projectId=m[1],access=projectAccess(auth,principal,projectId,'read');if(!access)return reply(res,404,{error:'not found'});if(herdrBackend&&projectId!==workerController.projectId)return reply(res,404,{error:'not found'});
+        if(req.method==='GET'&&access.grants.scopes.includes('worker:read'))return reply(res,200,typeof workerController.snapshot==='function'?await workerController.snapshot():{status:workerController.status()});
+        if(req.method==='POST'&&access.grants.scopes.includes('worker:manage')){if(!allowWorkerControl)return reply(res,403,{error:'worker control is disabled'});const b=await readBody(req);const context={projectId,workspace:access.project.workspace,scopes:new Set(access.grants.scopes)};if(b.action==='start'){const result=await workerController.start(context);return reply(res,200,herdrBackend?result:{started:result,status:workerController.status()});}if(b.action==='stop'){const result=await workerController.shutdown(context);return reply(res,200,herdrBackend?result:{stopped:result,status:workerController.status()});}return reply(res,400,{error:'action must be start or stop'});}
         return reply(res,403,{error:'worker management scope required'});
       }
       if(req.method==='GET'&&path==='/api/projects'){
@@ -165,12 +174,12 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
   }
   function persistCheckpoint(row,result){let previous={};try{previous=JSON.parse(row.checkpoint_json??'{}');}catch{}const checkpoint={...previous,status:result.status,updated_at:date(),...(result.exit_code!==undefined?{exit_code:result.exit_code}:{}),...(result.error?{error:result.error}: {})};db.prepare('UPDATE worker_jobs SET checkpoint_json=? WHERE job_id=?').run(JSON.stringify(checkpoint),row.job_id);}
   function audit(projectId,actor,event,entity){db.prepare('INSERT INTO audit_events VALUES(?,?,?,?,?,?)').run(randomUUID(),projectId,actor,event,entity,date());}
-  const server=http.createServer((req,res)=>{void handler(req,res);});server.on('close',()=>{director.stop();store.close();void workerController.shutdown();});
-  return {server,handler,auth,store,stateDir,workerController,director};
+  const server=http.createServer((req,res)=>{void handler(req,res);});server.on('close',()=>{director.stop();store.close();void stopWorker();});
+  return {server,handler,auth,store,stateDir,workerController,director,stopWorker};
 }
 
 if(import.meta.url===`file://${process.argv[1]}`){
   const host=process.env.WORKFORCE_HOST??'127.0.0.1';if(!['127.0.0.1','::1','localhost'].includes(host))throw new Error('API host must be loopback-only');
-  const {server,workerController}=createApp();const port=Number(process.env.PORT??8787);server.listen(port,host,()=>process.stdout.write(`Workforce API listening on ${host}:${port}\n`));
-  let stopping=false;const stop=()=>{if(stopping)return;stopping=true;void workerController.shutdown().finally(()=>server.close(()=>process.exit(0)));};process.on('SIGINT',stop);process.on('SIGTERM',stop);
+  const {server,workerController,stopWorker}=createApp();const port=Number(process.env.PORT??8787);server.listen(port,host,()=>process.stdout.write(`Workforce API listening on ${host}:${port}\n`));
+  let stopping=false;const stop=()=>{if(stopping)return;stopping=true;void stopWorker().finally(()=>server.close(()=>process.exit(0)));};process.on('SIGINT',stop);process.on('SIGTERM',stop);
 }

@@ -2,15 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtempSync,mkdirSync,writeFileSync,chmodSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
-import {join,resolve} from 'node:path';
+import {join} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {createHash,randomBytes} from 'node:crypto';
 import {EventEmitter} from 'node:events';
 import {Writable} from 'node:stream';
 import {spawn,spawnSync} from 'node:child_process';
 import {DatabaseSync} from 'node:sqlite';
 import {createApp} from '../src/server.js';
+import {HerdrWorkerController} from '../src/herdr-worker-controller.js';
 
-const repoRoot=resolve('../..');
+const repoRoot=fileURLToPath(new URL('../../../',import.meta.url));
 const landlock=Number(spawnSync('python3',['-c','from landlock_sandbox import landlock_abi; print(landlock_abi())'],{cwd:repoRoot,encoding:'utf8'}).stdout?.trim()??0);
 async function fixture(t){
   const token=randomBytes(32).toString('hex');
@@ -50,6 +52,21 @@ test('API denies by default, scopes project reads, and persists threads/messages
   f.app.store.close();const restarted=createApp({authPath:join(f.dir,'auth.json'),stateDir:f.stateDir});
   assert.equal((await f.invoke(restarted.handler,`/api/projects/project-a/threads/${created.data.id}/messages`)).data.messages.length,1);
   assert.equal((await f.invoke(restarted.handler,'/api/projects/project-a/tasks')).data.tasks[0].state,'REPORTED');restarted.store.close();
+});
+
+test('Herdr backend is opt-in and binds its controller to one provisioned project',async t=>{
+  const f=await fixture(t),names=['WORKFORCE_WORKER_BACKEND','WORKFORCE_HERDR_PROJECT_ID','WORKFORCE_HERDR_MACHINE','WORKFORCE_HERDR_CORE_ENV_ATTESTED'];
+  const previous=Object.fromEntries(names.map(name=>[name,process.env[name]]));
+  try{
+    process.env.WORKFORCE_WORKER_BACKEND='herdr';process.env.WORKFORCE_HERDR_PROJECT_ID='project-a';
+    delete process.env.WORKFORCE_HERDR_MACHINE;delete process.env.WORKFORCE_HERDR_CORE_ENV_ATTESTED;
+    const app=createApp({authPath:join(f.dir,'auth.json'),stateDir:join(f.dir,'herdr-state')});
+    assert.ok(app.workerController instanceof HerdrWorkerController);
+    assert.equal(app.workerController.projectId,'project-a');
+    app.store.close();
+  }finally{
+    for(const name of names){if(previous[name]===undefined)delete process.env[name];else process.env[name]=previous[name];}
+  }
 });
 
 test('approved fixed-profile jobs are non-blocking, FIFO, deduplicated, cancellable and recover without replay',{skip:landlock?false:'NOT TESTED: Landlock unavailable; real worker remains fail-closed'},async t=>{

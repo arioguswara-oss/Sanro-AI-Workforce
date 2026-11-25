@@ -1,4 +1,5 @@
 import json
+import io
 import os
 import pathlib
 import subprocess
@@ -6,8 +7,9 @@ import sys
 import tempfile
 import time
 import unittest
+from contextlib import redirect_stdout
 
-from worker import Queue, worker_loop
+from worker import Queue, herdr_status, worker_loop
 
 ROOT = pathlib.Path(__file__).resolve().parent
 PY = sys.executable
@@ -71,6 +73,19 @@ class WorkerTests(unittest.TestCase):
         jid = self.submit("pass")
         p = self.start_worker(); self.assertEqual(p.wait(timeout=5), 0)
         self.assertEqual(self.state(jid), "succeeded", self.q.status(jid))
+
+    def test_opt_in_herdr_status_reports_worker_lifecycle(self):
+        output = io.StringIO()
+        prior = os.environ.get("WORKFORCE_HERDR_STATUS")
+        try:
+            os.environ["WORKFORCE_HERDR_STATUS"] = "1"
+            with redirect_stdout(output):
+                for state in ("idle", "working", "done"):
+                    herdr_status(state)
+        finally:
+            if prior is None: os.environ.pop("WORKFORCE_HERDR_STATUS", None)
+            else: os.environ["WORKFORCE_HERDR_STATUS"] = prior
+        self.assertEqual(output.getvalue(), "".join(f"\x1b]7501;state={state}:app=jack-worker\x1b\\" for state in ("idle", "working", "done")))
 
     def test_child_network_and_process_group_escape_are_denied(self):
         code = "import socket;\ntry: socket.socket()\nexcept PermissionError: print('network-denied')\nelse: raise SystemExit(3)\nimport os;\ntry: os.setsid()\nexcept PermissionError: print('escape-denied')\nelse: raise SystemExit(4)"

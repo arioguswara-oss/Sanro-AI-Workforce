@@ -31,6 +31,13 @@ def apply_job_sandbox(workspace, job_tmp):
     apply_process_policy()
 
 
+def herdr_status(state):
+    """Opt-in OSC 7501 status for a Herdr-managed supervisor terminal."""
+    if os.environ.get("WORKFORCE_HERDR_STATUS") == "1":
+        sys.stdout.write(f"\x1b]7501;state={state}:app=jack-worker\x1b\\")
+        sys.stdout.flush()
+
+
 def redact_text(value):
     value = re.sub(r"(?i)(\b(?:api[_-]?key|access[_-]?token|auth(?:orization)?|password|secret)\b\s*[:=]\s*)([^\s,;]+)", r"\1[REDACTED]", value)
     value = re.sub(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+", "[REDACTED]", value)
@@ -124,6 +131,13 @@ def worker_loop(q, idle_exit=False):
         print("worker already running", file=sys.stderr)
         return 2
     q.recover()
+    herdr_status("idle")
+    current_status = "idle"
+    def set_status(value):
+        nonlocal current_status
+        if current_status != value:
+            current_status = value
+            herdr_status(value)
     interrupted = False
     def stop(_sig, _frame):
         nonlocal interrupted
@@ -139,8 +153,10 @@ def worker_loop(q, idle_exit=False):
         if not row:
             if idle_exit:
                 break
+            set_status("idle")
             time.sleep(.1)
             continue
+        set_status("working")
         command = json.loads(row["command"])
         started = time.monotonic()
         code, state, error = None, "succeeded", None
@@ -193,6 +209,7 @@ def worker_loop(q, idle_exit=False):
             shutil.rmtree(job_tmp, ignore_errors=True)
             log.write((f"\n[{now()}] finish state={state} exit={code} elapsed={time.monotonic()-started:.3f}s\n").encode())
         q.conn.execute("UPDATE jobs SET state=?,finished=?,exit_code=?,error=? WHERE id=?", (state, now(), code, error, row["id"]))
+        set_status("done" if state in ("succeeded", "cancelled") else "error")
         # Optional JD-04 Hermes outbox: commit a minimal, deduplicated completion event
         # from the worker process without opening a gateway or platform transport.
         tables = q.conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='job_notifications'").fetchone()

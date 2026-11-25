@@ -1,5 +1,14 @@
 # Development task ledger — 2026-11-24
 
+## Herdr integration checkpoint — 2026-11-25
+- Recovered the authorized worktree at `6efeba5b0e0985da2feb352ad5c8877c262743bc`, then reconciled eight newer commits through `f909923` without dropping their Hermes-first Director, monitoring, acceptance, or host-handoff work. Draft PR #2 remains the authorized target.
+- Fixed two non-blocking worker test defects: API test repo-root resolution depended on process CWD, and supervisor test did not wait for a child to survive startup.
+- IMPLEMENTED CANDIDATE: opt-in Herdr CLI controller uses only documented `hc` argv calls and fixed Workforce supervisor command; scoped start/stop/status/output; pinned `0.1.22` from official release manifest; duplicate session reuse; no status-triggered Core autostart; OSC 7501 lifecycle status; one named serial terminal. Existing Workforce queue remains authoritative for durable jobs and approvals.
+- SAFETY LIMIT: remote Herdr machine dispatch is rejected because queue database, API, workspace and code have no verified shared-state/synchronization path. Herdr Core itself is not a sandbox. Candidate remains disabled, and start requires explicit project scope plus manual core-environment attestation.
+- TESTED after upstream reconciliation: full API suite **21 PASS / 0 FAIL**, Python worker suite **10 PASS / 0 FAIL**; focused subtotal **31 PASS / 0 FAIL** (overlaps earlier acceptance totals and is not additive). Current host reports Landlock ABI 8; synthetic worker tests execute under the existing sandbox. Node syntax, Python compilation, JSON parse and `git diff --check` pass. Latest synthetic API timing: submit **0.220 s**, foreground read **0.000535 s**. Mocked Herdr CLI and synthetic OSC tests are not live Herdr/VPS evidence.
+- BLOCKED: Owner's Herdr public key was not included; SSH probe to `sanro@13.140.185.9` failed public-key authentication. No authorized_keys, VPS runtime, service, or Android state was changed/verified. Target CPU/RAM/storage and Herdr Core version remain unknown. Do not tell Owner to press Android “Check again” until registration and isolated Core startup are verified; Owner acceptance is still required afterward.
+- Live Hermes, Telegram, approval gates, cron, production, SANRO Studio, and other projects remain untouched.
+
 ## Completed local implementation checkpoints
 - JD-03 source directory has no Git history. Public import is preserved as isolated approval-gate and structured-inspection modules; path-specific machine details were generalized.
 - JD-04 local history: `8f02f4b` initial worker/pilot, `636aa2d` routing and environment hardening, `338ef55` ledger checkpoint. Imported in repository commits `1d9c2e1` (JD-03) and `eb2bdd2` (JD-04).
@@ -46,7 +55,7 @@ No remote worker delegation, live activation, cron changes or other-repository w
 | ID | Result | Evidence / remaining boundary |
 |---|---|---|
 | WF-HF-01 | IMPLEMENTED | Hermes-first BUILD_PLAN, ADR, README; no new chat/bots |
-| WF-HF-02 | IMPLEMENTED CANDIDATE / HOST BLOCKED | Native bound actor/strict approval; worker DB/dedup/ABI hardening; real worker acceptance NOT TESTED without Landlock |
+| WF-HF-02 | IMPLEMENTED CANDIDATE / TARGET HOST BLOCKED | Native bound actor/strict approval; worker DB/dedup/ABI hardening; current development-host ABI 8 worker tests pass; target-host acceptance NOT TESTED |
 | WF-HF-03 | IMPLEMENTED / MOCK VERIFIED | Disabled catalog, free-only routing safety; no provider calls/cost |
 | WF-HF-04 | IMPLEMENTED / SYNTHETIC VERIFIED | Automatic Director, exact input checkpoints, one self-fix, recovery generations and consolidated outbox |
 | WF-HF-05 | IMPLEMENTED / ISOLATED VERIFIED | Real HTTP monitoring, zero mutations, private scope, freshness, builds/render; Superadmin untouched |
