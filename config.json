@@ -1,0 +1,8 @@
+{
+  "microskills": "envfacts",
+  "microskills_max_facts": 5,
+  "microskills_max_tokens": 200,
+  "toolprune": "off",
+  "loopguard": "off",
+  "repomap": "off"
+}
