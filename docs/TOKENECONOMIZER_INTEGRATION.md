@@ -9,16 +9,20 @@
 
 This is a recommendation, not evidence that the hooks have been trusted or activated. At audit time the plugin is enabled in the user Codex configuration, but the trust decision is not exposed by the inspected configuration. The Codex UI trust review remains authoritative.
 
-## Conservative repository configuration
+## Configuration correction and pilot follow-up
 
-The root `config.json` added with this audit sets:
+Correction to the initial report: a repository-root `config.json` is **not** read by this plugin. TokenEconomizer loads repository settings from `$TOKENECONOMIZER_HOME/repos/<repo-key>/config.json`. The ineffective root config file was removed from the Draft PR.
 
-- `microskills=envfacts`, with at most 5 facts / 200 tokens. This profile derives facts locally and does not call an optimizer model.
-- `toolprune=off`: no capability/tool is proposed or disabled; testing, collaboration, web, image, and other tools remain available.
-- `loopguard=off`: no judge, redirect, or mid-turn intervention.
-- `repomap=off`: no repository map generation.
+An isolated Codex pilot now has an effective per-repository configuration written with the installed v0.1.0 plugin CLI and verified using `te --host codex --cwd <pilot-repo> config show` under confinement:
 
-Environment overrides (including `TE_*`) have higher precedence than this file and can change these choices. Review the running environment before activation. No tool-prune application or Codex capability change was made. The environment-facts block may add a small amount of context; no token saving is claimed without measurement.
+- `microskills=envfacts`, maximum 5 facts / 200 tokens; no proposer model call.
+- `toolprune=off`; no tools are removed.
+- `loopguard=off`; no judge or turn redirect.
+- `repomap=off`.
+
+The pilot state lives only under `/tmp/sanro-tokeneconomizer-pilot-20261125/state` with private permissions. See [isolated pilot evidence](TOKENECONOMIZER_PILOT.md). Environment overrides (`TE_*`) have higher precedence and were absent in the pilot's clean environment.
+
+No tool-prune application or Codex capability change was made. Envfacts may add context; savings remain unmeasured.
 
 ## Five-hook audit
 
@@ -43,24 +47,26 @@ The entries have bounded timeouts (15s, 10s, 60s, 10s, 3s respectively). Each ev
 - **Credentials/network:** hook code can launch an agent CLI for model-backed side-calls when features requiring a judge/proposer/redirect are enabled; those calls can use that CLI's existing login and incur usage. The checked-in settings disable those features; envfacts needs no credentials or network. No direct network client is used by this configured path. This audit made no model call or external service request beyond read-only GitHub repository/PR inspection.
 - **Compatibility:** Codex reports `0.162.1`, matching the stated deployment. The installed manifest uses the five Codex event names above and invokes the bootstrap with `--host codex`. The local `codex --version` command emitted a read-only-PATH-alias warning; it still reported version `0.162.1`. No CLI update was attempted.
 
-## Evidence and status at audit time
+## Evidence and status
 
-- **PASS:** official source ref equality and clean worktree; installed/source plugin file comparison (with expected dropped source link); host Python meets requirement; Codex CLI version matches; conservative config committed to this branch.
-- **NOT VERIFIED:** Codex hook trust, runtime activation, hook execution, smoke test, session ledger and savings. The status skill command could not run because `~/.tokeneconomizer/bin/te` does not exist yet. No hooks were invoked or approval prompt bypassed. Token savings are **unmeasured**.
-- **No changes:** no CLI update/reinstall, service or cost increase, worker/session disruption, Gateway/9Router/FreeLLMAPI change, merge or deployment.
+- **PASS:** official source ref equality and clean worktree; installed/source plugin file comparison (with expected dropped source link); host Python meets requirement; Codex CLI version matches.
+- **PASS — isolated pilot preparation:** separate Codex home and state; synthetic-only fixture; plugin CLI reports installed/enabled v0.1.0; effective config loader output matches the conservative values; state permissions and Landlock filesystem/network preflight pass. Details and hashes are recorded in [pilot evidence](TOKENECONOMIZER_PILOT.md).
+- **NOT VERIFIED / pending Owner:** trust and hook activation. No hook was invoked. Global Codex configuration and worker scope were not changed.
+- **NOT MEASURED:** hook runtime smoke/latency, coding quality, baseline-vs-treated tokens and savings. Pilot has no credentials and network access is denied; no model run was made.
+- **No changes:** no CLI update, worker/session disruption, Gateway/9Router/FreeLLMAPI change, merge or deployment.
 
 ## Owner approval, smoke test and measurement
 
-1. Review this audit and `config.json`, then in Codex use `/hooks` and approve **Trust all and continue** if accepted. Do not use `--dangerously-bypass-hook-trust`.
-2. Exit and start a new Codex session in this repository. Verify the hooks page shows the plugin hooks trusted, and run the TokenEconomizer `status` skill/command. Confirm config reports `microskills=envfacts toolprune=off loopguard=off repomap=off`.
-3. Run a harmless coding/documentation prompt and one harmless tool call; confirm normal tools/testing remain available, no loop redirect appears, and the session status records the run without errors. Do not use production or real secrets as smoke-test data.
-4. Measure only after a baseline and treated session with comparable task/model/tooling. Compare reported input/output/cache/optimizer tokens and task outcome. Because envfacts adds context, count its injected tokens. Do not describe gross context reduction as net savings without an equivalent-quality comparison.
+1. Launch only the isolated pilot with `/tmp/sanro-tokeneconomizer-pilot-20261125/start-pilot-codex.sh`.
+2. In that Codex UI, use `/hooks` and approve **Trust all and continue** only after reviewing the five hooks and pilot evidence. That UI uses the separate pilot `CODEX_HOME`; its trust does not approve hooks in the normal/global Codex home. Do not use `--dangerously-bypass-hook-trust`.
+3. Exit and restart the same pilot command. Verify hook trust and status, then run the harmless synthetic task and check normal tools remain available, no loop redirect occurs, and logs/state remain in the pilot root. Measure hook latency from that isolated runtime.
+4. Do not claim coding quality or token savings from this no-credential pilot. A comparable model test requires an explicitly available no-cost, credentialless model path; never copy another project's credentials into the pilot.
 
 ## Rollback
 
-- Immediate per-session opt-out: set `TE_DISABLE=1` before starting Codex.
-- Revoke the hook trust in Codex's native `/hooks` UI; this stops hook execution without uninstalling or changing the CLI.
-- To retain trust but turn off all mechanisms, set `microskills=off`, `toolprune=off`, `loopguard=off`, and `repomap=off` in this repository's `config.json` (or equivalent `TE_*` environment values), then restart the session.
-- No tool-prune deny list was applied, so no `toolprune restore` is needed. Removing the plugin is unnecessary for rollback and was not done.
+- Stop the isolated pilot with `/exit` or Ctrl+C.
+- Revoke pilot hook trust in that pilot's native `/hooks` UI. Global Codex trust/config is separate and was not changed.
+- `TE_DISABLE=1` disables hooks for a process. To turn mechanisms off while retaining pilot trust, use `te --host codex --cwd <pilot-repo> config set microskills=off toolprune=off loopguard=off repomap=off`.
+- No tool-prune deny list was applied, so `toolprune restore` is not needed.
 
-**Current integration state:** source verified; conservative repository config prepared; trust pending Owner; runtime smoke test and savings measurement pending.
+**Current integration state:** source verified; effective conservative runtime config verified in isolated pilot; pilot-only trust pending Owner; smoke/latency pending; coding quality and token savings unmeasured; global activation not authorized.
