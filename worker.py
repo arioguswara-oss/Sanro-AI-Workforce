@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Small durable FIFO worker for the JD-04A prototype (stdlib only)."""
 import argparse
+import base64
 import math
 import datetime as dt
 import json
@@ -36,6 +37,23 @@ def herdr_status(state):
     if os.environ.get("WORKFORCE_HERDR_STATUS") == "1":
         sys.stdout.write(f"\x1b]7501;state={state}:app=jack-worker\x1b\\")
         sys.stdout.flush()
+
+
+def herdr_job_status(state, job_id):
+    """Publish this FIFO job as a separate Herdr status record."""
+    if os.environ.get("WORKFORCE_HERDR_STATUS") != "1":
+        return
+    if state not in {"idle", "working", "done", "error"} or not re.fullmatch(r"[a-f0-9]{32}", str(job_id)):
+        return
+    project_id = os.environ.get("WORKFORCE_HERDR_PROJECT_ID", "")
+    worker_name = os.environ.get("WORKFORCE_HERDR_WORKER_NAME", "")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", project_id):
+        project_id = "unknown"
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,31}", worker_name):
+        worker_name = "workforce-worker"
+    title = base64.b64encode(f"project={project_id} worker={worker_name} job={job_id}".encode()).decode("ascii")
+    sys.stdout.write(f"\x1b]7501;state={state}:id={job_id}:app=sanro-workforce:title={title}\x1b\\")
+    sys.stdout.flush()
 
 
 def redact_text(value):
@@ -104,6 +122,7 @@ class Queue:
             with open(row["log_path"], "ab") as log:
                 log.write((f"[{now()}] checkpoint recovery: marked interrupted; automatic replay disabled\n").encode())
         self.conn.execute("UPDATE jobs SET state='interrupted', finished=?, error='worker stopped before completion; manual review required' WHERE state='running'", (now(),))
+        return [row["id"] for row in rows]
 
     def status(self, job_id=None):
         q = "SELECT * FROM jobs" + (" WHERE id=?" if job_id else "") + " ORDER BY created,id"
@@ -130,7 +149,8 @@ def worker_loop(q, idle_exit=False):
     except (ImportError, BlockingIOError):
         print("worker already running", file=sys.stderr)
         return 2
-    q.recover()
+    for recovered_job_id in q.recover():
+        herdr_job_status("error", recovered_job_id)
     herdr_status("idle")
     current_status = "idle"
     def set_status(value):
@@ -157,6 +177,7 @@ def worker_loop(q, idle_exit=False):
             time.sleep(.1)
             continue
         set_status("working")
+        herdr_job_status("working", row["id"])
         command = json.loads(row["command"])
         started = time.monotonic()
         code, state, error = None, "succeeded", None
@@ -209,6 +230,7 @@ def worker_loop(q, idle_exit=False):
             shutil.rmtree(job_tmp, ignore_errors=True)
             log.write((f"\n[{now()}] finish state={state} exit={code} elapsed={time.monotonic()-started:.3f}s\n").encode())
         q.conn.execute("UPDATE jobs SET state=?,finished=?,exit_code=?,error=? WHERE id=?", (state, now(), code, error, row["id"]))
+        herdr_job_status("done" if state in ("succeeded", "cancelled") else "error", row["id"])
         set_status("done" if state in ("succeeded", "cancelled") else "error")
         # Optional JD-04 Hermes outbox: commit a minimal, deduplicated completion event
         # from the worker process without opening a gateway or platform transport.

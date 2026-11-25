@@ -74,7 +74,7 @@ test('Herdr backend is opt-in and binds its controller to one provisioned projec
 });
 
 test('approved Herdr job runs a project worker end to end through a synthetic hc session',{skip:landlock?false:'NOT TESTED: Landlock unavailable; real worker remains fail-closed'},async t=>{
-  const calls=[];const version='herdr-core 0.1.22\n';let f,child,runArgs;
+  const calls=[];const version='herdr-core 0.1.22\n';let f,child,runArgs,workerOutput='';
   const herdrRunner=async args=>{
     calls.push(args);
     if(args[0]==='--version')return {stdout:version};
@@ -86,7 +86,7 @@ test('approved Herdr job runs a project worker end to end through a synthetic hc
     if(args[0]==='run'){
       runArgs=args;const command=args.slice(args.indexOf('--')+1);const executable=command.indexOf('python3');
       const env=Object.fromEntries(command.slice(2,executable).map(item=>{const split=item.indexOf('=');return [item.slice(0,split),item.slice(split+1)];}));
-      child=spawn('python3',command.slice(executable+1),{cwd:env.HOME,env,stdio:'ignore'});return {stdout:'{"address":"t-pilot"}'};
+      child=spawn('python3',command.slice(executable+1),{cwd:env.HOME,env,stdio:['ignore','pipe','ignore']});child.stdout.setEncoding('utf8');child.stdout.on('data',chunk=>{workerOutput+=chunk;});return {stdout:'{"address":"t-pilot"}'};
     }
     if(args[0]==='kill'){if(child&&child.exitCode===null){child.kill('SIGTERM');await new Promise(resolve=>child.once('exit',resolve));}return {stdout:'{"terminal":{"address":"t-pilot","state":"finished","reason":"killed","exit_code":null}}'};}
     if(args[0]==='read')return {stdout:'{"text":"synthetic worker status","complete":true}'};
@@ -101,10 +101,14 @@ test('approved Herdr job runs a project worker end to end through a synthetic hc
   const startupDeadline=Date.now()+2000;while(!calls.some(args=>args[0]==='run')&&Date.now()<startupDeadline)await new Promise(resolve=>setTimeout(resolve,5));
   const run=calls.find(args=>args[0]==='run');assert.ok(run,'automatic Herdr terminal creation');
   assert.equal(run[run.indexOf('--cwd')+1],f.workspace);assert.equal(run[run.indexOf('--name')+1],f.app.workerController.project.name);assert.ok(run.includes(`sanro.project=${f.app.workerController.project.tag}`));
+  for(const label of [`sanro.project_id=project-a`,`sanro.worker_name=${f.app.workerController.project.name}`,'sanro.execution_engine=hermes'])assert.ok(run.includes(label),`Herdr label ${label}`);
+  const command=run.slice(run.indexOf('--')+1);assert.ok(command.includes('WORKFORCE_HERDR_PROJECT_ID=project-a'));assert.ok(command.includes(`WORKFORCE_HERDR_WORKER_NAME=${f.app.workerController.project.name}`));
   const deadline=Date.now()+5000;let jobs=[];while(Date.now()<deadline){jobs=(await f.request('/api/projects/project-a/jobs')).data.jobs;if(jobs[0]?.status==='COMPLETED')break;await new Promise(resolve=>setTimeout(resolve,25));}
   assert.equal(jobs[0]?.job_id,response.data.job_id);assert.equal(jobs[0]?.status,'COMPLETED');
   assert.match((await f.request(`/api/projects/project-a/jobs/${response.data.job_id}/logs`)).data.logs,/synthetic-result/);
   assert.equal((await f.request(`/api/projects/project-a/jobs/${response.data.job_id}/result`)).data.status,'COMPLETED');
+  assert.ok(workerOutput.includes(`\x1b]7501;state=working:id=${response.data.job_id}:app=sanro-workforce:title=`),'Herdr has a per-job working record');
+  assert.ok(workerOutput.includes(`\x1b]7501;state=done:id=${response.data.job_id}:app=sanro-workforce:title=`),'Herdr has a per-job completion record');
   const workerStatus=await f.request('/api/projects/project-a/worker');assert.equal(workerStatus.status,200);assert.equal(workerStatus.data.status,'RUNNING');
   console.log(`HERDR_METRIC submission_us=${herdrSubmitUs.toFixed(1)}`);
 });

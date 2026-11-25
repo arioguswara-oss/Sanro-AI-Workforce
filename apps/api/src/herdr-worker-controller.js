@@ -82,8 +82,9 @@ export class HerdrWorkerController {
       if(active){this.address=active.address??active.name;return {started:false,status:'RUNNING',session:this.address};}
       const name=this.project.name;
       const args=['run','--bg','--json','--name',name,'--cwd',this.workspace,'--no-parent',
-        '--label','sanro.workforce=jack-worker','--label',`sanro.project=${this.project.tag}`,'--label','sanro.queue=serial'];
-      args.push('--','/usr/bin/env','-i','PATH=/usr/bin:/bin',`HOME=${this.workspace}`,`TMPDIR=${this.stateDir}/tmp`,'LANG=C.UTF-8','PYTHONNOUSERSITE=1','WORKFORCE_HERDR_STATUS=1',this.python,this.workerScript,'--root',this.stateDir,'serve');
+        '--label','sanro.workforce=jack-worker','--label',`sanro.project=${this.project.tag}`,'--label',`sanro.project_id=${this.projectId}`,
+        '--label',`sanro.worker_name=${name}`,'--label','sanro.execution_engine=hermes','--label','sanro.queue=serial'];
+      args.push('--','/usr/bin/env','-i','PATH=/usr/bin:/bin',`HOME=${this.workspace}`,`TMPDIR=${this.stateDir}/tmp`,'LANG=C.UTF-8','PYTHONNOUSERSITE=1','WORKFORCE_HERDR_STATUS=1',`WORKFORCE_HERDR_PROJECT_ID=${this.projectId}`,`WORKFORCE_HERDR_WORKER_NAME=${name}`,this.python,this.workerScript,'--root',this.stateDir,'serve');
       const {stdout}=await this.call(args,15000);
       const payload=parseJson(stdout,'worker start');
       this.address=payload.address??payload.terminal?.address??payload.name;
@@ -101,7 +102,9 @@ export class HerdrWorkerController {
     const terminal=live??sessions.sort((a,b)=>(b.finished_ms??0)-(a.finished_ms??0))[0]??null;
     if(!terminal){this.address=null;return {status:'STOPPED',backend:'herdr',worker_name:this.project.name,project_id:this.projectId};}
     this.address=terminal.address??terminal.name??null;
-    return {...statusOf(terminal),backend:'herdr',worker_name:this.project.name,project_id:this.projectId};
+    const statusRecords=terminal.records??terminal.status?.records??{};
+    const jobRecords=Object.entries(statusRecords).filter(([jobId,record])=>/^[a-f0-9]{32}$/.test(jobId)&&record?.app==='sanro-workforce').map(([jobId,record])=>({job_id:jobId,status:record.state??'unknown',title:typeof record.title==='string'?record.title:null}));
+    return {...statusOf(terminal),backend:'herdr',worker_name:this.project.name,project_id:this.projectId,job_records:jobRecords};
   }
   async output(lines=100){
     if(!Number.isInteger(lines)||lines<1||lines>1000)throw new RangeError('lines must be 1..1000');

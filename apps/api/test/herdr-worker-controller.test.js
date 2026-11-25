@@ -22,8 +22,11 @@ test('Herdr starts only the fixed serial local Workforce queue consumer using ar
   const args=calls[2];assert.equal(args[0],'run');assert.ok(args.includes('--bg'));assert.ok(args.includes('--no-parent'));assert.equal(args.includes('--on'),false);
   assert.equal(args[args.indexOf('--name')+1],controller.project.name);
   assert.ok(args.includes(`sanro.project=${controller.project.tag}`));
+  assert.ok(args.includes(`sanro.project_id=${config.projectId}`));
+  assert.ok(args.includes(`sanro.worker_name=${controller.project.name}`));
+  assert.ok(args.includes('sanro.execution_engine=hermes'));
   assert.ok(controller.project.name.length<=32);
-  assert.deepEqual(args.slice(args.indexOf('--')+1),['/usr/bin/env','-i','PATH=/usr/bin:/bin',`HOME=${config.workspace}`,`TMPDIR=${config.stateDir}/tmp`,'LANG=C.UTF-8','PYTHONNOUSERSITE=1','WORKFORCE_HERDR_STATUS=1','python3',config.workerScript,'--root',config.stateDir,'serve']);
+  assert.deepEqual(args.slice(args.indexOf('--')+1),['/usr/bin/env','-i','PATH=/usr/bin:/bin',`HOME=${config.workspace}`,`TMPDIR=${config.stateDir}/tmp`,'LANG=C.UTF-8','PYTHONNOUSERSITE=1','WORKFORCE_HERDR_STATUS=1',`WORKFORCE_HERDR_PROJECT_ID=${config.projectId}`,`WORKFORCE_HERDR_WORKER_NAME=${controller.project.name}`,'python3',config.workerScript,'--root',config.stateDir,'serve']);
   assert.equal(args.some(x=>x.includes('shell;')||x.includes('$(id)')),false);
 });
 
@@ -51,13 +54,14 @@ test('status, output and cancellation use verified Herdr CLI surfaces',async()=>
     calls.push(args);
     if(args[0]==='--version')return {stdout:version};
     if(args[0]==='server')return {stdout:'{"pid":123}'};
-    if(args[0]==='ls')return {stdout:JSON.stringify({terminals:[{address:'t7',name:new HerdrWorkerController(config).project.name,state,labels:{'sanro.workforce':'jack-worker','sanro.project':projectTag},status:{state:'working'}}]})};
+    if(args[0]==='ls')return {stdout:JSON.stringify({terminals:[{address:'t7',name:new HerdrWorkerController(config).project.name,state,labels:{'sanro.workforce':'jack-worker','sanro.project':projectTag},status:{state:'working'},records:{'0123456789abcdef0123456789abcdef':{state:'done',app:'sanro-workforce',title:'synthetic job record'}}}]})};
     if(args[0]==='read')return {stdout:JSON.stringify({text:'worker synthetic output',complete:true,how:'history'})};
     if(args[0]==='kill'){state='finished';return {stdout:JSON.stringify({terminal:{address:'t7',state,reason:'killed',exit_code:null}})};}
     throw new Error('unexpected command');
   };
   const controller=new HerdrWorkerController({...config,runner});
-  assert.equal((await controller.snapshot()).status,'RUNNING');
+  const snapshot=await controller.snapshot();assert.equal(snapshot.status,'RUNNING');
+  assert.deepEqual(snapshot.job_records,[{job_id:'0123456789abcdef0123456789abcdef',status:'done',title:'synthetic job record'}]);
   assert.equal((await controller.output(20)).output,'worker synthetic output');
   assert.deepEqual(await controller.shutdown(authorized),{stopped:true,status:'CANCELLED',session:'t7',exit_code:null,reason:'killed'});
   assert.ok(calls.some(a=>a[0]==='get')===false);

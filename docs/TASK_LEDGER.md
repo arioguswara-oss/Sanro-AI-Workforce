@@ -99,3 +99,16 @@ Focused results for changed code: API **5 PASS / 0 FAIL**, Herdr controller **8 
 | Candidate focused tests | PASS | API Herdr acceptance 2/2; controller 8/8; Codex bridge 4/4; diff check PASS |
 
 Runtime/shared activation remains NO-GO. Do not dispatch per-job terminals until each terminal remains attached to the authorized serial queue, approval, deduplication and recovery path. No worker, service or terminal was changed.
+
+## Herdr per-job lifecycle integration continuation — 2026-11-25
+
+| Work | State | Evidence |
+|---|---|---|
+| Existing worker inventory | BLOCKED / UNMANAGED | Process namespace/remote-machine discovery unavailable; Owner-reported external Codex and Hermes sessions remain UNMANAGED with PID, project and session unknown |
+| Project-scoped terminal metadata | IMPLEMENTED | Herdr session labels project ID, worker name, Hermes engine and serial queue |
+| Automatic per-job lifecycle registration | IMPLEMENTED / ISOLATED VERIFIED | FIFO worker emits OSC 7501 records keyed by durable Job ID; isolated Core 0.1.22 returned `done` for synthetic job `60ae3a07d8b54e43b5ad750315b457d1` |
+| Workforce API status projection | IMPLEMENTED / TESTED | Project-scoped worker status exposes validated job records; controller accepts Core record map at top-level and nested status form |
+| Synthetic test suites | PASS | API selection 13/13; worker + Hermes adapter 21/21; real isolated Core synthetic job PASS |
+| Android Spaces / Inbox visibility | NOT TESTED | Isolated Core was not connected to the Android client; prior `sanro-monitor-test` visibility remains Owner-reported evidence only |
+
+Hermes/FIFO remains the execution authority; no shared runtime, existing worker, service, hook, or production configuration changed. Candidate remains opt-in. Shared activation is NO-GO until project-scoped `worker:manage` approval and target-worker inventory are available.
