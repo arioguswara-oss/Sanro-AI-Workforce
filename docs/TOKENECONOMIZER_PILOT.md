@@ -22,7 +22,7 @@ For this pilot, the already-installed v0.1.0 plugin CLI was run with a clean env
 - synthetic repo: `/tmp/sanro-tokeneconomizer-pilot-20261125/repo`
 - Codex host: `codex`
 
-The CLI `config set` wrote to `state/repos/repo-a00c0b0da2/config.json`, mode `0600`; state root mode is `0700`. A subsequent `te --host codex --cwd <synthetic repo> config show`, run again under the pilot filesystem/network confinement, returned without warnings:
+The CLI `config set` wrote to `state/repos/repo-a00c0b0da2/config.json`, mode `0600`; state root mode is `0700`. SHA-256: runtime config `ea572716394e05048ebef67de4a6177086b18a5501515f261f863c8aaabf93a2`; Landlock launcher `4e5f1de159835a68186c7173e447b610a9d38489bc67d8119c85a4deb0848e85`; pilot start script `45e6cb43eef164d8517a12a243dff2e27b47c1246e104166351cf40c797d69ee`. A subsequent `te --host codex --cwd <synthetic repo> config show`, run again under the pilot filesystem/network confinement, returned without warnings:
 
 - microskills: `envfacts`, maximum 5 facts / 200 tokens
 - toolprune: `off`
