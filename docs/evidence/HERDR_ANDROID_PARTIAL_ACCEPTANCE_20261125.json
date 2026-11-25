@@ -52,5 +52,5 @@
     "production_configuration_changed": false,
     "secrets_read_or_recorded": false
   },
-  "acceptance": "NO_GO_PENDING_UPDATED_SUPERVISOR_SYNTHETIC_JOB_AND_ANDROID_VISUAL_CONFIRMATION"
+  "acceptance": "PARTIAL_PASS_AT_PRIOR_CHECKPOINT_SUPERSEDED_BY_HERDR_RUNTIME_FINAL_ACCEPTANCE_20261125.json"
 }

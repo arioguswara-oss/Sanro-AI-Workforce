@@ -138,3 +138,15 @@ The synthetic command did not invoke an AI model or prove a Hermes model session
 | Focused validation | PASS | Python 22/22, controller 9/9, diff check PASS |
 
 Acceptance stays **NO-GO** until the updated supervisor runs a synthetic job and Owner verifies updated Spaces and Inbox. See [partial Android acceptance evidence](evidence/HERDR_ANDROID_PARTIAL_ACCEPTANCE_20261125.json).
+
+## Runtime acceptance execution — 2026-11-25
+
+| Work | State | Evidence |
+|---|---|---|
+| Runtime activation path | VERIFIED | Existing `createApp` API fixture pattern and project-scoped `worker:manage`; ephemeral auth file deleted after use |
+| Idle/identity guard | PASS | `t3` PID 2933754, exact worker/project labels; queue had no active jobs; one live pilot before stop |
+| Updated pilot | PASS | `t4` PID 3018876, source worker.py SHA256 `7b969e78ce0ed79d0bd110dc65565a009c8a9b0a3ead96d2347a071171ee848b`; sole live project pilot |
+| Workforce → HermesAdapter → Herdr synthetic | PASS | Job `50cd39f892d641e1a67c065a17f49c55`: succeeded, exit 0; terminal shows running/completed; Core OSC record done/reported |
+| Android connection and visual acceptance | PARTIAL / PENDING OWNER | Core unchanged and 3 SSH sessions established, but Android session cannot be identified among them; Owner must inspect new t4 Spaces and Inbox |
+
+This is runtime synthetic acceptance, not live AI model execution or adoption of existing workers. See [final runtime acceptance evidence](evidence/HERDR_RUNTIME_FINAL_ACCEPTANCE_20261125.json).
