@@ -38,3 +38,14 @@ Revocation, once separately registered, is to remove only the exact matching pub
 ## Test evidence and acceptance
 
 Mocked CLI tests cover fixed command construction, auth/project/workspace checks, duplicate session reuse, status/output/cancel, interrupted-state non-replay, no auto-start on read-only status, output bounds and remote-machine rejection. A Python synthetic test verifies opt-in idle/working/done OSC status. These are unit/synthetic results only. Live Core, SSH key registration, VPS resource check, Android session visibility and owner acceptance are NOT TESTED.
+
+
+## Owner-supplied Android key and current access check — 2026-11-25
+
+The Owner supplied an Ed25519 public key labelled `herdr-mobile`. OpenSSH accepted its format; SHA-256 fingerprint is `SHA256:4VZviw2bb9DF6F1n0axjEQzeKug3yD/7DG0MrdEese0`. The key line was not added to this public repository.
+
+Strict SSH host-key checking matched the existing local ED25519 known-hosts pin `SHA256:Y2QmgEV3aB9cc7lUrMOynkLWVQ5FTl2rTOUYyQXFYSM`. A batch connection to `sanro@13.140.185.9:22` was rejected with `Permission denied (publickey)`. Therefore the account identity/session was not authenticated, the key was not registered, and `authorized_keys` ownership/mode were not inspected or changed. Host-key pin match alone is not proof of account ownership.
+
+No authenticated VPS resource/runtime check was possible. Herdr Core `0.1.22` remains a candidate pin only; no binary was selected, checksum verified, or installed. No worker/session was launched. Herdr Android is **NOT READY**; do not press **Check again** until the key has been registered on the verified account and the isolated Core session is visible. After that, Owner confirmation is still required to claim Android acceptance.
+
+TokenEconomizer remains separate: the prior isolated Codex pilot is prepared, but five-hook trust, invocation, and any Herdr Codex-session compatibility are not verified. No global hook/config changes were made.
