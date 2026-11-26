@@ -64,6 +64,25 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual([self.state(a), self.state(b)], ["succeeded", "succeeded"], self.q.status())
         self.assertIn("finish state=succeeded", pathlib.Path(self.q.status(a)[0]["log_path"]).read_text())
 
+    def test_independent_workers_cannot_run_jobs_in_the_same_worktree(self):
+        marker = pathlib.Path(self.tmp.name) / "second-ran"
+        first = self.submit("import time; time.sleep(.6)", timeout=3)
+        first_worker = self.start_worker()
+        self.assertTrue(wait_for(lambda: self.state(first) == "running"))
+        other_root = pathlib.Path(self.tmp.name) / "other-state"
+        other_queue = Queue(other_root)
+        second, _ = other_queue.submit([PY, "-c", f"open({str(marker)!r},'w').write('unsafe')"], self.tmp.name, 3, "independent-worker")
+        second_worker = subprocess.Popen([PY, str(ROOT / "worker.py"), "--root", str(other_root), "serve", "--idle-exit"], cwd=ROOT)
+        try:
+            self.assertEqual(second_worker.wait(timeout=5), 0)
+            self.assertEqual(other_queue.status(second)[0]["state"], "failed")
+            self.assertIn("already locked", other_queue.status(second)[0]["error"])
+            self.assertFalse(marker.exists())
+        finally:
+            self.assertEqual(first_worker.wait(timeout=5), 0)
+            other_queue.close()
+        self.assertEqual(self.state(first), "succeeded")
+
     def test_timeout(self):
         jid = self.submit("import time; print('started', flush=True); time.sleep(4)", timeout=.2)
         p = self.start_worker(); self.assertEqual(p.wait(timeout=5), 0)

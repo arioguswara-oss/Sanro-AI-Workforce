@@ -4,6 +4,8 @@ import argparse
 import base64
 import math
 import datetime as dt
+import fcntl
+import hashlib
 import json
 import os
 import pathlib
@@ -30,6 +32,38 @@ def now():
 def apply_job_sandbox(workspace, job_tmp):
     apply_landlock(workspace, job_tmp)
     apply_process_policy()
+
+
+def acquire_worktree_lock(state_root, workspace):
+    """Hold a per-workspace advisory lock for the complete child process lifetime."""
+    canonical = str(pathlib.Path(workspace).resolve(strict=True))
+    lock_dir = pathlib.Path(tempfile.gettempdir()) / f"sanro-workforce-worktree-locks-{os.getuid()}"
+    lock_dir.mkdir(mode=0o700, exist_ok=True)
+    info = lock_dir.lstat()
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
+        raise PermissionError("worktree lock directory must be private and user-owned")
+    lock_dir.chmod(0o700)
+    digest = hashlib.sha256(canonical.encode()).hexdigest()
+    path = lock_dir / (digest + ".lock")
+    fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        lock_info = os.fstat(fd)
+        if not stat.S_ISREG(lock_info.st_mode) or lock_info.st_uid != os.getuid() or lock_info.st_mode & 0o077:
+            raise PermissionError("worktree lock file must be private and user-owned")
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise RuntimeError("worktree is already locked") from error
+        return fd
+    except Exception:
+        os.close(fd)
+        raise
+
+
+def release_worktree_lock(fd):
+    if fd is not None:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
 
 
 def herdr_status(state):
@@ -200,7 +234,9 @@ def worker_loop(q, idle_exit=False):
             log.write((f"[{now()}] start {redact_text(json.dumps(command))}\n").encode())
             proc, output_thread = None, None
             job_tmp = tempfile.mkdtemp(prefix=".jd04-job-", dir=row["cwd"])
+            worktree_lock_fd = None
             try:
+                worktree_lock_fd = acquire_worktree_lock(q.root, row["cwd"])
                 env = {"PATH": os.defpath, "HOME": row["cwd"], "TMPDIR": job_tmp, "LANG": "C.UTF-8", "PYTHONNOUSERSITE": "1"}
                 proc = subprocess.Popen(command, cwd=row["cwd"], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
                     preexec_fn=lambda: apply_job_sandbox(row["cwd"], job_tmp))
@@ -243,6 +279,7 @@ def worker_loop(q, idle_exit=False):
             if output_thread is not None:
                 output_thread.join(timeout=2)
             shutil.rmtree(job_tmp, ignore_errors=True)
+            release_worktree_lock(worktree_lock_fd)
             log.write((f"\n[{now()}] finish state={state} exit={code} elapsed={time.monotonic()-started:.3f}s\n").encode())
         q.conn.execute("UPDATE jobs SET state=?,finished=?,exit_code=?,error=? WHERE id=?", (state, now(), code, error, row["id"]))
         herdr_job_status("done" if state in ("succeeded", "cancelled") else "error", row["id"])
