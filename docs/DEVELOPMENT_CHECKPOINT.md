@@ -3,6 +3,7 @@
 ## Playwright MCP project integration — 2026-11-26
 
 - **Starting SHA:** `44f713686140fc521b0066a6178191ea187694d1`; authorized Workforce branch was clean before this change.
+- **Implementation commit:** `4cf38de` (`Configure project-scoped Playwright MCP`); this checkpoint/evidence update follows as a separate commit, never an amend.
 - **IMPLEMENTED:** pinned official Microsoft `@playwright/mcp` **0.0.86** as an `apps/web` dev dependency. npm lock records registry integrity; package metadata identifies `microsoft/playwright-mcp`. Its transitive Playwright `1.66.0-alpha-2026-11-18` expects Chromium revision `1255`, matching the existing project cache's Headless Shell `159.0.8154.6`.
 - **IMPLEMENTED:** `.codex/config.toml` registers the project-local executable, enables only `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_fill_form`, `browser_evaluate`, `browser_take_screenshot`, and `browser_close`, and caps startup/tool timeouts at 30/20 seconds. `apps/web/playwright-mcp.config.json` requests isolated headless Chromium with `chromiumSandbox: true`, loopback test origin allowance, bounded action/navigation timeouts, and project evidence output. Global Codex config was not edited.
 - **VERIFIED RUNTIME (configuration only):** `codex mcp list` and `codex mcp get playwright --json` discover the project entry as enabled; existing Hostinger remains enabled and unchanged. `npm --prefix apps/web exec -- playwright-mcp --version` reports 0.0.86. Install audit: 0 vulnerabilities. Vite build PASS.

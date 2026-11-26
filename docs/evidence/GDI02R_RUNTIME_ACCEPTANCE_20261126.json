@@ -86,6 +86,8 @@
   },
   "playwright_mcp_integration": {
     "starting_sha": "44f713686140fc521b0066a6178191ea187694d1",
+    "implementation_commit_sha": "4cf38de",
+    "tested_basis": "starting SHA plus pinned dependency, project MCP config and evidence diff; Vite build and config discovery ran after those changes",
     "package": {
       "name": "@playwright/mcp",
       "version": "0.0.86",
@@ -140,6 +142,6 @@
     },
     "security_and_cleanup": "No active worker, Hermes service, production resource, or global Codex configuration touched. No browser process or screenshot created. No sandbox relaxation, origin bypass, or live network browser navigation performed.",
     "hermes_config_changed": false,
-    "final_sha": null
+    "branch_delivery": "pending fast-forward push; no amend or force push"
   }
 }
