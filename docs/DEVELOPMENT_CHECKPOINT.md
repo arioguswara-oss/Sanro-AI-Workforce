@@ -1,5 +1,18 @@
 # Hermes-first development checkpoint — 25 November 2026 Jakarta
 
+## Runtime integration completion — 2026-11-26
+
+- Source implementation commit tested: `b58fb5df6f306e93438b81fbe489d6a799aeafd4`; baseline HEAD `365a973eb329a81c9d14afa93a83b4bbe11e8394`.
+- **IMPLEMENTED:** `createApp({ nativeApprovalProvider })` registers a fixed API adapter. It requests approval for actor/project/job/operation and accepts only a literal approved response with the exact tuple and bounded ID before entering the existing fixed-operation callback. Default `node src/server.js` does not install a provider and remains fail-closed.
+- **IMPLEMENTED:** the Hermes plugin manifest declares profile-local `requires_env` secret prompting for the bearer token and approval reference. Client target is fixed to `sanro-browser-qa` and pilot-specific runtime profile IDs. No credential was read, provisioned, or copied.
+- **IMPLEMENTED / READ-ONLY:** `scripts/sanro-qa-runtime-activation.sh` is one host invocation, checks the existing profile/plugin prerequisites and exits 3 on the missing native approval provider without staging, enabling, starting jobs, or changing services.
+- **VERIFIED SOURCE TESTS:** Node runtime executor API **8 PASS / 0 FAIL**; Python fixed executor and Hermes plugin **21 PASS / 0 FAIL**; shell syntax and `git diff --check` PASS. Earlier 60 PASS remain historical and were not rerun because the security gate and unaffected source did not change.
+- **BLOCKED:** Hermes v0.22 plugin approval transport routes an already-created approval; it does not define a per-job approval policy/callback provider. The API injection contract now exists, but no actual supported host provider is available to inject. Hermes `requires_env` is declared, but install/secret provisioning was not run.
+- **BLOCKED / NOT VERIFIED:** exact SANRO-Browser-QA workspace/repository/branch/worker/mandate binding and the fixed browser entrypoint inside that pilot checkout are unavailable in this workspace. The candidate is fail-closed until the private registry and entrypoint agree.
+- **NOT TESTED:** host callback registration, profile activation, Local CI, Chromium launch, Playwright, screenshot, job ID, runtime resource usage and Hermes continuity. No browser runtime PASS is claimed.
+- Approvals this continuation: **0 Owner interactive prompts, 0 native job approvals, 0 host executor invocations**. No Hermes profile/default config, Backup/DR hook, service, worker, credential, or production resource was changed or accessed.
+- Detailed evidence: [runtime integration completion](evidence/SANRO_RUNTIME_INTEGRATION_COMPLETION_20261126.json). Overall activation status: **NO-GO** until an official per-job approval provider and exact pilot project runtime binding are available and specifically approved for activation.
+
 ## Development policy and isolated executor candidate — 2026-11-26
 
 - Baseline source: `4b0a10f7bb3d3de19f4f1cd194fe080fb0c8d291`; tested implementation and pushed commit: `f3e465cc3b56eb8e0e70b90f43f328c604c9e756` on `feature/hermes-workforce-foundation`.
