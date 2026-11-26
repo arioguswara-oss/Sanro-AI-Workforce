@@ -9,6 +9,7 @@ import sys
 from hermes_adapter import Authorization, HermesAdapter
 from codex_job_launcher import build_codex_argv
 from runtime_preflight import CapabilityPreflightError, collect_runtime_preflight, require_capabilities
+from workforce_runtime_adapter import execute_runtime_profile
 
 
 def verify_bridge_admission(request):
@@ -88,6 +89,8 @@ def main():
             profile = profiles.get(request["profile"])
             if not profile:
                 raise PermissionError("unknown command profile")
+            if profile.get("runtime_operation") is not None:
+                raise PermissionError("runtime profiles must use the dedicated runtime-acceptance boundary")
             if profile.get("approval_required", True) and not request.get("approval_ref"):
                 raise PermissionError("an explicit authorized approval reference is required")
             if p["id"] not in profile.get("projects", []):
@@ -121,6 +124,18 @@ def main():
                 approval_ref=request.get("approval_ref"), command=command,
                 timeout=min(max(timeout, 1), 3600),
                 idempotency_key=request["idempotency_key"])
+        elif action == "runtime":
+            native_approval = request.get("native_approval")
+            if not isinstance(native_approval, dict) or native_approval.get("approved") is not True:
+                raise PermissionError("native runtime approval is required")
+            profile = profiles.get(request.get("profile"))
+            if not isinstance(profile, dict) or profile.get("executor") != "local-ci" or profile.get("role") != "qa" or profile.get("command") != ["/usr/bin/true"] or profile.get("runtime_operation") not in {"browser_smoke", "mariadb_synthetic"}:
+                raise PermissionError("fixed Local CI runtime profile required")
+            if not isinstance(request.get("idempotency_key"), str) or not request["idempotency_key"].isascii() or len(request["idempotency_key"]) < 8 or len(request["idempotency_key"]) > 64:
+                raise ValueError("bounded runtime job id required")
+            request["profile_config"] = profile
+            admission = verify_bridge_admission(request)
+            result = execute_runtime_profile(request, admission, state_root, native_approval=native_approval)
         elif action == "status":
             result = adapter.status(auth, project_id=p["id"], workspace=p["workspace"], job_id=request["job_id"])
         elif action == "logs":

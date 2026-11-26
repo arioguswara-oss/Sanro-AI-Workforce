@@ -15,5 +15,6 @@ __pycache__/
 node_modules/
 apps/web/dist/
 .workforce-state/
+.workforce-runtime/
 apps/web/dist-monitor/
 apps/web/.cache/playwright/

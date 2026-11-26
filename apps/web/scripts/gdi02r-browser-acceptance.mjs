@@ -6,7 +6,7 @@ import { chromium } from 'playwright';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const html = path.join(os.tmpdir(), `sanro-gdi02r-browser-${process.pid}.html`);
-const screenshot = path.join(repoRoot, 'docs/evidence/GDI02R_CHROMIUM_SMOKE.png');
+const screenshot = path.join(repoRoot, 'apps/web/.cache/playwright/GDI02R_CHROMIUM_SMOKE.png');
 let browser;
 
 try {
@@ -17,8 +17,9 @@ try {
   await page.getByRole('button', { name: 'Run local check' }).click();
   const result = await page.locator('#result').textContent();
   if (result !== 'DOM_OK:42') throw new Error('synthetic DOM and JavaScript assertion failed');
+  fs.mkdirSync(path.dirname(screenshot), { recursive: true });
   await page.screenshot({ path: screenshot });
-  console.log(JSON.stringify({ status: 'PASS', browserVersion: browser.version(), result, screenshot: 'docs/evidence/GDI02R_CHROMIUM_SMOKE.png' }));
+  console.log(JSON.stringify({ status: 'PASS', browserVersion: browser.version(), result, screenshot: 'apps/web/.cache/playwright/GDI02R_CHROMIUM_SMOKE.png' }));
 } catch (error) {
   const diagnostic = String(error?.message ?? 'browser runtime failed');
   const denied = diagnostic.split('\n').find(line => /setsockopt|Operation not permitted|SIGTRAP|EPERM/.test(line));
