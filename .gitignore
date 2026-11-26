@@ -16,3 +16,4 @@ node_modules/
 apps/web/dist/
 .workforce-state/
 apps/web/dist-monitor/
+apps/web/.cache/playwright/

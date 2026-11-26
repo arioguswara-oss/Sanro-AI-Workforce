@@ -46,6 +46,9 @@ def verify_bridge_admission(request):
         manifest = json.loads(request["instruction"])
         if manifest.get("project_id") != project["id"] or manifest.get("run_id") != admission.get("job_id") or manifest.get("baseline_sha") != admission.get("checkpoint_sha"):
             raise PermissionError("current job or checkpoint does not match admission")
+        expected_capabilities = {"codex": ["engineering"], "local-ci": ["local_ci"]}.get(manifest.get("executor"))
+        if expected_capabilities is None or manifest.get("required_capabilities") != expected_capabilities:
+            raise PermissionError("job capability requirements do not match the authorized executor")
     elif admission.get("job_id") != request.get("idempotency_key"):
         raise PermissionError("current job does not match admission")
     if registered.get("workspace") != str(workspace) or registered.get("worker_id") != admission.get("worker_id"):
@@ -72,6 +75,7 @@ def main():
         action = request["action"]
         p = request["project"]
         principal = request["principal"]
+        mandate = request.get("mandate")
         grants = principal["projects"][p["id"]]
         auth = Authorization(
             subject=principal["subject"],
@@ -94,7 +98,9 @@ def main():
             if profile.get("executor") == "codex":
                 if not isinstance(request.get("instruction"), str):
                     raise PermissionError("Codex executor requires a checkpoint-bound instruction")
-                preflight = collect_runtime_preflight(p, mandate, admission.get("checkpoint_sha"))
+                codex_command = profile.get("command")
+                codex_executable = codex_command[0] if isinstance(codex_command, list) and len(codex_command) == 1 else None
+                preflight = collect_runtime_preflight(p, mandate, admission.get("checkpoint_sha"), codex_executable=codex_executable)
                 requirements = profile.get("runtime_requirements", ["project_identity", "canonical_workspace", "authorized_branch", "source_repository", "workspace_write", "git_metadata", "mandate", "checkpoint", "codex_cli"])
                 require_capabilities(preflight, requirements)
                 command = build_codex_argv(profile, admission, json.loads(request["instruction"]), preflight)
@@ -139,5 +145,7 @@ if __name__ == "__main__":
         response = {"error": type(exc).__name__, "message": "worker operation rejected" if isinstance(exc, (PermissionError, ValueError, KeyError)) else "worker operation failed"}
         if isinstance(exc, CapabilityPreflightError):
             response["preflight"] = exc.preflight
+        if isinstance(exc, NameError) and isinstance(exc.name, str) and exc.name.isidentifier():
+            response["diagnostic_code"] = "UNDEFINED_SYMBOL:" + exc.name
         print(json.dumps(response))
         raise SystemExit(1)

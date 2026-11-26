@@ -26,8 +26,12 @@ def build_codex_argv(profile, admission, instruction, preflight=None):
         raise PermissionError("unsupported project permission profile")
     if admission.get("permission_profile", {}).get("allow_network") is not False:
         raise PermissionError("Codex network access must remain disabled")
+    if admission.get("required_capabilities") != ["engineering"]:
+        raise PermissionError("Codex CLI may only receive explicitly admitted engineering jobs")
+    if admission.get("required_capabilities") != ["engineering"]:
+        raise PermissionError("Codex CLI may only receive explicitly admitted engineering jobs")
     required_capabilities = profile.get("runtime_requirements", ["project_identity", "canonical_workspace", "authorized_branch", "source_repository", "workspace_write", "git_metadata", "mandate", "checkpoint", "codex_cli"])
-    allowed_capabilities = {"project_identity", "canonical_workspace", "authorized_branch", "source_repository", "workspace_write", "git_metadata", "mandate", "checkpoint", "codex_cli", "ssh_agent", "network", "mariadb", "playwright_chromium", "local_ci", "staging_target", "checkpoint_evidence"}
+    allowed_capabilities = {"project_identity", "canonical_workspace", "authorized_branch", "source_repository", "workspace_write", "git_metadata", "mandate", "checkpoint", "codex_cli", "ssh_agent", "network", "unix_socket", "mariadb", "mariadb_isolated", "playwright_chromium", "browser_smoke", "local_ci", "git_delivery", "ssh_staging", "staging_target", "checkpoint_evidence"}
     if not isinstance(required_capabilities, list) or not all(name in allowed_capabilities for name in required_capabilities):
         raise PermissionError("unsupported runtime capability requirement")
     require_capabilities(preflight, required_capabilities)

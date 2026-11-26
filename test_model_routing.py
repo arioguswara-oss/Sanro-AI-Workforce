@@ -48,6 +48,24 @@ class FreeOnlyRouterTests(unittest.TestCase):
         with self.assertRaises(RouteRejected):
             FreeOnlyRouter([self.primary, self.primary], self.checkpoint)
 
+    def test_workload_capabilities_filter_routes_and_keep_engineering_on_codex(self):
+        router = FreeOnlyRouter([self.primary, self.secondary], self.checkpoint)
+        self.assertEqual(router.choose(capabilities={"summarization"}), self.primary)
+        self.assertEqual(router.choose(capabilities={"monitoring"}), self.primary)
+        self.assertEqual(router.choose(capabilities={"simple_text_processing"}), self.primary)
+        with self.assertRaises(RouteRejected):
+            router.choose(capabilities={"runtime_orchestration"})
+        with self.assertRaises(RouteRejected):
+            router.choose(capabilities={"engineering"})
+        qualified = FreeRoute("qualified", "tools", "https://tools.example/v1", "TOOLS_KEY", 0,
+                              "verified", True, 60, frozenset({"structured_tool_calling", "summarization"}))
+        self.assertEqual(FreeOnlyRouter([qualified], self.checkpoint).choose(capabilities={"structured_tool_calling"}), qualified)
+        orchestrator = FreeRoute("orchestrator", "plan", "https://orchestrator.example/v1", "PLAN_KEY", 0,
+                                 "verified", False, 60, frozenset({"runtime_orchestration", "monitoring", "summarization", "simple_text_processing"}))
+        routed = FreeOnlyRouter([orchestrator], self.checkpoint)
+        for capability in orchestrator.capabilities:
+            self.assertEqual(routed.choose(capabilities={capability}), orchestrator)
+
 
 if __name__ == "__main__":
     unittest.main()

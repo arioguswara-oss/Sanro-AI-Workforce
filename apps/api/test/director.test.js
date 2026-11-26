@@ -41,6 +41,7 @@ test('one instruction automatically reaches Developer, QA, bounded self-fix, che
   for(let i=0;i<9;i++)await f.director.tick();
   const done=f.director.get(run.id);assert.equal(done.state,'REPORTED');assert.equal(done.attempt,1);assert.equal(done.test_status,'PASS');assert.equal(done.candidate_sha,'b'.repeat(40));
   assert.deepEqual(f.instructions.map(x=>x.stage),['DEVELOPER','QA','SELF_FIX','QA']);
+  assert.deepEqual(f.instructions.map(x=>x.required_capabilities),[['engineering'],['local_ci'],['engineering'],['local_ci']]);
   assert.equal(f.instructions[0].instruction,'Make the fixture pass');assert.ok(f.instructions.every(x=>x.project_id==='pilot'));
   const checkpoint=JSON.parse(f.store.db.prepare('SELECT checkpoint FROM tasks WHERE id=?').get(f.task).checkpoint);assert.equal(checkpoint.qa_job_id,done.job_id);assert.equal(checkpoint.manifest_sha,done.candidate_sha);
   let sent=0;const transport={send:async payload=>{assert.equal(payload.commit_sha,done.candidate_sha);sent++;return {acknowledged:true};}};

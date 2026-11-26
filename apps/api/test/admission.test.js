@@ -14,7 +14,7 @@ function fixture(t){
   const principal={subject:'owner',projects:{'project-a':{scopes:['engineering:execute'],approval_refs:['approval-a']}}};
   const mandate={status:'APPROVED',project_id:'project-a',repository:project.repository,branch:project.branch,environment:project.environment,owner_actor:'owner',max_cost_usd:0,allowed_actions:['engineering:execute','qa:execute'],forbidden_actions:['merge','production:deploy','paid-api','other-repository:write'],scopes:['engineering:execute'],expires_at:new Date(Date.now()+60_000).toISOString()};
   const auth={projects:new Map([[project.id,project]]),workspaceRegistry:new Map([[workspace,project.id]])};
-  const request={action:'submit',profile:'dev',approval_ref:'approval-a',idempotency_key:'synthetic-job-01',instruction:JSON.stringify({project_id:project.id,run_id:'run-synthetic-1',executor:'codex',baseline_sha:sha})};
+  const request={action:'submit',profile:'dev',approval_ref:'approval-a',idempotency_key:'synthetic-job-01',instruction:JSON.stringify({project_id:project.id,run_id:'run-synthetic-1',executor:'codex',baseline_sha:sha,required_capabilities:['engineering']})};
   t.after(()=>rmSync(root,{recursive:true,force:true}));
   return {root,workspace,sha,project,principal,mandate,auth,request,commandProfile:{executor:'codex',projects:['project-a']}};
 }
@@ -30,6 +30,7 @@ test('admission rejects expired, mismatched, unauthorized, dirty and stale-check
   await assert.rejects(validateJobAdmission({...f,mandate:{...f.mandate,repository:'other/repository'}}),/invalid or expired/);
   await assert.rejects(validateJobAdmission({...f,principal:{...f.principal,projects:{'project-a':{scopes:[],approval_refs:[]}}}}),/not bound/);
   await assert.rejects(validateJobAdmission({...f,request:{...f.request,instruction:JSON.stringify({project_id:'project-a',run_id:'run-synthetic-1',executor:'codex',baseline_sha:'f'.repeat(40)})}}),/checkpoint/);
+  await assert.rejects(validateJobAdmission({...f,request:{...f.request,instruction:JSON.stringify({project_id:'project-a',run_id:'run-synthetic-1',executor:'codex',baseline_sha:f.sha,required_capabilities:['simple_text_processing']})}}),/capability/);
   writeFileSync(join(f.workspace,'untracked.txt'),'dirty');
   await assert.rejects(validateJobAdmission(f),/worktree clean/);
 });

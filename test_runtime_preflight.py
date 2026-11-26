@@ -29,6 +29,8 @@ class RuntimePreflightTests(unittest.TestCase):
         self.assertEqual(report["capabilities"]["authorized_branch"]["status"], "PASS")
         self.assertEqual(report["capabilities"]["source_repository"]["status"], "PASS")
         self.assertEqual(report["capabilities"]["network"]["status"], "UNVERIFIED")
+        self.assertIn(report["capabilities"]["unix_socket"]["status"], {"PASS", "BLOCKED"})
+        self.assertEqual(report["capabilities"]["browser_smoke"]["status"], "UNVERIFIED")
         self.assertNotIn("ssh_agent", report["capabilities"]["network"]["detail"])
 
     def test_rejects_branch_mismatch_and_aggregates_required_capability_failures(self):

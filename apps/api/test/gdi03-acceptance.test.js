@@ -32,7 +32,7 @@ test('GDI-03 isolated orchestration: Director→admission→Hermes FIFO/lock→C
   const submitted=await invoke(app.handler,'/api/projects/gdi03/runs',{token:owner,method:'POST',body:{task_id:task.data.id,approval_ref:'gdi03-approval',idempotency_key:'gdi03-acceptance-01'}});assert.equal(submitted.status,202);
   let run;
   for(let i=0;i<36;i++){await app.director.tick();run=app.director.get(submitted.data.run_id);if(run.state!=='ACTIVE')break;await new Promise(resolve=>setTimeout(resolve,70));}
-  assert.equal(run.state,'REPORTED',run.blocker??'run did not reach a terminal state');assert.equal(run.test_status,'PASS');
+  const failureEvidence=JSON.parse(run.checkpoint_json??'{}');assert.equal(run.state,'REPORTED',run.blocker==='RUNTIME_CAPABILITIES_BLOCKED'?JSON.stringify(failureEvidence.runtime_preflight):failureEvidence.execution_error_type??run.blocker??'run did not reach a terminal state');assert.equal(run.test_status,'PASS');
   const jobs=app.store.db.prepare('SELECT job_id,profile,checkpoint_json FROM worker_jobs WHERE project_id=? ORDER BY created_at').all('gdi03');assert.equal(jobs.length,2);
   for(const job of jobs){const cp=JSON.parse(job.checkpoint_json);assert.ok(cp.admission);assert.equal(cp.admission.project_id,'gdi03');assert.equal(cp.admission.worker_id,'worker-gdi03');assert.equal(cp.admission.workspace,workspace);assert.ok(cp.admission.checkpoint_sha);assert.equal(cp.status,'COMPLETED');}
   const checkpoint=JSON.parse(app.store.db.prepare('SELECT checkpoint FROM tasks WHERE id=?').get(task.data.id).checkpoint);assert.equal(checkpoint.test_status,'PASS');assert.equal(checkpoint.qa_job_id,run.job_id);

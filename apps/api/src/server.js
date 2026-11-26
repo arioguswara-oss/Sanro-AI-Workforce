@@ -54,7 +54,7 @@ async function workerCall(stateDir,auth,principal,project,request){
     child.stdout.on('data',x=>{stdout+=x;if(stdout.length>128*1024)child.kill('SIGKILL');});
     child.on('error',()=>{if(settled)return;settled=true;clearTimeout(timer);reject(Object.assign(new Error('worker adapter unavailable'),{status:503}));});
     child.on('close',code=>{if(settled)return;settled=true;clearTimeout(timer);let result;try{result=JSON.parse(stdout);}catch{reject(Object.assign(new Error('worker adapter failed'),{status:503}));return;}
-      if(code!==0){const denied=result.error==='PermissionError';reject(Object.assign(new Error(denied?'operation is not authorized':'worker adapter request failed'),{status:denied?403:400}));return;}resolve({...result,...(admission?{admission}:{})});});
+      if(code!==0){const denied=['PermissionError','CapabilityPreflightError'].includes(result.error),type=/^[A-Za-z]+Error$/.test(result.error??'')?result.error:null,diagnostic=/^UNDEFINED_SYMBOL:[A-Za-z_$][A-Za-z0-9_$]*$/.test(result.diagnostic_code??'')?result.diagnostic_code:null,error=Object.assign(new Error(result.preflight?.blockers?.length?'runtime capabilities are blocked':diagnostic??(type?`worker adapter failed (${type})`:'worker adapter request failed')),{status:denied?403:400});if(type)error.worker_error_type=type;if(result.preflight&&Array.isArray(result.preflight.blockers))error.preflight=result.preflight;reject(error);return;}resolve({...result,...(admission?{admission}:{})});});
     child.stdin.on('error',()=>{});child.stdin.end(JSON.stringify(payload));
   });
 }

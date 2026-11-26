@@ -12,7 +12,7 @@ class CodexLauncherTests(unittest.TestCase):
         self.binary = pathlib.Path(self.tmp.name) / "codex"
         self.binary.write_text("#!/bin/sh\nexit 0\n")
         self.binary.chmod(0o700)
-        self.admission = {"project_id": "project-a", "worker_id": "worker-project-a", "job_id": "run-12345678", "workspace": "/tmp/project-a", "checkpoint_sha": "a" * 40, "permission_profile": {"write_scope": "project-worktree", "allow_network": False}}
+        self.admission = {"project_id": "project-a", "worker_id": "worker-project-a", "job_id": "run-12345678", "workspace": "/tmp/project-a", "checkpoint_sha": "a" * 40, "required_capabilities": ["engineering"], "permission_profile": {"write_scope": "project-worktree", "allow_network": False}}
         self.preflight = {"capabilities": {name: {"status": "PASS"} for name in ("project_identity", "canonical_workspace", "authorized_branch", "source_repository", "workspace_write", "git_metadata", "mandate", "checkpoint", "codex_cli")}}
 
     def tearDown(self):
@@ -46,6 +46,8 @@ class CodexLauncherTests(unittest.TestCase):
     def test_rejects_missing_preflight_and_unlisted_runtime_gate(self):
         with self.assertRaises(PermissionError):
             build_codex_argv({"command": [str(self.binary)]}, self.admission, {})
+        with self.assertRaises(PermissionError):
+            build_codex_argv({"command": [str(self.binary)]}, {**self.admission, "required_capabilities": ["simple_text_processing"]}, {}, self.preflight)
         with self.assertRaises(PermissionError):
             build_codex_argv({"command": [str(self.binary)], "runtime_requirements": ["arbitrary_shell"]}, self.admission, {}, self.preflight)
 

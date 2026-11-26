@@ -110,3 +110,49 @@ class RoutingSafetyTests(unittest.TestCase):
     def test_endpoint_credentials_and_loopback_lookalikes_denied(self):
         for url in ['https://user:pass@router.invalid/v1', 'http://localhost:3@evil.invalid/v1', 'https://router.invalid/v1?key=value']:
             self.assertRaises(RouteRejected, FreeRoute('x', 'm', url, 'KEY', 0).validate)
+
+
+    def test_invalid_tool_schema_falls_back_only_to_structured_capability_route(self):
+        tools = [{"type": "function", "function": {"name": "inspect", "parameters": {"type": "object", "required": ["item"], "properties": {"item": {"type": "string"}}}}}]
+        first = FreeRoute("9router", "tool-a", "https://tool-a.example/v1", "TEST_9ROUTER_KEY", 0,
+                          "verified", True, 60, frozenset({"structured_tool_calling"}))
+        second = FreeRoute("freellmapi", "tool-b", "https://tool-b.example/v1", "TEST_FREELLMAPI_KEY", 0,
+                           "verified", True, 60, frozenset({"structured_tool_calling"}))
+        seen = []
+        def bad_transport(url, headers, body, timeout):
+            seen.append(url)
+            return ProviderResponse(200, json.dumps({"choices": [{"message": {"tool_calls": [{"id": "x", "type": "function", "function": {"name": "inspect", "arguments": "{broken"}}]}}]}).encode(), {})
+        def good_transport(url, headers, body, timeout):
+            seen.append(url)
+            return ProviderResponse(200, json.dumps({"choices": [{"message": {"tool_calls": [{"id": "y", "type": "function", "function": {"name": "inspect", "arguments": json.dumps({"item": "synthetic"})}}]}}]}).encode(), {})
+        router = FreeOnlyRouter([first, second], Path(self.temp.name) / "tools-routing.json")
+        providers = {"9router": OpenAICompatibleProvider(first, transport=bad_transport), "freellmapi": OpenAICompatibleProvider(second, transport=good_transport)}
+        result = FreeModelEngine(router, providers, Path(self.temp.name) / "tools-checkpoint.json").complete(
+            [{"role": "user", "content": "synthetic tool request"}], request_id="tools-1", tools=tools,
+            capabilities={"structured_tool_calling"})
+        self.assertEqual(seen, ["https://tool-a.example/v1/chat/completions", "https://tool-b.example/v1/chat/completions"])
+        self.assertEqual(result["choices"][0]["message"]["tool_calls"][0]["function"]["name"], "inspect")
+        self.assertGreater(router._state["cooldowns"][router._key(first)], 0)
+
+    def test_only_declared_capabilities_can_use_support_models(self):
+        engine = FreeModelEngine(self.router, {}, self.checkpoint)
+        with self.assertRaises(RouteRejected):
+            engine.complete([], request_id="runtime", capabilities={"runtime_orchestration"})
+        with self.assertRaises(RouteRejected):
+            engine.complete([], request_id="engineering-cap", capabilities={"engineering"})
+
+    def test_provider_unavailable_and_temporary_network_failure_use_bounded_fallback(self):
+        seen = []
+        def first(url, *_):
+            seen.append(url)
+            raise ProviderFailure("synthetic network interruption", retryable=True, kind="network_failure")
+        def second(url, *_):
+            seen.append(url)
+            return ProviderResponse(200, b'{"choices":[{"message":{"content":"recovered"}}]}', {})
+        providers = {"9router": OpenAICompatibleProvider(self.routes[0], transport=first),
+                     "freellmapi": OpenAICompatibleProvider(self.routes[1], transport=second)}
+        result = FreeModelEngine(self.router, providers, self.checkpoint).complete(
+            [{"role": "user", "content": "temporary interruption fixture"}], request_id="network-recovery")
+        self.assertEqual(result["choices"][0]["message"]["content"], "recovered")
+        self.assertEqual(len(seen), 2)
+        self.assertGreater(self.router._state["cooldowns"][self.router._key(self.routes[0])], 0)

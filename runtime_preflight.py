@@ -1,18 +1,38 @@
 """Read-only, fail-closed capability preflight for project-scoped jobs."""
 import os
 import pathlib
+import json
 import shutil
 import socket
 import stat
 import subprocess
 from datetime import datetime, timezone
+import tempfile
 
 
 def _status(state, detail):
     return {"status": state, "detail": detail}
 
 
-def collect_runtime_preflight(project, mandate, checkpoint_sha, environ=None):
+def _probe_unix_socket_bind():
+    root = tempfile.mkdtemp(prefix=f"sanro-workforce-socket-probe-{os.getuid()}-")
+    path = os.path.join(root, "probe.sock")
+    probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        probe.bind(path)
+        return _status("PASS", "temporary AF_UNIX bind succeeded; probe removed")
+    except OSError as error:
+        return _status("BLOCKED", "temporary AF_UNIX bind denied: " + error.__class__.__name__)
+    finally:
+        probe.close()
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
+        os.rmdir(root)
+
+
+def collect_runtime_preflight(project, mandate, checkpoint_sha, environ=None, codex_executable=None):
     """Inspect local readiness without opening network sockets or starting services."""
     environ = os.environ if environ is None else environ
     result = {}
@@ -60,6 +80,13 @@ def collect_runtime_preflight(project, mandate, checkpoint_sha, environ=None):
         result["workspace_write"] = result["git_metadata"] = result["authorized_branch"] = result["source_repository"] = _status("BLOCKED", "workspace validation failed")
 
     codex = shutil.which("codex", path=environ.get("PATH"))
+    if isinstance(codex_executable, str) and os.path.isabs(codex_executable) and pathlib.Path(codex_executable).name == "codex":
+        try:
+            candidate = pathlib.Path(codex_executable)
+            candidate.lstat()
+            codex = str(candidate) if candidate.is_file() and not candidate.is_symlink() and os.access(candidate, os.X_OK) else None
+        except OSError:
+            codex = None
     result["codex_cli"] = _status("PASS", "Codex CLI executable found") if codex else _status("BLOCKED", "Codex CLI executable unavailable")
     agent_socket = environ.get("SSH_AUTH_SOCK")
     try:
@@ -69,11 +96,26 @@ def collect_runtime_preflight(project, mandate, checkpoint_sha, environ=None):
         socket_ok = False
     result["ssh_agent"] = _status("PRESENT_UNVERIFIED", "agent socket path exists; no key listing or connection attempted") if socket_ok else _status("BLOCKED", "SSH agent socket unavailable; no connection attempted")
     result["network"] = _status("UNVERIFIED", "configuration does not prove socket/egress capability; no network probe attempted")
+    result["unix_socket"] = _probe_unix_socket_bind()
     result["approval_policy"] = _status("UNVERIFIED", "native approval decisions are controlled by runtime; approve-for-me is not approval-never")
-    result["mariadb"] = _status("BINARY_AVAILABLE_UNTESTED", "client and server executable lookup only; no server started") if shutil.which("mariadb", path=environ.get("PATH")) and shutil.which("mariadbd", path=environ.get("PATH")) else _status("BLOCKED", "MariaDB client/server binary unavailable")
+    binaries = bool(shutil.which("mariadb", path=environ.get("PATH")) and shutil.which("mariadbd", path=environ.get("PATH")) and shutil.which("mariadb-install-db", path=environ.get("PATH")))
+    result["mariadb"] = _status("BINARY_AVAILABLE_UNTESTED", "client/server/installer binaries found; no active database is inspected") if binaries else _status("BLOCKED", "MariaDB client/server/installer binary unavailable")
+    result["mariadb_isolated"] = _status("UNVERIFIED", "isolated server acceptance must pass before capability use") if binaries and result["unix_socket"]["status"] == "PASS" else _status("BLOCKED", "isolated MariaDB requires an available AF_UNIX bind and verified server startup")
     browser = next((shutil.which(n, path=environ.get("PATH")) for n in ("chromium", "chromium-browser", "google-chrome") if shutil.which(n, path=environ.get("PATH"))), None)
-    result["playwright_chromium"] = _status("READY_BINARY_ONLY", "browser executable found; Playwright launch not attempted") if browser else _status("BLOCKED", "Chromium executable unavailable; Playwright launch not attempted")
+    playwright_pkg = pathlib.Path(workspace, "apps/web/node_modules/playwright/package.json") if workspace else None
+    playwright_version = None
+    try:
+        playwright_version = json.loads(playwright_pkg.read_text(encoding="utf-8")).get("version") if playwright_pkg and playwright_pkg.is_file() else None
+    except (OSError, ValueError):
+        pass
+    browsers_root = pathlib.Path(environ["PLAYWRIGHT_BROWSERS_PATH"]) if environ.get("PLAYWRIGHT_BROWSERS_PATH") else (pathlib.Path(workspace, "apps/web/.cache/playwright") if workspace else None)
+    if browsers_root and browsers_root.is_dir():
+        browser = browser or next((str(candidate) for candidate in browsers_root.glob("chromium-*/chrome-linux64/chrome") if candidate.is_file()), None)
+    result["playwright_chromium"] = _status("READY_BINARY_ONLY", "Playwright " + str(playwright_version) + " and Chromium binary found; launch is not implied") if playwright_version and browser else _status("BLOCKED", "project Playwright package or Chromium executable unavailable")
+    result["browser_smoke"] = _status("UNVERIFIED", "browser must launch in the authorized sandbox and pass DOM/screenshot smoke")
     result["local_ci"] = _status("SCRIPT_AVAILABLE_UNTESTED", "repository scripts are discoverable, but no CI runner was invoked by preflight")
+    result["git_delivery"] = _status("APPROVAL_REQUIRED", "Git metadata write and push require native project-scoped runtime approval") if result["git_metadata"]["status"] == "BLOCKED" else _status("UNVERIFIED", "commit/push require a verified job-level Git capability")
+    result["ssh_staging"] = _status("BLOCKED", "SSH agent and verified project-specific staging target allowlist are both required")
     result["staging_target"] = _status("BLOCKED", "no project-specific staging target allowlist supplied")
     result["checkpoint_evidence"] = _status("AVAILABLE", "checkpoint SHA supplied") if result["checkpoint"]["status"] == "PASS" else _status("BLOCKED", "checkpoint evidence missing")
     return {"schema_version": 1, "project_id": (project or {}).get("id"), "capabilities": result,

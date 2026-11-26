@@ -22,6 +22,9 @@ class RouteRejected(ValueError):
     pass
 
 
+WORKLOAD_CAPABILITIES = frozenset({"engineering", "structured_tool_calling", "runtime_orchestration", "monitoring", "summarization", "simple_text_processing"})
+
+
 @dataclass(frozen=True)
 class FreeRoute:
     provider_id: str
@@ -32,6 +35,7 @@ class FreeRoute:
     reliability: str = "unverified"
     engineering_tools: bool = False
     quota_cooldown_seconds: int = 60
+    capabilities: frozenset[str] = frozenset({"summarization", "simple_text_processing", "monitoring"})
 
     def validate(self) -> None:
         if not self.provider_id or not self.model or not self.key_env:
@@ -45,6 +49,12 @@ class FreeRoute:
             raise RouteRejected("route endpoint must use HTTPS or loopback")
         if type(self.quota_cooldown_seconds) is not int or not 1 <= self.quota_cooldown_seconds <= 86400:
             raise RouteRejected("quota cooldown must be positive")
+        if not isinstance(self.capabilities, (set, frozenset, tuple, list)) or not set(self.capabilities) <= WORKLOAD_CAPABILITIES:
+            raise RouteRejected("route contains an unknown workload capability")
+        if "engineering" in self.capabilities:
+            raise RouteRejected("engineering execution remains assigned to Codex")
+        if "structured_tool_calling" in self.capabilities and not self.engineering_tools:
+            raise RouteRejected("structured tool calling requires an explicitly qualified route")
         if self.engineering_tools and self.reliability != "verified":
             raise RouteRejected("engineering tools require an explicitly verified route")
 
@@ -103,10 +113,15 @@ class FreeOnlyRouter:
             except FileNotFoundError:
                 pass
 
-    def choose(self, *, engineering_tools: bool = False, now: float | None = None) -> FreeRoute:
+    def choose(self, *, engineering_tools: bool = False, capabilities: set[str] | frozenset[str] | None = None, now: float | None = None) -> FreeRoute:
         now = time.time() if now is None else now
+        required = set(capabilities or ())
+        if not required <= WORKLOAD_CAPABILITIES:
+            raise RouteRejected("unknown job workload capability")
+        if "engineering" in required:
+            raise RouteRejected("engineering executor is Codex CLI")
         cooldowns = self._state["cooldowns"]
-        candidates = [r for r in self.routes if r.reliability == "verified" and (not engineering_tools or r.engineering_tools)]
+        candidates = [r for r in self.routes if r.reliability == "verified" and (not engineering_tools or r.engineering_tools) and required <= set(r.capabilities) and ("structured_tool_calling" not in required or r.engineering_tools)]
         for route in candidates:
             if float(cooldowns.get(self._key(route), 0)) <= now:
                 return route

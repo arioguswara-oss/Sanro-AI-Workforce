@@ -117,9 +117,9 @@ export class Director {
     return next;
   }
   heartbeat(run,status){this.db.prepare(`INSERT INTO worker_heartbeats VALUES(?,?,?,?,?,?,?) ON CONFLICT(worker_id,project_id) DO UPDATE SET status=excluded.status,run_id=excluded.run_id,job_id=excluded.job_id,observed_at=excluded.observed_at`).run(stageRoles[run.stage]??'director',run.project_id,stageRoles[run.stage]??'director',status,run.id,run.job_id,iso());}
-  block(run,reason){
+  block(run,reason,checkpointJson=undefined){
     this.db.exec('BEGIN IMMEDIATE');try{
-      const next=this.change(run,{state:'BLOCKED',blocker:reason});this.heartbeat(next,'blocked');
+      const next=this.change(run,{state:'BLOCKED',blocker:reason,...(checkpointJson!==undefined?{checkpoint_json:checkpointJson}:{})});this.heartbeat(next,'blocked');
       const delivery_key=`blocker:${run.id}:${run.recovery_count}`;
       const payload={version:1,event:'BLOCKER',project_id:run.project_id,run_id:run.id,task_id:run.task_id,job_id:run.job_id,blocker:reason,delivery_key,approval_required:reason==='MANDATE_EXPIRED_OR_REVOKED'||reason==='SIDE_EFFECT_REVIEW_REQUIRED'};
       this.db.prepare('INSERT OR IGNORE INTO report_outbox(id,project_id,owner,run_id,delivery_key,payload,created_at,delivered_at) VALUES(?,?,?,?,?,?,?,NULL)').run(randomUUID(),run.project_id,run.owner,run.id,delivery_key,JSON.stringify(payload),iso());
@@ -134,7 +134,7 @@ export class Director {
       for(const run of runs){
         const principal=[...this.auth.principals.values()].find(p=>p.subject===run.owner),project=this.auth.projects.get(run.project_id);
         if(!project||!this.active(principal,project,run.approval_ref)){this.block(run,'MANDATE_EXPIRED_OR_REVOKED');continue;}
-        try{await this.step(run,principal,project);}catch{this.block(this.get(run.id),'EXECUTOR_UNAVAILABLE_OR_CANDIDATE_UNSAFE');}
+        try{await this.step(run,principal,project);}catch(error){let checkpoint={};try{checkpoint=JSON.parse(run.checkpoint_json??'{}');}catch{}if(error.preflight&&Array.isArray(error.preflight.blockers)){checkpoint.runtime_preflight=error.preflight;checkpoint.updated_at=iso();this.block(this.get(run.id),'RUNTIME_CAPABILITIES_BLOCKED',JSON.stringify(checkpoint));}else if(typeof error.worker_error_type==='string'){checkpoint.execution_error_type=error.worker_error_type;checkpoint.updated_at=iso();this.block(this.get(run.id),'EXECUTOR_UNAVAILABLE_OR_CANDIDATE_UNSAFE',JSON.stringify(checkpoint));}else this.block(this.get(run.id),'EXECUTOR_UNAVAILABLE_OR_CANDIDATE_UNSAFE');}
       }
       return true;
     }finally{this.busy=false;}
@@ -150,7 +150,7 @@ export class Director {
         let checkpoint={};try{checkpoint=JSON.parse(run.checkpoint_json??'{}');}catch{}
         checkpoint={...checkpoint,project_id:project.id,run_id:run.id,job_id:null,worker_id:project.worker_id??checkpoint.worker_id??null,branch:project.branch,source_sha:baseline_sha,execution_stage:run.stage,artifact_state:checkpoint.artifact_state??'NOT_STARTED',resume_eligibility:'NOT_ELIGIBLE',updated_at:iso()};
         // Persist exact input BEFORE enqueue so a restart reuses identical argv.
-        instruction=JSON.stringify({version:1,run_id:run.id,project_id:project.id,task_id:task.id,title:task.title,instruction:task.description,stage:run.stage,attempt:run.attempt,baseline_sha,candidate_sha:run.candidate_sha,boundaries:['NO_MERGE','NO_PRODUCTION','NO_PAID_API','NO_OTHER_REPOSITORY'],executor:run.stage==='QA'?'local-ci':'codex'});
+        instruction=JSON.stringify({version:1,run_id:run.id,project_id:project.id,task_id:task.id,title:task.title,instruction:task.description,stage:run.stage,attempt:run.attempt,baseline_sha,candidate_sha:run.candidate_sha,boundaries:['NO_MERGE','NO_PRODUCTION','NO_PAID_API','NO_OTHER_REPOSITORY'],executor:run.stage==='QA'?'local-ci':'codex',required_capabilities:run.stage==='QA'?['local_ci']:['engineering']});
         this.db.prepare('UPDATE director_runs SET instruction_json=?,checkpoint_json=? WHERE id=?').run(instruction,JSON.stringify(checkpoint),run.id);run.checkpoint_json=JSON.stringify(checkpoint);
       }
       const result=await this.workerCall(principal,project,{action:'submit',profile,approval_ref:run.approval_ref,idempotency_key:`director:${run.id}:${run.stage}:${run.attempt}:${run.recovery_count}`,instruction});
