@@ -5,7 +5,7 @@
   "branch": "feature/hermes-workforce-foundation",
   "baseline_sha": "9a77dc5bf31239b980e3e53c371e49e79a7e9ca6",
   "tested_source_sha": "5c986863f6dc2e6d4f25b1701d050c90c9e1cc5e",
-  "checkpoint_sha": "documentation commit follows; final repository HEAD is reported after push",
+  "checkpoint_sha": "1471ba3dcd6a249fe6dedfb4f2baa2d99759491d",
   "draft_pr": 2,
   "results": {
     "source_edit_lint_build": {

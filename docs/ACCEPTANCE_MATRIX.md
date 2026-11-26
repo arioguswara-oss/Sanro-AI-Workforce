@@ -49,7 +49,7 @@ The full `apps/api` suite passed **21/21**, including synthetic Git-snapshot, Di
 | Capability-aware support-model fallback | VERIFIED SYNTHETIC | 9Router/FreeLLMAPI fixtures: workload filtering, quota cooldown, malformed tool-call rejection, temporary network fallback and pause/resume |
 | MariaDB isolated server/SQL | BLOCKED | Temporary datadir initialized; isolated server Unix socket bind failed with `Operation not permitted`; no schema/data query ran |
 | Playwright/Chromium DOM/screenshot | BLOCKED | Playwright 1.65.1 and Chromium headless shell 159.0.8154.6 installed project-scoped; runtime sandbox terminated launch with `Operation not permitted`; no screenshot |
-| Git metadata and delivery | APPROVAL_REQUIRED | Normal process cannot write `.git`; project-scoped runtime reviewer required. Source commit `5c986863f6dc2e6d4f25b1701d050c90c9e1cc5e`; checkpoint commit and push outcome reported after delivery |
+| Git metadata and delivery | PASS | Normal process cannot write `.git`; scoped native reviewer approved commits/push. Tested source `5c986863f6dc2e6d4f25b1701d050c90c9e1cc5e`; checkpoint commit `1471ba3dcd6a249fe6dedfb4f2baa2d99759491d`; pushed fast-forward to same branch |
 | SSH staging | BLOCKED | SSH agent socket unavailable in inherited context and no project staging target allowlist; no connection attempted |
 | Production/live Hermes | NOT TESTED | No live service, database, provider, Studio workspace, staging target or production resource was accessed |
 
