@@ -1,0 +1,67 @@
+{
+  "milestone": "SANRO Private Cloud Browser V1",
+  "date": "2026-11-26",
+  "repository": "arioguswara-oss/Sanro-AI-Workforce",
+  "branch": "feature/hermes-workforce-foundation",
+  "baseline_sha": "397b7cb1884023b875d182927095a54f9d15ab8f",
+  "tested_source_sha": "397b7cb1884023b875d182927095a54f9d15ab8f",
+  "host_runtime_validation": {
+    "status": "BLOCKED_BEFORE_HOST_CONNECTION",
+    "authorized_host": "existing Hermes VPS vmi3646685 (owner-authorized target; no connection made)",
+    "ssh_agent_check": "FAIL: ssh-add -l returned Error connecting to agent: No such file or directory",
+    "remote_command_attempted": false,
+    "host_capacity": "4 vCPU / 8 GB RAM reported in prior evidence; not measured in this session",
+    "chromium_sandbox_compatibility": "NOT TESTED ON HOST",
+    "kernel_userns_appArmor_browser_dependencies": "NOT TESTED ON HOST",
+    "compatibility_with_Hermes": "NOT TESTED; Core was only previously observed live; not queried or modified this run"
+  },
+  "implementation": {
+    "status": "HOST_ACCEPTANCE_PACKAGE_PREPARED; SERVICE_NOT_ACTIVATED",
+    "reused": "@playwright/mcp@0.0.86, apps/web/playwright-mcp.config.json, project browser cache, existing seven-tool project allowlist",
+    "new_dependencies": 0,
+    "new_entrypoint": "apps/web/scripts/private-browser-mcp-acceptance.mjs",
+    "entrypoint_design": "one-shot non-root synthetic acceptance; ephemeral loopback MCP and fixture ports; sandbox=true; private per-run screenshot; MCP initialize/tools/list and browser flow; process cleanup; host facts and process-tree RSS/CPU tick sampling",
+    "exact_authorized_host_invocation": "SANRO_PROJECT_ID=sanro-ai-workforce SANRO_JOB_ID=private-browser-v1-acceptance-20261126 node apps/web/scripts/private-browser-mcp-acceptance.mjs",
+    "actual_invocation": false,
+    "persistent_authenticated_gateway": "NOT IMPLEMENTED",
+    "project_job_native_admission": "HOST_EXECUTOR_INTEGRATION_UNAVAILABLE",
+    "network_egress_boundary": "NOT IMPLEMENTED; Playwright origin allowlist alone is explicitly insufficient",
+    "resource_limit_service_unit": "NOT IMPLEMENTED OR ACTIVATED",
+    "codex_http_registration": "NOT WRITTEN; endpoint and authenticated tunnel unavailable",
+    "hermes_integration": "NOT TESTED OR ACTIVATED; no official isolated runtime interface present",
+    "host_policy_changes": false
+  },
+  "browser_acceptance": {
+    "status": "NOT RUN; HOST ACCESS BLOCKED",
+    "prior_codex_sandbox_failure": "No usable sandbox; SIGTRAP; not repeated",
+    "host_mcp_initialize_tools_list_browser_flow": "NOT TESTED",
+    "browser_version": null,
+    "mcp_version": "0.0.86 (pinned, not runtime-verified on host)",
+    "screenshot": null,
+    "actual_cpu_usage": null,
+    "actual_peak_rss_bytes": null,
+    "reported_capacity": "4 vCPU / 8 GB RAM; not a measurement"
+  },
+  "security_gaps_that_block_activation": [
+    "No authenticated client gateway bound to Workforce project/job and native approval",
+    "No verified service-level default-deny network egress control that covers redirects, DNS, private/link-local, and metadata destinations",
+    "Existing runtime wrapper denies socket syscalls and cannot run MCP HTTP without an approved compatible isolated runtime profile",
+    "No reviewed persistent supervisor with one-job FIFO, CPU/memory limits, and per-project/job lifecycle cleanup",
+    "No verified official isolated Hermes runtime registration interface"
+  ],
+  "regressions": {
+    "node_syntax_check": "PASS: node --check apps/web/scripts/private-browser-mcp-acceptance.mjs",
+    "python_project_runtime_executor": "PASS: 9 tests",
+    "node_api": "NOT RUN; apps/api has no node_modules or package lock; no install attempted",
+    "host_browser_acceptance": "NOT RUN"
+  },
+  "interactive_approvals": {
+    "MCP_owner_facing_prompts_observed": 0,
+    "native_host_execution_approvals_observed": 0,
+    "native_shell_escalations_this_continuation": 0,
+    "host_executor_invoked": false,
+    "counting_note": "This continuation observed zero interactive MCP prompts, zero native host execution approvals, and zero shell escalations. The prior GDI-02R record separately counted one escalated package install and two failed config-write attempts; those historical setup operations are not MCP approval prompts or current host approvals."
+  },
+  "cleanup": "No browser/MCP/host process was started. No screenshot/temp artifacts, service, worker, or Hermes resource created or changed.",
+  "delivery_sha": "PENDING"
+}

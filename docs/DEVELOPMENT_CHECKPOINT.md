@@ -1,5 +1,17 @@
 # Hermes-first development checkpoint — 25 November 2026 Jakarta
 
+## SANRO Private Cloud Browser V1 — host execution package — 2026-11-26
+
+- Starting/tested source SHA: `397b7cb1884023b875d182927095a54f9d15ab8f`; authorized branch `feature/hermes-workforce-foundation`.
+- Reused `@playwright/mcp@0.0.86`, the existing isolated Chromium project config/cache and seven-tool allowlist. Added `apps/web/scripts/private-browser-mcp-acceptance.mjs`: a one-shot, non-root synthetic MCP host smoke with loopback ephemeral ports, MCP lifecycle/tool calls, private screenshot artifacts, cleanup verification and host/resource measurements. No dependency was installed.
+- Exact invocation for the authorized host executor, from the project checkout: `SANRO_PROJECT_ID=sanro-ai-workforce SANRO_JOB_ID=private-browser-v1-acceptance-20261126 node apps/web/scripts/private-browser-mcp-acceptance.mjs`. It must be invoked only after existing Workforce project/branch/mandate/zero-cost/native-approval validation.
+- Host access is **BLOCKED**: `ssh-add -l` returned `Error connecting to agent: No such file or directory`. The SSH alias did not identify a verified VPS execution route, so no remote connection was attempted. Prior reported VPS capacity is 4 vCPU / 8 GB; it was not measured in this session. Host user-namespace/AppArmor/dependency compatibility and actual Chromium launch are NOT TESTED.
+- The current fixed runtime wrapper's seccomp denies socket syscalls; it cannot run this MCP-over-HTTP runner. It remains unchanged. No sandbox policy change or alternate shell route was used.
+- A persistent authenticated browser gateway, project/job service admission, redirect-safe default-deny egress, cgroup CPU/memory limits, service supervisor, Codex remote HTTP registration, and isolated Hermes runtime integration are **NOT IMPLEMENTED/ACTIVE**. The Playwright allowed-origin setting is not considered a security boundary. Service activation is **NO-GO** pending a reviewed host executor boundary and actual acceptance.
+- MCP host flow, screenshot, measured CPU/RSS, and resource cleanup: **NOT RUN**. Existing Chromium failure (`No usable sandbox`, `SIGTRAP`) was not repeated. Hermes and active workers were untouched.
+- Approval accounting for this continuation: **0 interactive MCP owner prompts**, **0 native host execution approvals**, **0 shell escalations**, host executor invocations **0**. The previous GDI-02R record's **1 escalated package install** and **2 failed config-write attempts** are historical setup-command counts, not MCP prompts or current host approvals.
+- Machine-readable record: [Private Cloud Browser V1 evidence](evidence/PRIVATE_CLOUD_BROWSER_V1_20261126.json). This checkpoint records implementation readiness without claiming host runtime PASS.
+
 ## Fresh-session Playwright MCP runtime acceptance — 2026-11-26
 
 - Tested source SHA: `1a35dcb910602d39d8efd0a1e26470688d05dd3e`; branch `feature/hermes-workforce-foundation`.

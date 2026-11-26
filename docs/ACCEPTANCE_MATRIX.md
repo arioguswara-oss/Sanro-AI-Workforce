@@ -100,3 +100,17 @@ The MCP package's transitive Playwright `1.66.0-alpha-2026-11-18` expects Chromi
 | Resource cleanup | PASS | No Chromium/MCP/profile process remained; no screenshot or temporary page |
 
 Observed approval prompts: **0**. Tested source SHA: `1a35dcb910602d39d8efd0a1e26470688d05dd3e`; delivery SHA is recorded in the follow-up commit. No sandbox relaxation, alternate browser transport, global configuration change, Hermes access, or production access occurred.
+
+## Private Cloud Browser V1 — host execution package — 2026-11-26
+
+| Area | Result | Evidence |
+|---|---|---|
+| Reuse pinned Playwright MCP and project browser configuration | PASS (source package) | Reuses `@playwright/mcp@0.0.86`, seven-tool config, cached Chromium; no dependencies added |
+| Host authorization and sandbox/capacity validation | BLOCKED | SSH agent unavailable (`ssh-add -l`: no agent socket); reported 4 vCPU / 8 GB not measured |
+| MCP and synthetic browser flow on the authorized host | NOT RUN | One-shot host runner prepared; no host execution or sandbox retry |
+| Loopback acceptance flow, private artifacts, cleanup and resource sampling | IMPLEMENTED, NOT RUNTIME-VERIFIED | New runner performs initialize/tools/list, synthetic DOM flow, screenshot, process cleanup and host/RSS/CPU-tick evidence |
+| Authenticated persistent service and project/job gateway | NOT IMPLEMENTED | Requires native Workforce host executor integration; no general MCP listener activated |
+| Default-deny egress and CPU/memory enforcement | NOT IMPLEMENTED | Requires reviewed per-service host boundary; MCP origin allowlist is not treated as enforcement |
+| Codex/Hermes registration | NOT ACTIVE | Codex HTTP URL held until gateway exists; no verified isolated Hermes interface |
+
+Focused source checks are recorded in `docs/evidence/PRIVATE_CLOUD_BROWSER_V1_20261126.json`. Current readiness is **NO-GO** for service activation; the host execution package is ready for the authorized executor after SSH/runtime access is restored.
