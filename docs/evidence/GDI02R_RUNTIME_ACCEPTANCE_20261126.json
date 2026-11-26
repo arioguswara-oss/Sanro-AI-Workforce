@@ -142,6 +142,6 @@
     },
     "security_and_cleanup": "No active worker, Hermes service, production resource, or global Codex configuration touched. No browser process or screenshot created. No sandbox relaxation, origin bypass, or live network browser navigation performed.",
     "hermes_config_changed": false,
-    "branch_delivery": "pending fast-forward push; no amend or force push"
+    "branch_delivery": "FAST_FORWARD_PUSHED; origin/feature/hermes-workforce-foundation advanced 44f7136..24d00d1; no amend, force push, or merge"
   }
 }
