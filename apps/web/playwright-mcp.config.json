@@ -1,0 +1,24 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "isolated": true,
+    "launchOptions": {
+      "headless": true,
+      "chromiumSandbox": true
+    },
+    "contextOptions": {
+      "viewport": {
+        "width": 900,
+        "height": 600
+      }
+    }
+  },
+  "network": {
+    "allowedOrigins": ["http://127.0.0.1:*"]
+  },
+  "outputDir": "./evidence/playwright-mcp",
+  "timeouts": {
+    "action": 5000,
+    "navigation": 10000
+  }
+}

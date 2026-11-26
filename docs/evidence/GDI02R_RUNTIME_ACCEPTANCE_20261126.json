@@ -83,5 +83,63 @@
     "security": "Fixed operation map, empty arguments, approved project/branch/checkpoint/mandate/operation scope, profile-bounded timeout <=300s, hash-only native approval evidence, existing worktree lock, private checkpoint/audit, per-job temporary directory and existing Landlock/seccomp inherited by runtime children. No sandbox relaxations.",
     "host_registration_artifact": "docs/integrations/GDI02R_RUNTIME_EXECUTOR.md",
     "note": "The Node route test injects a synthetic adapter returning BLOCKED; it does not execute Chromium or MariaDB and is not runtime evidence."
+  },
+  "playwright_mcp_integration": {
+    "starting_sha": "44f713686140fc521b0066a6178191ea187694d1",
+    "package": {
+      "name": "@playwright/mcp",
+      "version": "0.0.86",
+      "repository": "https://github.com/microsoft/playwright-mcp",
+      "registry_tarball": "https://registry.npmjs.org/@playwright/mcp/-/mcp-0.0.86.tgz",
+      "integrity": "sha512-4SL9OSINmik3+EObCYJIxH8BkhcqqGU6CM8XIgztW015iBVR9WR6Q0xF180Ery+xuEVyyK5r6nC2bOg3zjgCoA==",
+      "install_scope": "apps/web devDependency",
+      "install_result": "3 packages added; npm audit 0 vulnerabilities",
+      "node": "22.22.1",
+      "mcp_transitive_playwright": "1.66.0-alpha-2026-11-18",
+      "expected_chromium": "159.0.8154.6 revision 1255",
+      "existing_project_cache": "Headless Shell 159.0.8154.6 revision 1255"
+    },
+    "codex_registration": {
+      "config": ".codex/config.toml",
+      "server_command": "npm --prefix apps/web exec -- playwright-mcp --config playwright-mcp.config.json",
+      "enabled_tools": ["browser_navigate", "browser_snapshot", "browser_click", "browser_fill_form", "browser_evaluate", "browser_take_screenshot", "browser_close"],
+      "startup_timeout_seconds": 30,
+      "tool_timeout_seconds": 20,
+      "browser_config": "apps/web/playwright-mcp.config.json",
+      "headless": true,
+      "isolated_context": true,
+      "chromium_sandbox": true,
+      "hostinger_preserved": true,
+      "discovery": "codex mcp list and codex mcp get show project server enabled and Hostinger enabled"
+    },
+    "mcp_runtime": {
+      "initialize": "BLOCKED",
+      "tools_list": "NOT REACHED",
+      "actual_tool_calls": 0,
+      "observation": "Official bundled MCP SDK stdio client received connection closed before initialize completed; child exited code 0 with no stdout/stderr response. A direct stdio probe also received no response. Server --help and version work; no browser operation was invoked.",
+      "browser_acceptance": "BLOCKED BEFORE BROWSER LAUNCH",
+      "dom_click_fill_javascript": "NOT TESTED",
+      "screenshot": null,
+      "screenshot_evidence": "NONE",
+      "chromium_security_sandbox_disabled": false
+    },
+    "hermes_integration": "NOT TESTED; task requires successful Codex browser acceptance first; live Hermes configuration and services untouched",
+    "checks": {
+      "npm_ls": "PASS",
+      "npm_install_audit": "PASS; 0 vulnerabilities",
+      "vite_build": "PASS; Vite 8.4.0",
+      "codex_project_config_discovery": "PASS",
+      "actual_mcp_initialization": "BLOCKED"
+    },
+    "interactive_approvals": {
+      "owner_facing_prompts_observed": 0,
+      "native_escalated_install_commands": 1,
+      "escalated_config_write_attempts_failed": 2,
+      "final_config_written_by": "native apply_patch",
+      "note": "Counts are observed tool interactions only; no prompt was presented to Owner."
+    },
+    "security_and_cleanup": "No active worker, Hermes service, production resource, or global Codex configuration touched. No browser process or screenshot created. No sandbox relaxation, origin bypass, or live network browser navigation performed.",
+    "hermes_config_changed": false,
+    "final_sha": null
   }
 }

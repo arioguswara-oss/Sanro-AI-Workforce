@@ -1,5 +1,16 @@
 # Hermes-first development checkpoint — 25 November 2026 Jakarta
 
+## Playwright MCP project integration — 2026-11-26
+
+- **Starting SHA:** `44f713686140fc521b0066a6178191ea187694d1`; authorized Workforce branch was clean before this change.
+- **IMPLEMENTED:** pinned official Microsoft `@playwright/mcp` **0.0.86** as an `apps/web` dev dependency. npm lock records registry integrity; package metadata identifies `microsoft/playwright-mcp`. Its transitive Playwright `1.66.0-alpha-2026-11-18` expects Chromium revision `1255`, matching the existing project cache's Headless Shell `159.0.8154.6`.
+- **IMPLEMENTED:** `.codex/config.toml` registers the project-local executable, enables only `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_fill_form`, `browser_evaluate`, `browser_take_screenshot`, and `browser_close`, and caps startup/tool timeouts at 30/20 seconds. `apps/web/playwright-mcp.config.json` requests isolated headless Chromium with `chromiumSandbox: true`, loopback test origin allowance, bounded action/navigation timeouts, and project evidence output. Global Codex config was not edited.
+- **VERIFIED RUNTIME (configuration only):** `codex mcp list` and `codex mcp get playwright --json` discover the project entry as enabled; existing Hostinger remains enabled and unchanged. `npm --prefix apps/web exec -- playwright-mcp --version` reports 0.0.86. Install audit: 0 vulnerabilities. Vite build PASS.
+- **MCP initialization — BLOCKED:** actual stdio client initialization closed before `tools/list`; the server child exited code 0 without stdout/stderr response. Codex registration is not proof of MCP tool discovery. No browser tool call, browser launch, screenshot, or Chromium runtime acceptance occurred; stop at this boundary and do not retry via alternate transport or weaken sandbox.
+- **Hermes — NOT TESTED:** GDI task condition requires successful Codex browser acceptance first. No Hermes config, live service, or worker was touched.
+- **Approval observations:** 0 Owner-facing interactive prompts observed. One scoped npm installation ran through native escalation; no global config or permission changes. Two attempts to write the protected project config via escalated shell failed because the `.codex` directory was absent in that execution context; the authorized project file was subsequently added using native patch. No persistent partial config was left by the failed attempts.
+- **Test basis:** base SHA above plus this working-tree delta; package install/audit, Codex config discovery, MCP handshake probe and Vite build are recorded in `docs/evidence/GDI02R_RUNTIME_ACCEPTANCE_20261126.json`. Browser acceptance remains BLOCKED before browser launch; no screenshot evidence exists.
+
 ## GDI-02R project-scoped runtime wrapper — 2026-11-26
 
 - **Baseline:** continued from `f098e14579fa2687c1432c3366144646ed481471`; prior GDI implementation retained.

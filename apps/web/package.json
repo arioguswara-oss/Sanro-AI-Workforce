@@ -12,6 +12,7 @@
     "react-dom": "19.2.7"
   },
   "devDependencies": {
+    "@playwright/mcp": "0.0.86",
     "playwright": "1.65.1",
     "vite": "8.4.0"
   }
