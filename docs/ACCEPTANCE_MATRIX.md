@@ -142,3 +142,17 @@ Focused source checks are recorded in `docs/evidence/PRIVATE_CLOUD_BROWSER_V1_20
 | Local CI Playwright, Chromium, screenshot, cleanup | NOT TESTED | Native callback and QA profile authorization not activated |
 
 Candidate acceptance **NO-GO for runtime activation**. Total targeted result: 60 PASS / 0 FAIL. Both profiles use OS user `sanro`; profile scoping does not provide OS isolation. See [native profile integration and activation procedure](integrations/SANRO_QA_NATIVE_HERMES_PROFILE_V1.md) and [sanitized evidence](evidence/SANRO_QA_NATIVE_HERMES_PROFILE_V1_20261126.json).
+
+## Final functional activation preflight — 2026-11-26
+
+| Gate | Result | Evidence |
+|---|---|---|
+| Hermes plugin contract | SOURCE REVIEW PASS | v0.22.0 supports directory plugins, tool registration, profile-scoped plugin enable, and `requires_env` secret prompting during install |
+| Candidate secure token provisioning | BLOCKED | `plugin.yaml` does not declare `requires_env`; the activation helper only stages and enables; no profile secret was created or copied |
+| Native per-job approval | BLOCKED | Hermes approval transport routes an existing human request but does not create approval policy; Workforce requires an injected native callback bound to project/job/operation |
+| Authorized executor registration | BLOCKED | API `createApp` accepts `runtimeExecutor`, but default server startup supplies none and runtime route fails closed with 503 |
+| Pilot repository authorization | BLOCKED | Candidate binds `sanro-ai-workforce`; `SANRO-Browser-QA` has no verified Project Registry/host auth binding in this checkout |
+| Host execution availability | BLOCKED | No callable VPS executor is exposed in this session; no sandbox escape or repeated host attempt was made |
+| Chromium/Playwright functional acceptance | NOT TESTED | No valid authorized end-to-end execution path or Job ID |
+
+Prior 60/60 source suite and 11/11 Backup/DR regressions remain reused evidence from SHA `5f465facc3a77dd3237f3f171ace1783a6e07d4f`; they were not rerun. Current functional status is **NO-GO**. See [activation preflight evidence](evidence/SANRO_FINAL_FUNCTIONAL_ACTIVATION_PREFLIGHT_20261126.json).
