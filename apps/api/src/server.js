@@ -43,7 +43,7 @@ function privateDirectory(path){mkdirSync(path,{recursive:true,mode:0o700});cons
 async function workerCall(stateDir,auth,principal,project,request){
   let admission=null,mandate=null,commandProfile=null;
   if(request.action==='submit'||request.action==='runtime'){
-    commandProfile=auth.profiles[request.profile];const runtimeScope=request.action==='runtime'?(commandProfile?.runtime_operation==='browser_smoke'?'runtime:browser':commandProfile?.runtime_operation==='mariadb_synthetic'?'runtime:mariadb':null):null;
+    commandProfile=auth.profiles[request.profile];const runtimeScope=request.action==='runtime'?(['browser_smoke','private_browser_acceptance'].includes(commandProfile?.runtime_operation)?'runtime:browser':commandProfile?.runtime_operation==='mariadb_synthetic'?'runtime:mariadb':null):null;
     if(request.action==='runtime'&&!runtimeScope)throw Object.assign(new Error('runtime operation is not authorized'),{status:403});
     mandate=approvalStatus(auth,principal,project.id,request.approval_ref,runtimeScope??'engineering:execute');
     admission=await validateJobAdmission({auth,principal,project,request,mandate,commandProfile});
@@ -73,6 +73,10 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
   process.umask(0o077);const store=new Store(dbPath);chmodSync(dbPath,0o600);store.seedProjects([...auth.projects.values()]);
   const db=store.db;
   const herdrBackend=process.env.WORKFORCE_WORKER_BACKEND==='herdr';
+  // Runtime acceptance is serialized globally: jobs wait in arrival order so a
+  // private browser unit is the only active browser job at any time.
+  let runtimeTail=Promise.resolve(),runtimeQueueDepth=0;
+  const enqueueRuntime=run=>{if(runtimeQueueDepth>=16)throw Object.assign(new Error('private runtime FIFO is full'),{status:429});runtimeQueueDepth++;const queued=runtimeTail.then(run,run);runtimeTail=queued.catch(()=>{}).finally(()=>{runtimeQueueDepth=Math.max(0,runtimeQueueDepth-1);});return queued;};
   let workerController;
   if(herdrBackend){
     if(startWorker)throw new Error('Herdr worker autostart is forbidden; use the scoped worker-control route after approval');
@@ -85,16 +89,18 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
     if(herdrBackend&&project.id!==workerController.projectId)
       throw Object.assign(new Error('Herdr supervisor is provisioned for one project only'),{status:404});
     if(request.action==='runtime'&&runtimeExecutor){
-      const profile=auth.profiles[request.profile],scope=profile?.runtime_operation==='browser_smoke'?'runtime:browser':profile?.runtime_operation==='mariadb_synthetic'?'runtime:mariadb':null;
-      if(!scope)throw Object.assign(new Error('runtime profile is not allowlisted'),{status:403});
-      const mandate=approvalStatus(auth,principal,project.id,request.approval_ref,scope);
-      const admission=await validateJobAdmission({auth,principal,project,request,mandate,commandProfile:profile});
-      const invokeAfterNativeApproval=nativeApproval=>{
-        if(!nativeApproval||nativeApproval.approved!==true||nativeApproval.actor!==principal.subject||nativeApproval.project_id!==project.id||nativeApproval.job_id!==request.idempotency_key||nativeApproval.operation!==profile.runtime_operation||typeof nativeApproval.id!=='string'||nativeApproval.id.length<8||nativeApproval.id.length>512)throw Object.assign(new Error('native runtime approval is required'),{status:403});
-        const evidence_sha256=createHash('sha256').update(nativeApproval.id).digest('hex');
-        return workerCall(stateDir,auth,principal,project,{...request,native_approval:{approved:true,evidence_sha256}});
-      };
-      return runtimeExecutor({stateDir,principal,project,profile,mandate,admission,request,nativeApprovalRequired:true,invokeAfterNativeApproval});
+      return enqueueRuntime(async()=>{
+        const profile=auth.profiles[request.profile],scope=['browser_smoke','private_browser_acceptance'].includes(profile?.runtime_operation)?'runtime:browser':profile?.runtime_operation==='mariadb_synthetic'?'runtime:mariadb':null;
+        if(!scope)throw Object.assign(new Error('runtime profile is not allowlisted'),{status:403});
+        const mandate=approvalStatus(auth,principal,project.id,request.approval_ref,scope);
+        const admission=await validateJobAdmission({auth,principal,project,request,mandate,commandProfile:profile});
+        const invokeAfterNativeApproval=nativeApproval=>{
+          if(!nativeApproval||nativeApproval.approved!==true||nativeApproval.actor!==principal.subject||nativeApproval.project_id!==project.id||nativeApproval.job_id!==request.idempotency_key||nativeApproval.operation!==profile.runtime_operation||typeof nativeApproval.id!=='string'||nativeApproval.id.length<8||nativeApproval.id.length>512)throw Object.assign(new Error('native runtime approval is required'),{status:403});
+          const evidence_sha256=createHash('sha256').update(nativeApproval.id).digest('hex');
+          return workerCall(stateDir,auth,principal,project,{...request,native_approval:{approved:true,evidence_sha256}});
+        };
+        return runtimeExecutor({stateDir,principal,project,profile,mandate,admission,request,nativeApprovalRequired:true,invokeAfterNativeApproval});
+      });
     }
     if(request.action==='runtime')throw Object.assign(new Error('official native runtime executor is not registered'),{status:503});
     const grants=principal.projects?.[project.id];
@@ -200,7 +206,7 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
         if(resource==='runtime-acceptance'&&req.method==='POST'){
           if(!access.grants.scopes.includes('engineering:execute'))return reply(res,403,{error:'engineering:execute scope required'});
           const b=await readBody(req);if(typeof b.profile!=='string'||typeof b.idempotency_key!=='string'||!safeId.test(b.idempotency_key)||b.idempotency_key.length<8)return reply(res,400,{error:'fixed runtime profile and bounded idempotency key required'});
-          const profile=auth.profiles[b.profile],operation=profile?.runtime_operation;const requiredScope=operation==='browser_smoke'?'runtime:browser':operation==='mariadb_synthetic'?'runtime:mariadb':null;
+          const profile=auth.profiles[b.profile],operation=profile?.runtime_operation;const requiredScope=['browser_smoke','private_browser_acceptance'].includes(operation)?'runtime:browser':operation==='mariadb_synthetic'?'runtime:mariadb':null;
           if(!requiredScope||profile.executor!=='local-ci'||profile.role!=='qa'||!profile.projects?.includes(projectId))return reply(res,403,{error:'project runtime profile is not authorized'});
           if(!access.grants.scopes.includes(requiredScope)||!approvalStatus(auth,principal,projectId,b.approval_ref,requiredScope))return reply(res,403,{error:'active operation-specific runtime approval required'});
           const result=await dispatchWorker(principal,project,{action:'runtime',profile:b.profile,approval_ref:b.approval_ref,idempotency_key:b.idempotency_key});

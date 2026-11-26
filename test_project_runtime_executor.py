@@ -1,5 +1,8 @@
 """Synthetic policy and fail-closed tests for the fixed runtime wrapper."""
 import os
+import json
+import hashlib
+import copy
 import pathlib
 import subprocess
 import tempfile
@@ -83,6 +86,39 @@ class ProjectRuntimeExecutorTests(unittest.TestCase):
         self.assertTrue(_parse_runtime_evidence("mariadb_synthetic", maria, self.workspace)["network_disabled"])
         self.assertIsNone(_parse_runtime_evidence("mariadb_synthetic", maria.replace('"network_disabled":true', '"network_disabled":false'), self.workspace))
         self.assertTrue(_reported_blocked('{"status":"BLOCKED","error":"Operation not permitted"}'))
+
+    def test_private_browser_requires_project_scope_and_real_isolation_evidence(self):
+        request = dict(self.request, operation="private_browser_acceptance",
+                       required_capabilities=["private_browser_runtime"])
+        with self.assertRaisesRegex(RuntimeAdmissionError, "authorized Workforce project"):
+            _validate_policy(self.policy, request)
+        authorized_request = dict(request, project_id="sanro-ai-workforce")
+        authorized_policy = copy.deepcopy(self.policy)
+        authorized_policy["projects"]["sanro-ai-workforce"] = authorized_policy["projects"].pop("runtime-test")
+        authorized_policy["mandates"]["mandate-001"]["project_id"] = "sanro-ai-workforce"
+        _validate_policy(authorized_policy, authorized_request)
+
+        screenshot_root = self.state / "accepted-job" / "artifacts"
+        screenshot_root.mkdir(parents=True)
+        screenshot = screenshot_root / "acceptance.png"
+        screenshot.write_bytes(b"synthetic png artifact")
+        digest = hashlib.sha256(screenshot.read_bytes()).hexdigest()
+        event = {"status": "PASS", "browserVersion": "synthetic", "mcpVersion": "0.0.86",
+                 "uid": 1001, "chromiumSandboxConfigured": True, "chromiumNoSandboxArgumentObserved": False,
+                 "javascriptState": "DOM_OK:MCP_OK:42", "steps": ["initialize", "tools/list", "navigate", "snapshot", "fill", "click", "evaluate", "screenshot", "close"],
+                 "networkIsolation": "private-network-namespace", "unauthorizedEgressBlocked": True,
+                 "enforcedLimits": {"memoryMaxBytes": 2 * 1024 ** 3, "cpuQuotaCores": 1, "pidsMax": 128},
+                 "measured": {"peakProcessTreeRssBytes": 4096, "peakProcessCount": 3, "processTreeCpuTicks": 7},
+                 "cleanup": "PASS", "screenshot": str(screenshot), "screenshotSha256": digest}
+        output = json.dumps(event)
+        evidence = _parse_runtime_evidence("private_browser_acceptance", output, self.workspace, screenshot_root)
+        self.assertEqual(evidence["javascript_state"], "DOM_OK:MCP_OK:42")
+        self.assertTrue(evidence["unauthorized_egress_blocked"])
+        event["networkIsolation"] = "NOT_ENFORCED"
+        self.assertIsNone(_parse_runtime_evidence("private_browser_acceptance", json.dumps(event), self.workspace, screenshot_root))
+        event["networkIsolation"] = "private-network-namespace"
+        screenshot.write_bytes(b"tampered")
+        self.assertIsNone(_parse_runtime_evidence("private_browser_acceptance", output, self.workspace, screenshot_root))
 
     def test_rejects_expired_mandate_and_wrong_project(self):
         self.policy["mandates"]["mandate-001"]["expires_at"] = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()

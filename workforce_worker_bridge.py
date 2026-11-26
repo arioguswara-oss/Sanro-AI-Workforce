@@ -129,7 +129,7 @@ def main():
             if not isinstance(native_approval, dict) or native_approval.get("approved") is not True:
                 raise PermissionError("native runtime approval is required")
             profile = profiles.get(request.get("profile"))
-            if not isinstance(profile, dict) or profile.get("executor") != "local-ci" or profile.get("role") != "qa" or profile.get("command") != ["/usr/bin/true"] or profile.get("runtime_operation") not in {"browser_smoke", "mariadb_synthetic"}:
+            if not isinstance(profile, dict) or profile.get("executor") != "local-ci" or profile.get("role") != "qa" or profile.get("command") != ["/usr/bin/true"] or profile.get("runtime_operation") not in {"browser_smoke", "private_browser_acceptance", "mariadb_synthetic"}:
                 raise PermissionError("fixed Local CI runtime profile required")
             if not isinstance(request.get("idempotency_key"), str) or not request["idempotency_key"].isascii() or len(request["idempotency_key"]) < 8 or len(request["idempotency_key"]) > 64:
                 raise ValueError("bounded runtime job id required")

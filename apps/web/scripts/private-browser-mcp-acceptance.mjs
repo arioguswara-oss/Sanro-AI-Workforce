@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import http from 'node:http';
+import net from 'node:net';
 import { spawn, spawnSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createRequire } from 'node:module';
@@ -18,6 +19,43 @@ const stateStat = fs.lstatSync(stateRoot);
 if (stateStat.isSymbolicLink() || !stateStat.isDirectory() || stateStat.uid !== process.getuid() || (stateStat.mode & 0o077) !== 0) {
   throw new Error('Private browser state directory must be an owned, non-symlink directory with mode 0700');
 }
+async function assertTcpBlocked(host, port) {
+  await new Promise((resolve, reject) => {
+    const socket = net.createConnection({ host, port });
+    const timer = setTimeout(() => { socket.destroy(); reject(new Error(`Unauthorized network target was not rejected: ${host}`)); }, 1000);
+    socket.once('connect', () => { clearTimeout(timer); socket.destroy(); reject(new Error(`Unauthorized network target was reachable: ${host}`)); });
+    socket.once('error', error => {
+      clearTimeout(timer);
+      if (['ENETUNREACH', 'EHOSTUNREACH', 'ENETDOWN', 'ECONNREFUSED'].includes(error.code)) resolve();
+      else reject(new Error(`Unexpected network isolation probe result: ${error.code || 'unknown'}`));
+    });
+  });
+}
+async function verifyJobBoundary() {
+  const ownNetns = fs.readlinkSync('/proc/self/ns/net');
+  const initNetns = fs.readlinkSync('/proc/1/ns/net');
+  if (ownNetns === initNetns) throw new Error('PrivateNetwork namespace is not active; direct runner invocation is refused');
+  const interfaces = fs.readdirSync('/sys/class/net');
+  if (interfaces.length !== 1 || interfaces[0] !== 'lo') throw new Error('Network namespace exposes a non-loopback interface');
+  const cgroupLine = fs.readFileSync('/proc/self/cgroup', 'utf8').split('\n').find(line => line.startsWith('0::/'));
+  if (!cgroupLine) throw new Error('Unified cgroup v2 job boundary is unavailable');
+  const cgroupDir = path.join('/sys/fs/cgroup', cgroupLine.slice(3));
+  const memoryMax = Number(fs.readFileSync(path.join(cgroupDir, 'memory.max'), 'utf8').trim());
+  const [quotaText, periodText] = fs.readFileSync(path.join(cgroupDir, 'cpu.max'), 'utf8').trim().split(/\s+/);
+  const pidsMax = Number(fs.readFileSync(path.join(cgroupDir, 'pids.max'), 'utf8').trim());
+  const cpuQuota = quotaText === 'max' ? Infinity : Number(quotaText) / Number(periodText);
+  if (!(memoryMax > 0 && memoryMax <= 2 * 1024 ** 3) || !(cpuQuota > 0 && cpuQuota <= 1) || !(pidsMax > 0 && pidsMax <= 128)) {
+    throw new Error('Per-job cgroup CPU, memory, or task limit is missing or exceeds policy');
+  }
+  const routes = fs.readFileSync('/proc/net/route', 'utf8').trim().split('\n').slice(1);
+  if (routes.some(line => line.trim().split(/\s+/)[1] === '00000000')) throw new Error('Default network route is present in private browser namespace');
+  await assertTcpBlocked('1.1.1.1', 80);
+  await assertTcpBlocked('169.254.169.254', 80);
+  await assertTcpBlocked('127.0.0.1', 22);
+  return { networkIsolation: 'private-network-namespace', unauthorizedEgressBlocked: true,
+    cgroupLimits: { memoryMaxBytes: memoryMax, cpuQuotaCores: cpuQuota, pidsMax } };
+}
+const jobBoundary = process.env.SANRO_REQUIRE_PRIVATE_NETNS === '1' ? await verifyJobBoundary() : null;
 const projectId = process.env.SANRO_PROJECT_ID || 'sanro-ai-workforce';
 const jobId = process.env.SANRO_JOB_ID || `synthetic-${Date.now()}-${process.pid}`;
 if (projectId !== 'sanro-ai-workforce' || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(jobId)) {
@@ -56,6 +94,8 @@ let mcpDiagnostic = '';
 let peakRssBytes = 0;
 let peakProcessCount = 0;
 let sampledCpuTicks = 0;
+let browserProcessObserved = false;
+let chromiumNoSandboxArgumentObserved = false;
 const previousCpuTicks = new Map();
 let samplingTimer;
 const sample = Buffer.from('<!doctype html><meta charset="utf-8"><title>SANRO private browser synthetic</title><main><h1>Private browser acceptance</h1><label for="value">Synthetic value</label><input id="value"><button id="run">Run check</button><output id="result">pending</output><script>document.querySelector("#run").addEventListener("click",()=>{document.querySelector("#result").textContent="DOM_OK:"+document.querySelector("#value").value+":"+(6*7)})</script></main>');
@@ -159,6 +199,11 @@ function sampleProcessTree() {
         const line = fs.readFileSync(`/proc/${pid}/status`, 'utf8').split('\n').find(row => row.startsWith('VmRSS:'));
         rss += Number(line?.match(/\d+/)?.[0] || 0) * 1024;
       } catch {}
+      try {
+        const commandLine = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replaceAll('\0', ' ');
+        if (/chrome|chromium/i.test(commandLine)) browserProcessObserved = true;
+        if (/(^|\s)--no-sandbox(?:\s|$)/.test(commandLine)) chromiumNoSandboxArgumentObserved = true;
+      } catch {}
     }
     peakRssBytes = Math.max(peakRssBytes, rss);
     peakProcessCount = Math.max(peakProcessCount, selected.size);
@@ -229,12 +274,20 @@ try {
   if (bytes.length < 100 || bytes.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') throw new Error('MCP screenshot was not a valid PNG');
   fs.writeFileSync(screenshotPath, bytes, { mode: 0o600, flag: 'wx' });
   const digest = crypto.createHash('sha256').update(bytes).digest('hex');
+  sampleProcessTree();
+  if (!browserProcessObserved || chromiumNoSandboxArgumentObserved || hostFacts.uid === 0 || !hostFacts.chromiumSandboxConfigured) {
+    throw new Error('Effective Chromium sandbox or non-root process verification failed');
+  }
   await callTool('browser_close', {});
   result = {
     status: 'PASS', mcp: serverInfo.name, mcpVersion: serverInfo.version, browserVersion,
     browser: 'chromium', steps: ['initialize', 'tools/list', 'navigate', 'snapshot', 'fill', 'click', 'evaluate', 'screenshot', 'close'],
     javascriptState: 'DOM_OK:MCP_OK:42', screenshot: screenshotPath, screenshotSha256: digest,
+    uid: hostFacts.uid, chromiumSandboxConfigured: hostFacts.chromiumSandboxConfigured,
+    chromiumNoSandboxArgumentObserved,
     measured: { peakProcessTreeRssBytes: peakRssBytes, peakProcessCount, processTreeCpuTicks: sampledCpuTicks },
+    networkIsolation: jobBoundary?.networkIsolation || 'NOT_ENFORCED', unauthorizedEgressBlocked: jobBoundary?.unauthorizedEgressBlocked === true,
+    enforcedLimits: jobBoundary?.cgroupLimits || null,
     project: projectId, jobId, data: 'synthetic-only', listener: '127.0.0.1-only',
   };
 } catch (error) {

@@ -50,7 +50,7 @@ export function loadAuth(path) {
   const shells=new Set(['sh','bash','dash','zsh','fish','cmd','powershell']);
   for(const [id,p] of Object.entries(profiles)){
     if(!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(id)||!p||!Array.isArray(p.projects)||!p.projects.every(projectId=>projects.has(projectId))||!Array.isArray(p.command)||!p.command.length||!p.command.every(arg=>typeof arg==='string'&&arg.length>0)||shells.has(p.command[0].split('/').pop()))throw new Error('invalid or unauthorized command profile');
-    if(p.runtime_operation!==undefined&&(!['browser_smoke','mariadb_synthetic'].includes(p.runtime_operation)||p.executor!=='local-ci'||p.role!=='qa'||p.command.length!==1||p.command[0]!=='/usr/bin/true'||!Number.isInteger(p.runtime_timeout_seconds??120)||(p.runtime_timeout_seconds??120)<1||(p.runtime_timeout_seconds??120)>300))throw new Error('invalid fixed project runtime profile');
+    if(p.runtime_operation!==undefined&&(!['browser_smoke','private_browser_acceptance','mariadb_synthetic'].includes(p.runtime_operation)||p.executor!=='local-ci'||p.role!=='qa'||p.command.length!==1||p.command[0]!=='/usr/bin/true'||!Number.isInteger(p.runtime_timeout_seconds??120)||(p.runtime_timeout_seconds??120)<1||(p.runtime_timeout_seconds??120)>300))throw new Error('invalid fixed project runtime profile');
   }
   return {principals,projects,workspaceRegistry:workspaceOwners,profiles,approvals};
 }

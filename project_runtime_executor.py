@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 
 OPERATIONS = {
     "browser_smoke": ("browser_runtime", "runtime:browser", "apps/web/scripts/gdi02r-browser-acceptance.mjs"),
+    "private_browser_acceptance": ("private_browser_runtime", "runtime:browser", "apps/web/scripts/private-browser-mcp-acceptance.mjs"),
     "mariadb_synthetic": ("mariadb_runtime", "runtime:mariadb", "isolated_mariadb_executor.py"),
 }
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -63,6 +64,8 @@ def _validate_policy(policy: dict, request: dict, now: datetime | None = None) -
             raise RuntimeAdmissionError(f"invalid {key}")
     if request["operation"] not in OPERATIONS or request["arguments"] != {}:
         raise RuntimeAdmissionError("runtime operation or arguments are not allowlisted")
+    if request["operation"] == "private_browser_acceptance" and request["project_id"] != "sanro-ai-workforce":
+        raise RuntimeAdmissionError("private browser controller is restricted to the authorized Workforce project")
     capability, action, _ = OPERATIONS[request["operation"]]
     if request["required_capabilities"] != [capability]:
         raise RuntimeAdmissionError("runtime capability requirement mismatch")
@@ -167,7 +170,7 @@ def _argv(workspace: pathlib.Path, operation: str) -> list[str]:
     target = workspace / relative
     if not target.is_file() or target.is_symlink() or workspace not in target.resolve().parents:
         raise RuntimeAdmissionError("allowlisted runtime entrypoint is unavailable")
-    if operation == "browser_smoke":
+    if operation in {"browser_smoke", "private_browser_acceptance"}:
         executable = shutil.which("node", path="/usr/bin:/bin")
         if not executable:
             raise RuntimeAdmissionError("Node.js runtime is unavailable")
@@ -175,7 +178,13 @@ def _argv(workspace: pathlib.Path, operation: str) -> list[str]:
     return [sys.executable, str(target)]
 
 
-def _run_bounded(argv: list[str], workspace: pathlib.Path, timeout: int, operation: str) -> tuple[int, str, bool]:
+def _run_bounded(argv: list[str], workspace: pathlib.Path, timeout: int, operation: str,
+                 state_root: pathlib.Path | None = None, job_id: str | None = None) -> tuple[int, str, bool]:
+    if operation == "private_browser_acceptance":
+        from private_browser_controller import run_private_browser
+        if state_root is None or job_id is None:
+            raise RuntimeAdmissionError("private browser state and admitted job identity are required")
+        return run_private_browser(argv, workspace, state_root, job_id, timeout)
     job_tmp = pathlib.Path(tempfile.mkdtemp(prefix=".workforce-runtime-job-", dir=workspace))
     env = {"PATH": "/usr/bin:/bin:/usr/sbin", "LANG": "C.UTF-8", "HOME": str(job_tmp), "TMPDIR": str(job_tmp), "PYTHONNOUSERSITE": "1"}
     if operation == "browser_smoke":
@@ -201,7 +210,8 @@ def _run_bounded(argv: list[str], workspace: pathlib.Path, timeout: int, operati
         shutil.rmtree(job_tmp, ignore_errors=True)
 
 
-def _parse_runtime_evidence(operation: str, output: str, workspace: pathlib.Path) -> dict | None:
+def _parse_runtime_evidence(operation: str, output: str, workspace: pathlib.Path,
+                            artifact_root: pathlib.Path | None = None) -> dict | None:
     event = None
     for line in output.splitlines()[-20:]:
         try:
@@ -225,6 +235,56 @@ def _parse_runtime_evidence(operation: str, output: str, workspace: pathlib.Path
         except OSError:
             return None
         return {"browser_version": event["browserVersion"], "dom_result": event["result"], "screenshot": expected}
+    if operation == "private_browser_acceptance":
+        required_steps = {"initialize", "tools/list", "navigate", "snapshot", "fill", "click", "evaluate", "screenshot", "close"}
+        limits = event.get("enforcedLimits")
+        measured = event.get("measured")
+        if (event.get("javascriptState") != "DOM_OK:MCP_OK:42"
+                or not isinstance(event.get("browserVersion"), str)
+                or not isinstance(event.get("mcpVersion"), str)
+                or event.get("mcpVersion") != "0.0.86"
+                or type(event.get("uid")) is not int or event["uid"] == 0
+                or event.get("chromiumSandboxConfigured") is not True
+                or event.get("chromiumNoSandboxArgumentObserved") is not False
+                or not required_steps.issubset(set(event.get("steps", [])))
+                or event.get("networkIsolation") != "private-network-namespace"
+                or event.get("unauthorizedEgressBlocked") is not True
+                or not isinstance(limits, dict)
+                or type(limits.get("memoryMaxBytes")) is not int
+                or type(limits.get("cpuQuotaCores")) not in {int, float}
+                or type(limits.get("pidsMax")) is not int
+                or not 0 < limits.get("memoryMaxBytes", 0) <= 2 * 1024 ** 3
+                or not 0 < limits.get("cpuQuotaCores", 0) <= 1
+                or not 0 < limits.get("pidsMax", 0) <= 128
+                or not isinstance(measured, dict)
+                or type(measured.get("peakProcessTreeRssBytes")) is not int
+                or type(measured.get("peakProcessCount")) is not int
+                or type(measured.get("processTreeCpuTicks")) is not int
+                or not 0 < measured.get("peakProcessTreeRssBytes", 0)
+                or not 0 < measured.get("peakProcessCount", 0)
+                or measured.get("processTreeCpuTicks", -1) < 0
+                or event.get("cleanup") != "PASS"
+                or not isinstance(event.get("screenshotSha256"), str)
+                or not SHA256_RE.fullmatch(event["screenshotSha256"])):
+            return None
+        screenshot = event.get("screenshot")
+        if artifact_root is None or not isinstance(screenshot, str):
+            return None
+        try:
+            candidate = pathlib.Path(screenshot)
+            canonical = candidate.resolve(strict=True)
+            root = artifact_root.resolve(strict=True)
+            if not candidate.is_absolute() or canonical != candidate or root not in canonical.parents or not canonical.is_file():
+                return None
+            digest = hashlib.sha256(canonical.read_bytes()).hexdigest()
+            if digest != event["screenshotSha256"]:
+                return None
+        except OSError:
+            return None
+        return {"browser_version": event["browserVersion"], "mcp_version": event["mcpVersion"],
+                "javascript_state": event["javascriptState"], "screenshot_sha256": event["screenshotSha256"],
+                "network_isolation": event["networkIsolation"], "unauthorized_egress_blocked": True,
+                "enforced_limits": limits, "measured": measured}
     if operation == "mariadb_synthetic":
         if event.get("network_disabled") is not True or event.get("synthetic_rows_verified") != 2 or not isinstance(event.get("server_version"), str):
             return None
@@ -281,6 +341,8 @@ def execute(request: dict, policy: dict) -> dict:
             from worker import acquire_worktree_lock
             worktree_lock_fd = acquire_worktree_lock(state_root, workspace)
         except Exception as error:
+            if request["operation"] == "private_browser_acceptance":
+                shutil.rmtree(state_root / "jobs" / request["job_id"], ignore_errors=True)
             finished = datetime.now(timezone.utc).isoformat()
             checkpoint.update({"stage": "BLOCKED", "finished_at": finished, "result": "BLOCKED",
                                "error_type": type(error).__name__, "resume_eligible": False})
@@ -290,8 +352,11 @@ def execute(request: dict, policy: dict) -> dict:
         checkpoint["stage"] = "RUNNING"
         _atomic_json(job_path, checkpoint)
         try:
-            code, output, timed_out = _run_bounded(_argv(workspace, request["operation"]), workspace, request["timeout_seconds"], request["operation"])
+            code, output, timed_out = _run_bounded(_argv(workspace, request["operation"]), workspace,
+                request["timeout_seconds"], request["operation"], state_root, request["job_id"])
         except Exception as error:
+            if request["operation"] == "private_browser_acceptance":
+                shutil.rmtree(state_root / "jobs" / request["job_id"], ignore_errors=True)
             finished = datetime.now(timezone.utc).isoformat()
             checkpoint.update({"stage": "BLOCKED", "finished_at": finished, "result": "BLOCKED",
                                "error_type": type(error).__name__, "resume_eligible": False})
@@ -299,8 +364,15 @@ def execute(request: dict, policy: dict) -> dict:
             _audit(audit_dir, {"event": "blocked", "project_id": request["project_id"], "job_id": request["job_id"], "error_type": type(error).__name__, "timestamp": finished})
             checkpoint_sha256 = hashlib.sha256(job_path.read_bytes()).hexdigest()
             return {"status": "BLOCKED", "project_id": request["project_id"], "job_id": request["job_id"], "checkpoint_sha256": checkpoint_sha256}
-        runtime_evidence = _parse_runtime_evidence(request["operation"], output, workspace) if code == 0 and not timed_out else None
+        artifact_root = state_root / "jobs" / request["job_id"] / "artifacts"
+        if code == 0 and not timed_out:
+            runtime_evidence = _parse_runtime_evidence(request["operation"], output, workspace,
+                artifact_root if request["operation"] == "private_browser_acceptance" else None)
+        else:
+            runtime_evidence = None
         status = "BLOCKED" if timed_out or _reported_blocked(output) else "PASS" if code == 0 and runtime_evidence else "FAIL"
+        if request["operation"] == "private_browser_acceptance" and status != "PASS":
+            shutil.rmtree(artifact_root, ignore_errors=True)
         checkpoint.update({"stage": "COMPLETED" if code == 0 and not timed_out else "BLOCKED" if timed_out else "FAILED",
                            "finished_at": datetime.now(timezone.utc).isoformat(), "exit_code": code,
                            "result": status, "output": _redact_output(output),

@@ -15,7 +15,7 @@ async function invoke(handler,path,{token,body}={}){
   let status=0,text='';const res=new Writable({write(chunk,_encoding,callback){text+=chunk.toString();callback();}});res.writeHead=code=>{status=code;};await handler(req,res);return {status,data:JSON.parse(text||'{}')};
 }
 
-function fixture(t,runtimeScope='runtime:browser',hostAdapter=null){
+function fixture(t,runtimeScope='runtime:browser',hostAdapter=null,runtimeOperation='browser_smoke'){
   const root=mkdtempSync(join(tmpdir(),'workforce-runtime-api-')),workspace=join(root,'project'),state=join(root,'state');
   mkdirSync(workspace,{mode:0o700});mkdirSync(state,{mode:0o700});
   const git=(...args)=>execFileSync('git',['-C',workspace,...args],{encoding:'utf8'}).trim();
@@ -24,7 +24,7 @@ function fixture(t,runtimeScope='runtime:browser',hostAdapter=null){
   const owner=randomBytes(32).toString('hex'),project={id:'runtime-api',name:'Runtime API synthetic',workspace,repository:'synthetic/runtime-api',branch:'feature/runtime-test',environment:'isolated-development',worker_id:'runtime-worker'};
   const scopes=['read','engineering:execute','runtime:browser','runtime:mariadb'];
   const approval={project_id:project.id,subject:'owner',status:'APPROVED',repository:project.repository,branch:project.branch,environment:project.environment,owner_actor:'owner',max_cost_usd:0,allowed_actions:['engineering:execute','qa:execute',runtimeScope],forbidden_actions:['merge','production:deploy','paid-api','other-repository:write'],scopes:['engineering:execute',runtimeScope],expires_at:new Date(Date.now()+60000).toISOString()};
-  const authPath=join(root,'auth.json');writeFileSync(authPath,JSON.stringify({version:1,projects:[project],principals:[{subject:'owner',token_sha256:createHash('sha256').update(owner).digest('hex'),projects:{[project.id]:{workspace,scopes,approval_refs:['runtime-approval']}}}],approvals:{'runtime-approval':approval},command_profiles:{browser:{command:['/usr/bin/true'],projects:[project.id],role:'qa',executor:'local-ci',runtime_operation:'browser_smoke',runtime_timeout_seconds:120}}}),{mode:0o600});chmodSync(authPath,0o600);
+  const authPath=join(root,'auth.json');writeFileSync(authPath,JSON.stringify({version:1,projects:[project],principals:[{subject:'owner',token_sha256:createHash('sha256').update(owner).digest('hex'),projects:{[project.id]:{workspace,scopes,approval_refs:['runtime-approval']}}}],approvals:{'runtime-approval':approval},command_profiles:{browser:{command:['/usr/bin/true'],projects:[project.id],role:'qa',executor:'local-ci',runtime_operation:runtimeOperation,runtime_timeout_seconds:120}}}),{mode:0o600});chmodSync(authPath,0o600);
   const calls=[];const app=createApp({authPath,stateDir:state,runtimeExecutor:async context=>{calls.push(context);if(hostAdapter)return hostAdapter(context);return {status:'BLOCKED',job_id:context.request.idempotency_key,checkpoint_sha256:'a'.repeat(64)};}});
   t.after(async()=>{try{await app.stopWorker();}catch{}try{app.store.close();}catch{}rmSync(root,{recursive:true,force:true});});
   return {app,owner,calls,project};
@@ -50,4 +50,26 @@ test('runtime host callback cannot bypass the native approval evidence binding',
   const f=fixture(t,'runtime:browser',async context=>context.invokeAfterNativeApproval(true));
   const result=await invoke(f.app.handler,'/api/projects/runtime-api/runtime-acceptance',{token:f.owner,body:{profile:'browser',approval_ref:'runtime-approval',idempotency_key:'runtime-api-test-003'}});
   assert.equal(result.status,403);assert.equal(f.calls.length,1);
+});
+
+test('private browser profile requires runtime:browser approval and enters only the fixed host callback',async t=>{
+  const f=fixture(t,'runtime:browser',null,'private_browser_acceptance');
+  const result=await invoke(f.app.handler,'/api/projects/runtime-api/runtime-acceptance',{token:f.owner,body:{profile:'browser',approval_ref:'runtime-approval',idempotency_key:'runtime-api-browser-004'}});
+  assert.equal(result.status,503);assert.equal(result.data.status,'BLOCKED');assert.equal(f.calls.length,1);
+  assert.equal(f.calls[0].profile.runtime_operation,'private_browser_acceptance');
+  assert.equal(f.calls[0].nativeApprovalRequired,true);
+});
+
+test('runtime host jobs are admitted through a single FIFO slot',async t=>{
+  let active=0,peak=0;const order=[];
+  const f=fixture(t,'runtime:browser',async context=>{
+    order.push(context.request.idempotency_key);active++;peak=Math.max(peak,active);
+    await new Promise(resolve=>setTimeout(resolve,15));active--;
+    return {status:'BLOCKED',job_id:context.request.idempotency_key,checkpoint_sha256:'b'.repeat(64)};
+  },'private_browser_acceptance');
+  const first=invoke(f.app.handler,'/api/projects/runtime-api/runtime-acceptance',{token:f.owner,body:{profile:'browser',approval_ref:'runtime-approval',idempotency_key:'runtime-api-fifo-001'}});
+  const second=invoke(f.app.handler,'/api/projects/runtime-api/runtime-acceptance',{token:f.owner,body:{profile:'browser',approval_ref:'runtime-approval',idempotency_key:'runtime-api-fifo-002'}});
+  const results=await Promise.all([first,second]);
+  assert.equal(peak,1);assert.deepEqual(order,['runtime-api-fifo-001','runtime-api-fifo-002']);
+  assert.deepEqual(results.map(result=>result.status),[503,503]);
 });
