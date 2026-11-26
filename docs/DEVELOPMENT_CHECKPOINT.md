@@ -2,7 +2,7 @@
 
 ## SANRO Private Cloud Browser V1 — host execution package — 2026-11-26
 
-- Starting/tested source SHA: `397b7cb1884023b875d182927095a54f9d15ab8f`; authorized branch `feature/hermes-workforce-foundation`.
+- Starting source SHA: `397b7cb1884023b875d182927095a54f9d15ab8f`; tested implementation commit SHA: `37b0a88b41b3f6d991185c85a3300c79890edc1b`; authorized branch `feature/hermes-workforce-foundation`.
 - Reused `@playwright/mcp@0.0.86`, the existing isolated Chromium project config/cache and seven-tool allowlist. Added `apps/web/scripts/private-browser-mcp-acceptance.mjs`: a one-shot, non-root synthetic MCP host smoke with loopback ephemeral ports, MCP lifecycle/tool calls, private screenshot artifacts, cleanup verification and host/resource measurements. No dependency was installed.
 - Exact invocation for the authorized host executor, from the project checkout: `SANRO_PROJECT_ID=sanro-ai-workforce SANRO_JOB_ID=private-browser-v1-acceptance-20261126 node apps/web/scripts/private-browser-mcp-acceptance.mjs`. It must be invoked only after existing Workforce project/branch/mandate/zero-cost/native-approval validation.
 - Host access is **BLOCKED**: `ssh-add -l` returned `Error connecting to agent: No such file or directory`. The SSH alias did not identify a verified VPS execution route, so no remote connection was attempted. Prior reported VPS capacity is 4 vCPU / 8 GB; it was not measured in this session. Host user-namespace/AppArmor/dependency compatibility and actual Chromium launch are NOT TESTED.
