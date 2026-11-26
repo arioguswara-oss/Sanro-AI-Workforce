@@ -1,0 +1,106 @@
+name: SANRO local synthetic browser QA
+on:
+  push:
+    branches: [poc/rootless-runner-acceptance]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-browser:
+    runs-on: sanro-browser-qa
+    timeout-minutes: 10
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
+      options: --cap-drop=ALL --security-opt=no-new-privileges
+      volumes:
+        - /var/lib/sanro-ci-runner/gitea-3000.sock:/run/sanro-gitea-3000.sock
+        - /home/sanro/.cache/ms-playwright:/ms-playwright:ro
+        - /var/lib/sanro-ci-runner/artifacts:/sanro-evidence
+    steps:
+      - name: Start fixed Gitea bridge and checkout exact commit
+        shell: bash
+        env:
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -S /run/sanro-gitea-3000.sock
+          cat > "$RUNNER_TEMP/gitea-bridge.mjs" <<'NODE'
+          const net=require('node:net');
+          const socketPath='/run/sanro-gitea-3000.sock';
+          const server=net.createServer(client=>{
+            const upstream=net.createConnection({path:socketPath});
+            client.pipe(upstream); upstream.pipe(client);
+            client.on('error',()=>upstream.destroy());
+            upstream.on('error',()=>client.destroy());
+          });
+          server.listen(3000,'127.0.0.1');
+          NODE
+          nohup node "$RUNNER_TEMP/gitea-bridge.mjs" >/dev/null 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/api/healthz >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:3000/api/healthz >/dev/null
+          cat > "$RUNNER_TEMP/gitea-askpass" <<'ASKPASS'
+          #!/bin/sh
+          case "$1" in
+            *Username*) printf '%s\n' 'sanro-ci-job' ;;
+            *Password*) printf '%s' "$GITEA_TOKEN" ;;
+            *) exit 1 ;;
+          esac
+          ASKPASS
+          chmod 700 "$RUNNER_TEMP/gitea-askpass"
+          export GIT_ASKPASS="$RUNNER_TEMP/gitea-askpass" GIT_TERMINAL_PROMPT=0
+          git clone --no-checkout http://127.0.0.1:3000/sanro-admin/SANRO-Browser-QA.git "$GITHUB_WORKSPACE/source"
+          git -C "$GITHUB_WORKSPACE/source" fetch --no-tags origin "$GITHUB_SHA"
+          git -C "$GITHUB_WORKSPACE/source" checkout --detach FETCH_HEAD
+          test "$(git -C "$GITHUB_WORKSPACE/source" rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Synthetic Chromium acceptance
+        shell: bash
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/source"
+          test -d /ms-playwright
+          npm install --no-save --package-lock=false playwright@1.56.1
+          runuser -u pwuser -- env HOME=/home/pwuser PLAYWRIGHT_BROWSERS_PATH=/ms-playwright GITHUB_SHA="$GITHUB_SHA" GITHUB_RUN_ID="$GITHUB_RUN_ID" node <<'NODE'
+          const { chromium } = require('playwright');
+          const assert = require('node:assert/strict');
+          (async () => {
+            const browser = await chromium.launch({ chromiumSandbox: true });
+            try {
+              const page = await browser.newPage();
+              await page.route('**/*', route => route.abort());
+              await page.goto('data:text/html,' + encodeURIComponent('<title>SANRO QA</title><label>Name<input id="name"></label><button onclick="document.querySelector(\'#result\').textContent=document.querySelector(\'#name\').value">Submit</button><output id="result"></output>'));
+              assert.equal(await page.title(), 'SANRO QA');
+              await page.locator('#name').fill('synthetic');
+              await page.getByRole('button', {name:'Submit'}).click();
+              assert.equal(await page.locator('#result').textContent(), 'synthetic');
+              assert.equal(await page.evaluate(() => document.querySelector('#name').value), 'synthetic');
+              await page.screenshot({path:'/tmp/sanro-synthetic.png'});
+              const fs=require('node:fs');
+              const crypto=require('node:crypto');
+              const image=fs.readFileSync('/tmp/sanro-synthetic.png');
+              const evidence={status:'PASS',commit:process.env.GITHUB_SHA,run_id:process.env.GITHUB_RUN_ID,browser:browser.version(),screenshot_sha256:crypto.createHash('sha256').update(image).digest('hex'),sandbox:true};
+              fs.writeFileSync('/tmp/sanro-result.json',JSON.stringify(evidence,null,2)+'\n',{mode:0o600});
+              console.log(JSON.stringify(evidence));
+            } finally { await browser.close(); }
+          })().catch(e => { console.error(e); process.exitCode=1; });
+          NODE
+          install -m 0600 /tmp/sanro-result.json "/sanro-evidence/result-${GITHUB_RUN_ID}.json"
+          install -m 0600 /tmp/sanro-synthetic.png "/sanro-evidence/synthetic-${GITHUB_RUN_ID}.png"
+          test -s "/sanro-evidence/synthetic-${GITHUB_RUN_ID}.png"
+          sha256sum "/sanro-evidence/synthetic-${GITHUB_RUN_ID}.png"
+      - name: Verify Docker API and host loopback are not exposed
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -S /var/run/docker.sock
+          test ! -S /run/docker.sock
+          for port in 22 2375 2376 3000 8787 9090; do
+            if timeout 2 bash -c "</dev/tcp/10.0.2.2/$port" 2>/dev/null; then
+              echo "unexpected host-gateway reachability on $port" >&2
+              exit 1
+            fi
+          done

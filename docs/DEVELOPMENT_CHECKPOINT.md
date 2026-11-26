@@ -300,3 +300,11 @@ See [credential-free authentication evidence](evidence/TOKENECONOMIZER_AUTH_DIAG
 - SSH reports 3 established connections while Core is live, but the server cannot attribute them to Android. Owner previously confirmed Spaces visibility for `t3`; new `t4` is in the same Core. Final visual verification of `t4` in Spaces and Inbox remains pending. Core protocol `reported=true` is not a claim of Android Inbox visual PASS.
 - No Core/Hermes/VPS/existing worker/production config/secret/trust hook changed. Status: **PASS** for runtime synthetic lifecycle and terminal output; **PENDING OWNER VISUAL** for Android Spaces/Inbox; no claim for all workers or live AI-model execution.
 - See [final runtime acceptance evidence](evidence/HERDR_RUNTIME_FINAL_ACCEPTANCE_20261125.json).
+
+## SANRO Hybrid Git PoC V1 — rootless runner source preparation
+
+- Owner-supplied baseline: Gitea 28.1.0/SQLite at loopback; `sanro-admin/SANRO-Browser-QA` and GitHub `arioguswara-oss/SANRO-Browser-QA` main refs both at `4436660bfc4dbdf11aadb0800b043c2c75ce6eaa`; 4 CPU / 7.8 GiB RAM; Playwright browser cache present. These are supplied host facts, not measured in this session.
+- Added a fixed-destination Unix-socket bridge source and a Gitea Actions workflow template for a manual/PoC-branch synthetic Chromium acceptance. The template requests a non-privileged job, mounts no Docker API socket, uses the Gitea read-only job token, and requires Chromium sandbox enabled.
+- **NOT IMPLEMENTED:** one-shot integrated host provisioning script. The Codex session has no VPS executor. The host account, subordinate UID/GID allocation, rootless Docker, bridge service, runner registration, branch sync and workflow activation cannot be safely wired end-to-end without the concrete host token path and direct host validation. The source templates are not host activation evidence.
+- **NOT TESTED:** host/user namespace/AppArmor compatibility, Docker Rootless, cgroup limits, private socket route, negative access tests, repository checkout, browser launch/screenshot, GitHub fast-forward sync, actual resource use, Hermes continuity. No host process/service was touched; no cost incurred.
+- **Acceptance: NO-GO.** See [Hybrid Git PoC integration status](integrations/SANRO_HYBRID_GIT_POC_V1.md). Do not claim runner or browser success from static source review.
