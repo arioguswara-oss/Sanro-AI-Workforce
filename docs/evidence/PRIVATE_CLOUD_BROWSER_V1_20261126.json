@@ -68,5 +68,6 @@
     "counting_note": "This activation recheck observed zero interactive MCP prompts, zero native host execution approvals, zero shell escalations and zero host executor invocations. Earlier GDI-02R setup-operation counts are historical and separate."
   },
   "cleanup": "No browser/MCP/host process was started. No screenshot/temp artifacts, service, worker, or Hermes resource created or changed.",
-  "delivery_sha": "Evidence update pending commit and push"
+  "evidence_update_commit_sha": "2ca4b4b",
+  "delivery_sha": "Final checkpoint commit SHA is reported in the activation recheck report"
 }
