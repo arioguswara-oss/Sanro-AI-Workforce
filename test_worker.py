@@ -158,6 +158,30 @@ class WorkerTests(unittest.TestCase):
         self.assertIn("network-denied", output)
         self.assertIn("escape-denied", output)
 
+    def test_codex_structured_pause_reasons_are_persisted_without_logging_payloads(self):
+        cases = {
+            "usage_limit_exceeded": "CODEX_QUOTA_EXHAUSTED",
+            "temporary_network_failure": "TEMPORARY_NETWORK_FAILURE",
+            "runtime_approval_pending": "RUNTIME_APPROVAL_PENDING",
+        }
+        jobs = []
+        for index, (code, _expected) in enumerate(cases.items()):
+            folder = pathlib.Path(self.tmp.name) / f"executor-{index}"
+            folder.mkdir()
+            executable = folder / "codex"
+            executable.write_text(f"#!/usr/bin/python3\nimport json\nprint(json.dumps({{'type':'turn.failed','error':{{'code':{code!r},'message':'synthetic private payload'}}}}))\nraise SystemExit(1)\n")
+            executable.chmod(0o700)
+            jobs.append((self.q.submit([str(executable), "exec"], self.tmp.name, 3, f"pause-{index}")[0], _expected))
+        worker = self.start_worker()
+        self.assertEqual(worker.wait(timeout=6), 0)
+        for job_id, expected in jobs:
+            row = self.q.status(job_id)[0]
+            self.assertEqual(row["state"], "paused")
+            self.assertEqual(row["failure_reason"], expected)
+            log = pathlib.Path(row["log_path"]).read_text()
+            self.assertNotIn(expected, log)
+            self.assertNotIn("synthetic private payload", log)
+
     def test_queued_cancellation(self):
         jid = self.submit("print('must not run')")
         self.assertTrue(self.q.cancel(jid))

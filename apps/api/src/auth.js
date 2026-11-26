@@ -35,9 +35,15 @@ export function loadAuth(path) {
     workspaceOwners.set(workspace,p.id);
     const worker_id=p.worker_id??`workforce-${p.id}`;
     if(!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(worker_id))throw new Error('invalid project worker id');
+    let drive_delivery=null;
+    if(p.drive_delivery!==undefined){
+      const mapping=p.drive_delivery;
+      if(!mapping||mapping.project_id!==p.id||typeof mapping.account_id!=='string'||!/^[A-Za-z0-9._@-]{3,160}$/.test(mapping.account_id)||typeof mapping.folder_id!=='string'||!/^[A-Za-z0-9_-]{8,200}$/.test(mapping.folder_id)||mapping.visibility!=='private')throw new Error('invalid project-scoped private Drive mapping');
+      drive_delivery={...mapping};
+    }
     if(p.repository!==undefined&&!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(p.repository))throw new Error('invalid project repository identity');
     if(p.branch!==undefined&&(!/^[A-Za-z0-9._/-]{1,120}$/.test(p.branch)||p.branch.includes('..')||p.branch.startsWith('-')))throw new Error('invalid project branch identity');
-    projects.set(p.id,{...p,workspace,worker_id,permission_profile:permissionProfile});
+    projects.set(p.id,{...p,workspace,worker_id,permission_profile:permissionProfile,...(drive_delivery?{drive_delivery}:{})});
   }
   const profiles=config.command_profiles??{},approvals=config.approvals??{};
   if(!profiles||typeof profiles!=='object'||Array.isArray(profiles)||!approvals||typeof approvals!=='object'||Array.isArray(approvals))throw new Error('invalid profile or approval registry');

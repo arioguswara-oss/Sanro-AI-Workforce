@@ -30,7 +30,7 @@ export class Director {
       approval_ref TEXT NOT NULL, idempotency_key TEXT NOT NULL, fingerprint TEXT NOT NULL,
       state TEXT NOT NULL, stage TEXT NOT NULL, attempt INTEGER NOT NULL DEFAULT 0,
       job_id TEXT, candidate_sha TEXT, test_status TEXT NOT NULL DEFAULT 'NOT_TESTED',
-      blocker TEXT, instruction_json TEXT, recovery_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      blocker TEXT, instruction_json TEXT, checkpoint_json TEXT, recovery_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
       UNIQUE(project_id,owner,idempotency_key));
       CREATE TABLE IF NOT EXISTS report_outbox (
       id TEXT PRIMARY KEY, project_id TEXT NOT NULL, owner TEXT NOT NULL, run_id TEXT NOT NULL, delivery_key TEXT UNIQUE NOT NULL,
@@ -40,6 +40,11 @@ export class Director {
       run_id TEXT, job_id TEXT, observed_at TEXT NOT NULL, PRIMARY KEY(worker_id,project_id));`);
     const runColumns=new Set(db.prepare('PRAGMA table_info(director_runs)').all().map(row=>row.name));
     if(!runColumns.has('instruction_json'))db.exec('ALTER TABLE director_runs ADD COLUMN instruction_json TEXT');
+    if(!runColumns.has('checkpoint_json'))db.exec('ALTER TABLE director_runs ADD COLUMN checkpoint_json TEXT');
+    const reportColumns=new Set(db.prepare('PRAGMA table_info(report_outbox)').all().map(row=>row.name));
+    if(!reportColumns.has('delivery_status'))db.exec("ALTER TABLE report_outbox ADD COLUMN delivery_status TEXT NOT NULL DEFAULT 'QUEUED'");
+    if(!reportColumns.has('attempt_count'))db.exec('ALTER TABLE report_outbox ADD COLUMN attempt_count INTEGER NOT NULL DEFAULT 0');
+    if(!reportColumns.has('last_error'))db.exec('ALTER TABLE report_outbox ADD COLUMN last_error TEXT');
   }
   active(principal,project,approval){
     const registered=this.auth.projects.get(project.id);
@@ -65,9 +70,10 @@ export class Director {
     const prior=this.db.prepare('SELECT * FROM director_runs WHERE project_id=? AND owner=? AND idempotency_key=?').get(project.id,principal.subject,idempotency_key);
     if(prior){if(prior.fingerprint!==fingerprint)throw Object.assign(new Error('idempotency content conflict'),{status:409});return prior;}
     if(task.state!=='CREATED')throw Object.assign(new Error('task already assigned'),{status:409});
-    const id=randomUUID(),now=iso();
+    const id=randomUUID(),now=iso(),mandate=this.authorize(principal,project.id,approval_ref);
+    const checkpoint={version:1,project_id:project.id,run_id:id,job_id:null,worker_id:project.worker_id??null,mandate:{approval_ref,owner_actor:mandate.owner_actor,repository:mandate.repository,branch:mandate.branch,environment:mandate.environment,expires_at:mandate.expires_at,max_cost_usd:mandate.max_cost_usd,allowed_actions:mandate.allowed_actions,forbidden_actions:mandate.forbidden_actions},branch:project.branch,source_sha:null,execution_stage:'DEVELOPER',completed_tasks:[],test_evidence:[],artifact_state:'NOT_STARTED',resume_eligibility:'NOT_ELIGIBLE',updated_at:now};
     this.db.exec('BEGIN IMMEDIATE');try{
-      this.db.prepare(`INSERT INTO director_runs(id,project_id,owner,task_id,approval_ref,idempotency_key,fingerprint,state,stage,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'ACTIVE','DEVELOPER',?,?)`).run(id,project.id,principal.subject,task_id,approval_ref,idempotency_key,fingerprint,now,now);
+      this.db.prepare(`INSERT INTO director_runs(id,project_id,owner,task_id,approval_ref,idempotency_key,fingerprint,state,stage,checkpoint_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'ACTIVE','DEVELOPER',?,?,?)`).run(id,project.id,principal.subject,task_id,approval_ref,idempotency_key,fingerprint,JSON.stringify(checkpoint),now,now);
       this.db.prepare("UPDATE tasks SET state='DIRECTOR_REVIEW',assigned_role='director',updated_at=? WHERE id=?").run(now,task_id);
       this.audit(project.id,principal.subject,'DIRECTOR_PLANNED',id);this.db.exec('COMMIT');
     }catch(e){this.db.exec('ROLLBACK');throw e;}
@@ -77,12 +83,20 @@ export class Director {
     const run=this.get(id),grants=principal?.projects?.[project.id];
     if(!run||run.project_id!==project.id||run.owner!==principal.subject)throw Object.assign(new Error('run not found'),{status:404});
     if(!this.active(principal,project,approval_ref)||!grants.scopes.includes('engineering:recover')||!this.authorize(principal,project.id,approval_ref,'engineering:recover'))throw Object.assign(new Error('recovery mandate required'),{status:403});
-    if(run.state!=='BLOCKED'||run.blocker!=='SIDE_EFFECT_REVIEW_REQUIRED'||run.recovery_count>=2||side_effects_reconciled!==true||typeof recovery_note!=='string'||recovery_note.length<8||recovery_note.length>1000)throw Object.assign(new Error('bounded explicit side-effect review required'),{status:409});
+    const recoverableBlockers=new Set(['SIDE_EFFECT_REVIEW_REQUIRED','CODEX_QUOTA_EXHAUSTED','TEMPORARY_NETWORK_FAILURE','RUNTIME_APPROVAL_PENDING']);
+    if(run.state!=='BLOCKED'||!recoverableBlockers.has(run.blocker)||run.recovery_count>=2||side_effects_reconciled!==true||typeof recovery_note!=='string'||recovery_note.length<8||recovery_note.length>1000)throw Object.assign(new Error('bounded explicit side-effect review required'),{status:409});
     const prior=await this.workerCall(principal,project,{action:'status',job_id:run.job_id});
-    if(!['INTERRUPTED','CANCELLED'].includes(prior.status))throw Object.assign(new Error('prior worker is not safely terminal'),{status:409});
+    const recoverable=['INTERRUPTED','CANCELLED'].includes(prior.status)||(['PAUSED','FAILED'].includes(prior.status)&&['CODEX_QUOTA_EXHAUSTED','TEMPORARY_NETWORK_FAILURE','RUNTIME_APPROVAL_PENDING'].includes(prior.failure_reason));
+    if(!recoverable)throw Object.assign(new Error('prior worker has no approved recovery checkpoint'),{status:409});
+    let checkpoint={};try{checkpoint=JSON.parse(run.checkpoint_json??'{}');}catch{}
+    let currentSha;try{currentSha=await this.snapshot(project.workspace,project);}catch{throw Object.assign(new Error('repository must be clean and valid before resume'),{status:409});}
+    if(!checkpoint.source_sha||currentSha!==checkpoint.source_sha)throw Object.assign(new Error('source SHA changed from the persisted resume checkpoint'),{status:409});
     this.db.exec('BEGIN IMMEDIATE');try{
       this.db.prepare('UPDATE director_runs SET approval_ref=?,instruction_json=NULL,recovery_count=recovery_count+1 WHERE id=?').run(approval_ref,id);
       this.audit(project.id,principal.subject,`SIDE_EFFECT_REVIEW_${hash(recovery_note)}`,id);
+      const mandate=this.authorize(principal,project.id,approval_ref);
+      checkpoint={...checkpoint,resume_eligibility:'AUTHORIZED_NEW_GENERATION',resume_authorized_at:iso(),source_sha:currentSha,mandate:{approval_ref,owner_actor:mandate.owner_actor,repository:mandate.repository,branch:mandate.branch,environment:mandate.environment,expires_at:mandate.expires_at,max_cost_usd:mandate.max_cost_usd,allowed_actions:mandate.allowed_actions,forbidden_actions:mandate.forbidden_actions}};
+      this.db.prepare('UPDATE director_runs SET checkpoint_json=? WHERE id=?').run(JSON.stringify(checkpoint),id);
       const next=this.change(this.get(id),{state:'ACTIVE',job_id:null,blocker:null});this.db.exec('COMMIT');return next;
     }catch(e){this.db.exec('ROLLBACK');throw e;}
   }
@@ -91,7 +105,12 @@ export class Director {
   change(run,updates){
     const next={...run,...updates,updated_at:iso()};
     if(next.stage!==run.stage)this.db.prepare('UPDATE director_runs SET instruction_json=NULL WHERE id=?').run(run.id);
-    this.db.prepare('UPDATE director_runs SET state=?,stage=?,attempt=?,job_id=?,candidate_sha=?,test_status=?,blocker=?,updated_at=? WHERE id=?').run(next.state,next.stage,next.attempt,next.job_id,next.candidate_sha,next.test_status,next.blocker,next.updated_at,next.id);
+    let checkpoint={};try{checkpoint=JSON.parse(run.checkpoint_json??'{}');}catch{}
+    checkpoint={...checkpoint,project_id:run.project_id,run_id:run.id,job_id:next.job_id,execution_stage:next.stage,source_sha:checkpoint.source_sha??next.candidate_sha??null,test_status:next.test_status,resume_eligibility:next.state==='BLOCKED'?'OWNER_REVIEW_REQUIRED':next.state==='REPORTED'?'NOT_ELIGIBLE':checkpoint.resume_eligibility??'NOT_ELIGIBLE',updated_at:next.updated_at};
+    if(next.stage!==run.stage&&run.job_id&&['COMPLETED'].includes(checkpoint.last_worker_status))checkpoint.completed_tasks=[...new Set([...(checkpoint.completed_tasks??[]),run.stage])];
+    if(next.test_status!=='NOT_TESTED')checkpoint.test_evidence=[...(checkpoint.test_evidence??[]),{stage:next.stage,status:next.test_status,job_id:next.job_id,source_sha:next.candidate_sha??checkpoint.source_sha,recorded_at:next.updated_at}];
+    this.db.prepare('UPDATE director_runs SET state=?,stage=?,attempt=?,job_id=?,candidate_sha=?,test_status=?,blocker=?,checkpoint_json=?,updated_at=? WHERE id=?').run(next.state,next.stage,next.attempt,next.job_id,next.candidate_sha,next.test_status,next.blocker,JSON.stringify(checkpoint),next.updated_at,next.id);
+    next.checkpoint_json=JSON.stringify(checkpoint);
     const taskState=next.state==='REPORTED'?'REPORTED':next.state==='BLOCKED'?'BLOCKED':next.stage==='QA'?'QA_PENDING':next.stage==='SELF_FIX'?'DEVELOPER_SELF_FIX':'DEVELOPER_ACTIVE';
     this.db.prepare('UPDATE tasks SET state=?,assigned_role=?,updated_at=? WHERE id=?').run(taskState,stageRoles[next.stage]??'director',next.updated_at,next.task_id);
     this.audit(next.project_id,next.owner,`DIRECTOR_${next.state}_${next.stage}`,next.id);
@@ -103,7 +122,7 @@ export class Director {
       const next=this.change(run,{state:'BLOCKED',blocker:reason});this.heartbeat(next,'blocked');
       const delivery_key=`blocker:${run.id}:${run.recovery_count}`;
       const payload={version:1,event:'BLOCKER',project_id:run.project_id,run_id:run.id,task_id:run.task_id,job_id:run.job_id,blocker:reason,delivery_key,approval_required:reason==='MANDATE_EXPIRED_OR_REVOKED'||reason==='SIDE_EFFECT_REVIEW_REQUIRED'};
-      this.db.prepare('INSERT OR IGNORE INTO report_outbox VALUES(?,?,?,?,?,?,?,NULL)').run(randomUUID(),run.project_id,run.owner,run.id,delivery_key,JSON.stringify(payload),iso());
+      this.db.prepare('INSERT OR IGNORE INTO report_outbox(id,project_id,owner,run_id,delivery_key,payload,created_at,delivered_at) VALUES(?,?,?,?,?,?,?,NULL)').run(randomUUID(),run.project_id,run.owner,run.id,delivery_key,JSON.stringify(payload),iso());
       this.db.exec('COMMIT');return next;
     }catch(e){this.db.exec('ROLLBACK');throw e;}
   }
@@ -128,9 +147,11 @@ export class Director {
       if(!instruction){
         const baseline_sha=await this.snapshot(project.workspace,project);
         if(run.stage==='QA'&&baseline_sha!==run.candidate_sha){this.block(run,'CANDIDATE_CHANGED_DURING_QA');return;}
+        let checkpoint={};try{checkpoint=JSON.parse(run.checkpoint_json??'{}');}catch{}
+        checkpoint={...checkpoint,project_id:project.id,run_id:run.id,job_id:null,worker_id:project.worker_id??checkpoint.worker_id??null,branch:project.branch,source_sha:baseline_sha,execution_stage:run.stage,artifact_state:checkpoint.artifact_state??'NOT_STARTED',resume_eligibility:'NOT_ELIGIBLE',updated_at:iso()};
         // Persist exact input BEFORE enqueue so a restart reuses identical argv.
         instruction=JSON.stringify({version:1,run_id:run.id,project_id:project.id,task_id:task.id,title:task.title,instruction:task.description,stage:run.stage,attempt:run.attempt,baseline_sha,candidate_sha:run.candidate_sha,boundaries:['NO_MERGE','NO_PRODUCTION','NO_PAID_API','NO_OTHER_REPOSITORY'],executor:run.stage==='QA'?'local-ci':'codex'});
-        this.db.prepare('UPDATE director_runs SET instruction_json=? WHERE id=?').run(instruction,run.id);
+        this.db.prepare('UPDATE director_runs SET instruction_json=?,checkpoint_json=? WHERE id=?').run(instruction,JSON.stringify(checkpoint),run.id);run.checkpoint_json=JSON.stringify(checkpoint);
       }
       const result=await this.workerCall(principal,project,{action:'submit',profile,approval_ref:run.approval_ref,idempotency_key:`director:${run.id}:${run.stage}:${run.attempt}:${run.recovery_count}`,instruction});
       if(typeof result.job_id!=='string'||!/^([a-f0-9]{32}|[a-f0-9-]{36})$/.test(result.job_id))throw new Error('invalid job response');
@@ -142,12 +163,16 @@ export class Director {
       return;
     }
     const result=await this.workerCall(principal,project,{action:'status',job_id:run.job_id});
-    if(!['QUEUED','RUNNING','COMPLETED','FAILED','CANCELLED','INTERRUPTED'].includes(result.status))throw new Error('invalid worker state');
+    if(!['QUEUED','RUNNING','PAUSED','COMPLETED','FAILED','CANCELLED','INTERRUPTED'].includes(result.status))throw new Error('invalid worker state');
     let priorCheckpoint={};try{priorCheckpoint=JSON.parse(this.db.prepare('SELECT checkpoint_json FROM worker_jobs WHERE job_id=?').get(run.job_id)?.checkpoint_json??'{}');}catch{}
-    this.db.prepare('UPDATE worker_jobs SET checkpoint_json=? WHERE job_id=?').run(JSON.stringify({...priorCheckpoint,status:result.status,run_id:run.id,updated_at:iso(),exit_code:result.exit_code??null,...(result.admission?{admission:result.admission}:{})}),run.job_id);
+    const failureReason=['CODEX_QUOTA_EXHAUSTED','TEMPORARY_NETWORK_FAILURE','RUNTIME_APPROVAL_PENDING'].includes(result.failure_reason)?result.failure_reason:null;
+    this.db.prepare('UPDATE worker_jobs SET checkpoint_json=? WHERE job_id=?').run(JSON.stringify({...priorCheckpoint,status:result.status,run_id:run.id,updated_at:iso(),exit_code:result.exit_code??null,...(result.admission?{admission:result.admission}:{}),...(failureReason?{failure_reason:failureReason}:{})}),run.job_id);
+    const persisted=JSON.parse(run.checkpoint_json??'{}');persisted.job_id=run.job_id;persisted.last_worker_status=result.status;persisted.updated_at=iso();if(failureReason)persisted.failure_reason=failureReason;
+    this.db.prepare('UPDATE director_runs SET checkpoint_json=? WHERE id=?').run(JSON.stringify(persisted),run.id);run.checkpoint_json=JSON.stringify(persisted);
     this.heartbeat(run,result.status==='QUEUED'?'idle':'working');
     if(['QUEUED','RUNNING'].includes(result.status))return;
     if(['INTERRUPTED','CANCELLED'].includes(result.status)){this.block(run,'SIDE_EFFECT_REVIEW_REQUIRED');return;}
+    if(['PAUSED','FAILED'].includes(result.status)&&failureReason){this.block(run,failureReason);return;}
     if(run.stage==='QA'){
       const currentSha=await this.snapshot(project.workspace,project);
       if(currentSha!==run.candidate_sha){this.block(run,'CANDIDATE_CHANGED_DURING_QA');return;}
@@ -161,8 +186,11 @@ export class Director {
         this.audit(project.id,run.owner,'RELEASE_CANDIDATE_READY',run.id);
         this.db.prepare('UPDATE tasks SET checkpoint=? WHERE id=?').run(JSON.stringify(checkpoint),task.id);
         this.audit(project.id,run.owner,'DURABLE_CHECKPOINT_SAVED',run.id);
+        let runCheckpoint={};try{runCheckpoint=JSON.parse(run.checkpoint_json??'{}');}catch{}
+        runCheckpoint={...runCheckpoint,completed_tasks:[...new Set([...(runCheckpoint.completed_tasks??[]),'QA'])],test_evidence:[...(runCheckpoint.test_evidence??[]),{stage:'QA',status:'PASS',job_id:run.job_id,source_sha:currentSha,recorded_at:iso()}],artifact_state:'NOT_STARTED'};
+        this.db.prepare('UPDATE director_runs SET checkpoint_json=? WHERE id=?').run(JSON.stringify(runCheckpoint),run.id);run.checkpoint_json=JSON.stringify(runCheckpoint);
         const payload={version:1,event:'RELEASE_CANDIDATE',project_id:project.id,run_id:run.id,task_id:task.id,commit_sha:currentSha,test_status:'PASS',delivery_key:`report:${run.id}`,draft_pr_status:'NOT_CREATED_BY_DIRECTOR',message:'Candidate ready for review; no merge or deployment.'};
-        this.db.prepare('INSERT OR IGNORE INTO report_outbox VALUES(?,?,?,?,?,?,?,NULL)').run(randomUUID(),project.id,run.owner,run.id,payload.delivery_key,JSON.stringify(payload),iso());
+        this.db.prepare('INSERT OR IGNORE INTO report_outbox(id,project_id,owner,run_id,delivery_key,payload,created_at,delivered_at) VALUES(?,?,?,?,?,?,?,NULL)').run(randomUUID(),project.id,run.owner,run.id,payload.delivery_key,JSON.stringify(payload),iso());
         const next=this.change(run,{state:'REPORTED',test_status:'PASS',blocker:null});this.heartbeat(next,'idle');
         this.db.exec('COMMIT');
       }catch(e){this.db.exec('ROLLBACK');throw e;}
@@ -178,9 +206,21 @@ export class Director {
     // Inject ONLY the existing authenticated Hermes/Telegram transport. It must
     // deduplicate delivery_key; a crash after send can cause at-least-once retry.
     if(typeof transport?.send!=='function')throw new Error('existing report transport required');
-    for(const row of this.db.prepare('SELECT * FROM report_outbox WHERE delivered_at IS NULL ORDER BY created_at').all()){
-      const result=await transport.send(JSON.parse(row.payload));
-      if(result?.acknowledged===true)this.db.prepare('UPDATE report_outbox SET delivered_at=? WHERE id=? AND delivered_at IS NULL').run(iso(),row.id);
+    if(typeof transport?.acknowledged==='function')for(const row of this.db.prepare("SELECT * FROM report_outbox WHERE delivery_status='DELIVERED' ORDER BY created_at").all()){
+      try{if(await transport.acknowledged(row.delivery_key)===true){const payload=JSON.parse(row.payload);payload.telegram_status='ACKNOWLEDGED';this.db.prepare("UPDATE report_outbox SET delivery_status='ACKNOWLEDGED',payload=? WHERE id=? AND delivery_status='DELIVERED'").run(JSON.stringify(payload),row.id);}}catch{/* acknowledgement remains unknown; delivered reports are never resent */}
+    }
+    for(const row of this.db.prepare("SELECT * FROM report_outbox WHERE delivery_status='QUEUED' ORDER BY created_at").all()){
+      const payload=JSON.parse(row.payload);
+      try{
+        const result=await transport.send(payload);
+        const status=result?.acknowledged===true?'ACKNOWLEDGED':result?.delivered===true?'DELIVERED':'QUEUED';
+        if(status!=='QUEUED'){
+          payload.telegram_status=status;
+          this.db.prepare('UPDATE report_outbox SET delivery_status=?,delivered_at=?,payload=?,last_error=NULL WHERE id=? AND delivery_status=\'QUEUED\'').run(status,iso(),JSON.stringify(payload),row.id);
+        }else this.db.prepare("UPDATE report_outbox SET attempt_count=attempt_count+1,last_error='transport did not confirm delivery' WHERE id=? AND delivery_status='QUEUED'").run(row.id);
+      }catch{
+        this.db.prepare("UPDATE report_outbox SET attempt_count=attempt_count+1,last_error='transport unavailable; retry remains queued' WHERE id=? AND delivery_status='QUEUED'").run(row.id);
+      }
     }
   }
 }

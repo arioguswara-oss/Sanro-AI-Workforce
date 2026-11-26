@@ -72,6 +72,17 @@ test('explicit recovery preserves checkpoint and uses a new deduplicated executi
   assert.equal(JSON.stringify(f.store.db.prepare('SELECT * FROM audit_events').all()).includes(review.recovery_note),false);
 });
 
+test('quota, temporary-network and pending-approval checkpoints require explicit new-generation recovery',async t=>{
+  for(const reason of ['CODEX_QUOTA_EXHAUSTED','TEMPORARY_NETWORK_FAILURE','RUNTIME_APPROVAL_PENDING']){
+    const f=fixture(t,{failures:0}),run=f.submit();f.principal.projects.pilot.scopes.push('engineering:recover');await f.director.tick();
+    const prior=f.director.get(run.id).job_id;f.jobs.set(prior,{status:'PAUSED',failure_reason:reason});await f.director.tick();
+    assert.equal(f.director.get(run.id).state,'BLOCKED');assert.equal(f.director.get(run.id).blocker,reason);
+    const checkpoint=JSON.parse(f.director.get(run.id).checkpoint_json);assert.equal(checkpoint.failure_reason,reason);assert.equal(checkpoint.resume_eligibility,'OWNER_REVIEW_REQUIRED');
+    await f.director.resume(f.principal,f.project,run.id,{side_effects_reconciled:true,recovery_note:`Reviewed ${reason}`,approval_ref:'approved'});
+    await f.director.tick();assert.equal(f.director.get(run.id).recovery_count,1);assert.notEqual(f.director.get(run.id).job_id,prior);
+  }
+});
+
 test('unsafe initial Git scope is blocked before any engineering job is submitted',async t=>{
   const f=fixture(t);const options={...f.options,snapshot:async()=>{throw new Error('wrong repository or branch');}};
   const director=new Director(options),r=director.submit(f.principal,f.project,{task_id:f.task,approval_ref:'approved',idempotency_key:'unsafe-workspace'});

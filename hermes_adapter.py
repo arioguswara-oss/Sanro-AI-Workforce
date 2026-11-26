@@ -20,7 +20,7 @@ from worker import Queue
 STATUS = {
     "queued": "QUEUED", "running": "RUNNING", "succeeded": "COMPLETED",
     "failed": "FAILED", "timed_out": "FAILED", "cancelled": "CANCELLED",
-    "cancel_requested": "RUNNING", "interrupted": "INTERRUPTED",
+    "cancel_requested": "RUNNING", "interrupted": "INTERRUPTED", "paused": "PAUSED",
 }
 SECRET_PATTERNS = [
     re.compile(r"(?i)(\b(?:api[_-]?key|access[_-]?token|auth(?:orization)?|password|secret)\b\s*[:=]\s*)([^\s,;]+)"),
@@ -109,7 +109,7 @@ class HermesAdapter:
     def status(self, auth, *, project_id, workspace, job_id, scope="engineering:read"):
         self._owned(auth, project_id, workspace, job_id, scope)
         row = self.db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
-        return {"job_id": job_id, "status": STATUS.get(row["state"], "INTERRUPTED"), "created": row["created"], "started": row["started"], "finished": row["finished"], "exit_code": row["exit_code"], "error": redact(row["error"] or "") or None}
+        return {"job_id": job_id, "status": STATUS.get(row["state"], "INTERRUPTED"), "created": row["created"], "started": row["started"], "finished": row["finished"], "exit_code": row["exit_code"], "error": redact(row["error"] or "") or None, "failure_reason": row["failure_reason"]}
 
     def logs(self, auth, *, project_id, workspace, job_id, scope="engineering:read"):
         owner = self._owned(auth, project_id, workspace, job_id, scope)
@@ -123,7 +123,7 @@ class HermesAdapter:
 
     def result(self, auth, *, project_id, workspace, job_id, scope="engineering:read"):
         status = self.status(auth, project_id=project_id, workspace=workspace, job_id=job_id, scope=scope)
-        return {"job_id": job_id, "status": status["status"], "exit_code": status["exit_code"], "error": status["error"], "output": self.logs(auth, project_id=project_id, workspace=workspace, job_id=job_id, scope=scope)}
+        return {"job_id": job_id, "status": status["status"], "exit_code": status["exit_code"], "error": status["error"], "failure_reason": status["failure_reason"], "output": self.logs(auth, project_id=project_id, workspace=workspace, job_id=job_id, scope=scope)}
 
     def cancel(self, auth, *, project_id, workspace, job_id, scope="engineering:cancel"):
         self._owned(auth, project_id, workspace, job_id, scope)
@@ -135,7 +135,7 @@ class HermesAdapter:
         """Persist one minimal event per terminal job; safe to call repeatedly."""
         rows = self.db.execute("""SELECT j.id, j.state, a.project_id, a.workspace, a.subject
             FROM jobs j JOIN adapter_jobs a ON a.job_id=j.id
-            WHERE j.state IN ('succeeded','failed','timed_out','cancelled','interrupted')
+            WHERE j.state IN ('succeeded','failed','timed_out','cancelled','interrupted','paused')
             AND NOT EXISTS (SELECT 1 FROM job_notifications n WHERE n.job_id=j.id)""").fetchall()
         now = time.time()
         for row in rows:

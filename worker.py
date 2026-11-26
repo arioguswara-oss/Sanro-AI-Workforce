@@ -149,6 +149,28 @@ def redact_text(value):
     return re.sub(r"\b(?:sk|gh[pousr]_[A-Za-z0-9]{8,})[A-Za-z0-9_-]*\b", "[REDACTED]", value)
 
 
+def codex_pause_reason(line):
+    """Accept only structured, allowlisted Codex failure codes; never parse free text."""
+    try:
+        event = json.loads(line)
+        if not isinstance(event, dict) or event.get("type") not in {"turn.failed", "error"}:
+            return None
+        error = event.get("error")
+        if not isinstance(error, dict):
+            return None
+        code = error.get("code") or error.get("codexErrorInfo")
+        return {
+            "usage_limit_exceeded": "CODEX_QUOTA_EXHAUSTED",
+            "quota_exhausted": "CODEX_QUOTA_EXHAUSTED",
+            "temporary_network_failure": "TEMPORARY_NETWORK_FAILURE",
+            "network_error": "TEMPORARY_NETWORK_FAILURE",
+            "runtime_approval_pending": "RUNTIME_APPROVAL_PENDING",
+            "approval_required": "RUNTIME_APPROVAL_PENDING",
+        }.get(code)
+    except (ValueError, TypeError):
+        return None
+
+
 class Queue:
     def __init__(self, root):
         self.root = pathlib.Path(os.path.abspath(pathlib.Path(root).expanduser()))
@@ -178,7 +200,10 @@ class Queue:
           id TEXT PRIMARY KEY, command TEXT NOT NULL, cwd TEXT NOT NULL,
           timeout REAL NOT NULL, dedupe_key TEXT UNIQUE, state TEXT NOT NULL,
           created TEXT NOT NULL, started TEXT, finished TEXT, exit_code INTEGER,
-          error TEXT, log_path TEXT NOT NULL)""")
+          error TEXT, log_path TEXT NOT NULL, failure_reason TEXT)""")
+        columns = {row[1] for row in self.conn.execute("PRAGMA table_info(jobs)")}
+        if "failure_reason" not in columns:
+            self.conn.execute("ALTER TABLE jobs ADD COLUMN failure_reason TEXT")
         self.conn.execute("CREATE INDEX IF NOT EXISTS jobs_fifo ON jobs(state, created)")
 
     def submit(self, command, cwd, timeout, dedupe_key):
@@ -188,7 +213,7 @@ class Queue:
         job_id = uuid.uuid4().hex
         log = str((self.root / "logs" / (job_id + ".log")).resolve())
         try:
-            self.conn.execute("INSERT INTO jobs VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            self.conn.execute("INSERT INTO jobs(id,command,cwd,timeout,dedupe_key,state,created,started,finished,exit_code,error,log_path) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 (job_id, json.dumps(command), cwd, timeout, dedupe_key, "queued", now(), None, None, None, None, log))
         except sqlite3.IntegrityError:
             if dedupe_key:
@@ -266,7 +291,7 @@ def worker_loop(q, idle_exit=False):
         herdr_console_event("running", row["id"])
         command = json.loads(row["command"])
         started = time.monotonic()
-        code, state, error = None, "succeeded", None
+        code, state, error, failure_reason = None, "succeeded", None, None
         with open(row["log_path"], "ab", buffering=0) as log:
             codex_executor = pathlib.Path(command[0]).name == "codex" and len(command) > 1 and command[1] == "exec"
             log.write((f"[{now()}] start executor=codex output=suppressed\n" if codex_executor else f"[{now()}] start {redact_text(json.dumps(command))}\n").encode())
@@ -279,9 +304,13 @@ def worker_loop(q, idle_exit=False):
                 proc = subprocess.Popen(command, cwd=row["cwd"], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
                     preexec_fn=lambda: apply_job_sandbox(row["cwd"], job_tmp))
                 def copy_output():
+                    nonlocal failure_reason
                     for line in iter(proc.stdout.readline, b""):
-                        if not codex_executor:
-                            log.write(redact_text(line.decode("utf-8", errors="replace")).encode())
+                        decoded = line.decode("utf-8", errors="replace")
+                        if codex_executor:
+                            failure_reason = codex_pause_reason(decoded) or failure_reason
+                        else:
+                            log.write(redact_text(decoded).encode())
                     proc.stdout.close()
                 output_thread = threading.Thread(target=copy_output, daemon=True)
                 output_thread.start()
@@ -310,9 +339,12 @@ def worker_loop(q, idle_exit=False):
                 if code is None and proc is not None and proc.poll() is not None:
                     code = proc.returncode
                 if state == "succeeded" and code != 0:
-                    state, error = "failed", f"exit code {code}"
+                    if codex_executor and failure_reason:
+                        state, error = "paused", "external executor requires authorized recovery"
+                    else:
+                        state, error = "failed", f"exit code {code}"
             except Exception as e:
-                state, error = "failed", redact_text(str(e))
+                state, error, failure_reason = "failed", redact_text(str(e)), None
                 if proc is not None and proc.poll() is None:
                     os.killpg(proc.pid, signal.SIGKILL); proc.wait()
             if output_thread is not None:
@@ -320,7 +352,7 @@ def worker_loop(q, idle_exit=False):
             shutil.rmtree(job_tmp, ignore_errors=True)
             release_worktree_lock(worktree_lock_fd)
             log.write((f"\n[{now()}] finish state={state} exit={code} elapsed={time.monotonic()-started:.3f}s\n").encode())
-        q.conn.execute("UPDATE jobs SET state=?,finished=?,exit_code=?,error=? WHERE id=?", (state, now(), code, error, row["id"]))
+        q.conn.execute("UPDATE jobs SET state=?,finished=?,exit_code=?,error=?,failure_reason=? WHERE id=?", (state, now(), code, error, failure_reason, row["id"]))
         herdr_job_status("done" if state in ("succeeded", "cancelled") else "error", row["id"])
         herdr_console_event("completed" if state == "succeeded" else state, row["id"])
         set_status("done" if state in ("succeeded", "cancelled") else "error")

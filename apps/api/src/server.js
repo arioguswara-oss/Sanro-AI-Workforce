@@ -1,14 +1,15 @@
 import http from 'node:http';
 import {randomUUID,createHash} from 'node:crypto';
 import {mkdirSync,lstatSync,chmodSync,readFileSync} from 'node:fs';
-import {join,resolve} from 'node:path';
+import {join,resolve,relative,isAbsolute} from 'node:path';
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {loadAuth,authenticate,projectAccess} from './auth.js';
 import {Store,AGENTS} from './store.js';
 import {monitoringSnapshot} from './monitoring.js';
-import {Director} from './director.js';
+import {Director,gitSnapshot} from './director.js';
 import {validateJobAdmission} from './admission.js';
+import {ensureArtifactTables,ProjectDriveArtifactDelivery,validateArtifactManifest} from './artifact-delivery.js';
 import {WorkerController} from './worker-controller.js';
 import {HerdrWorkerController} from './herdr-worker-controller.js';
 
@@ -58,7 +59,7 @@ async function workerCall(stateDir,auth,principal,project,request){
   });
 }
 
-export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=process.env.WORKFORCE_STATE_DIR,startWorker=process.env.WORKFORCE_WORKER_AUTOSTART==='1',allowWorkerControl=process.env.WORKFORCE_ALLOW_WORKER_CONTROL==='1',startDirector=false,executor,snapshot,monitorMaxAgeMs=60000,herdrRunner}={}){
+export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=process.env.WORKFORCE_STATE_DIR,startWorker=process.env.WORKFORCE_WORKER_AUTOSTART==='1',allowWorkerControl=process.env.WORKFORCE_ALLOW_WORKER_CONTROL==='1',startDirector=false,executor,snapshot,monitorMaxAgeMs=60000,herdrRunner,artifactTransport}={}){
   if(!Number.isFinite(monitorMaxAgeMs)||monitorMaxAgeMs<1000||monitorMaxAgeMs>3600000)throw new Error('invalid monitoring freshness bound');
   const auth=loadAuth(authPath);
   if(!stateDir)throw new Error('WORKFORCE_STATE_DIR is required');
@@ -90,6 +91,7 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
     return result;
   };
   const director=new Director({db,auth,workerCall:executor??dispatchWorker,authorize:(principal,project,ref,scope)=>approvalStatus(auth,principal,project,ref,scope),...(snapshot?{snapshot}:{})});
+  ensureArtifactTables(db);
   if(startDirector)director.start();
   async function handler(req,res){
     try{
@@ -105,6 +107,23 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
         return reply(res,200,monitoringSnapshot({db,project:access.project,providerCatalog,approvalRegistry:auth.approvals,maxAgeMs:monitorMaxAgeMs}));
       }
       if(monitorOnly)return reply(res,403,{error:'dedicated monitoring credentials cannot access operational endpoints'});
+      const artifactMatch=path.match(/^\/api\/projects\/([^/]+)\/artifacts(?:\/([a-f0-9]{64}))?$/);
+      if(artifactMatch){
+        const projectId=artifactMatch[1],artifactSha=artifactMatch[2]??null,access=projectAccess(auth,principal,projectId,req.method==='POST'?'artifact:deliver':'artifact:read');
+        if(!access)return reply(res,404,{error:'not found'});
+        if(req.method==='GET'&&artifactSha){const row=db.prepare('SELECT status,manifest_json,checkpoint_json,remote_file_id,download_link FROM artifact_deliveries WHERE project_id=? AND artifact_sha256=? ORDER BY updated_at DESC LIMIT 1').get(projectId,artifactSha);if(!row)return reply(res,404,{error:'artifact delivery not found'});return reply(res,200,{status:row.status,manifest:JSON.parse(row.manifest_json),checkpoint:JSON.parse(row.checkpoint_json),remote_file_id:row.remote_file_id,download_link:row.status==='VERIFIED'?row.download_link:null});}
+        if(req.method!=='POST'||artifactSha)return reply(res,405,{error:'POST delivery or GET artifact SHA required'});
+        const body=await readBody(req,16*1024),project=access.project,mapping=project.drive_delivery,mandate=approvalStatus(auth,principal,projectId,body.approval_ref,'artifact:deliver');
+        if(!artifactTransport||!mapping||!mandate||mandate.owner_actor!==principal.subject||mandate.repository!==project.repository||mandate.branch!==project.branch||mandate.environment!=='isolated-development'||mandate.max_cost_usd!==0||!mandate.allowed_actions?.includes('artifact:deliver'))return reply(res,403,{error:'folder-scoped artifact delivery authorization is unavailable'});
+        const manifest=body.manifest,artifactPath=body.artifact_path;
+        if(typeof artifactPath!=='string'||isAbsolute(artifactPath)||artifactPath.split(/[\\/]/).includes('..')||artifactPath.includes('\\'))return reply(res,400,{error:'artifact path must be project-relative and traversal-free'});
+        const file=resolve(project.workspace,artifactPath),rel=relative(project.workspace,file);if(!rel||rel.startsWith('..')||isAbsolute(rel))return reply(res,400,{error:'artifact path is outside the project'});
+        try{let current=project.workspace;for(const part of rel.split(/[\\/]/)){current=join(current,part);if(lstatSync(current).isSymbolicLink())return reply(res,400,{error:'artifact path cannot contain symlinks'});}if(!lstatSync(file).isFile())return reply(res,400,{error:'artifact must be a regular file'});}catch{return reply(res,404,{error:'artifact file not found'});}
+        const sourceSha=await gitSnapshot(project.workspace,project);if(manifest?.project_id!==projectId||manifest?.source_commit_sha!==sourceSha)return reply(res,409,{error:'artifact source SHA does not match the authorized repository'});
+        if(manifest?.release_status==='APPROVED_RELEASE'){const releaseApproval=approvalStatus(auth,principal,projectId,manifest.owner_release_approval,'artifact:release');if(!releaseApproval||releaseApproval.owner_actor!==principal.subject||releaseApproval.repository!==project.repository||releaseApproval.branch!==project.branch||releaseApproval.environment!=='isolated-development'||releaseApproval.max_cost_usd!==0||!releaseApproval.allowed_actions?.includes('artifact:release'))return reply(res,403,{error:'separate release approval is required'});}
+        let bytes;try{bytes=readFileSync(file);validateArtifactManifest(manifest,bytes);}catch{return reply(res,400,{error:'artifact manifest or bytes are invalid'});}
+        try{const result=await new ProjectDriveArtifactDelivery({db,projectId,mapping,transport:artifactTransport}).deliver(manifest,bytes,{filePath:file});return reply(res,200,{...result,project_id:projectId,artifact_sha256:manifest.sha256,source_commit_sha:sourceSha});}catch{return reply(res,502,{error:'artifact delivery or remote integrity verification failed'});}
+      }
       if(req.method==='GET'&&path==='/api/agents')return reply(res,200,{agents:AGENTS});
       if(req.method==='GET'&&path==='/api/capabilities')return reply(res,200,{capabilities});
       let m;
