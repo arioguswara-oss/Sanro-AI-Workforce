@@ -9,6 +9,14 @@
 - Verification: `node --test apps/api/test/worktree-lock.test.js apps/api/test/director.test.js apps/api/test/api.test.js`: **11 PASS / 0 FAIL / 0 SKIP**, including one isolated synthetic API→queue→worker acceptance job. `git diff --check`: **PASS**.
 - Owner independently verified PR #2 OPEN, DRAFT, NOT MERGED at remote head `4bdbc8c11a731898701e28d496b5b97fce8b9ac7`.
 
+## GDI-02 recovery and worktree-lock acceptance — 2026-11-26
+
+- Local amended commit `633359e08c6d53a968f84f444ff317e564bf1948` has the same source tree as `4bdbc8c`; its sole delta is the checkpoint statement about the earlier shell's PR visibility. Both commits are retained.
+- Root cause of Git metadata failures: standard sandbox calls cannot write `.git` metadata, despite ordinary Unix ownership/mode. The approved project-scoped escalation path succeeded for `git fetch` and Git index/commit writes. No global permissions changed.
+- Worker now holds a private per-UID `/tmp` flock keyed by canonical worktree realpath for the complete child-process lifetime. A second worker with a different state root fails closed before starting a command in the same worktree. Lock cleanup follows child cleanup; the per-state worker singleton lock remains in place.
+- Focused tests: cross-state-root concurrent-worktree isolation and fast child exit **2 PASS / 0 FAIL**. Synthetic test uses temporary state roots/workspace and confirms the second command never runs. Prior unchanged API/Director/lock suite remains **11 PASS / 0 FAIL / 0 SKIP**.
+- Worktree-lock code is replayed as new commit `1911cce` based on remote `4bdbc8c`; its original local-lineage commit remains preserved. Push is the next checkpoint step; no published commit is amended.
+
 Authorized repository/branch: `arioguswara-oss/Sanro-AI-Workforce`, `feature/hermes-workforce-foundation`; existing Draft PR #2. Starting remote SHA `6efeba5b0e0985da2feb352ad5c8877c262743bc`.
 
 ## Current implementation
