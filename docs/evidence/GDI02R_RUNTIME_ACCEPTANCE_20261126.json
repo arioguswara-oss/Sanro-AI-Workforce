@@ -65,5 +65,23 @@
     "regression_tests_rerun": false,
     "reason": "No official project-scoped runtime invocation interface was available to verify mandate/capability authorization. Generic shell execution is not accepted as a runtime executor.",
     "required_next_step": "Expose or authorize the existing Hermes native executor or Local CI through an official callable project-scoped interface enforcing project identity, mandate expiry, capability allowlist, bounded execution, audit evidence, and checkpoints."
+  },
+  "runtime_wrapper_implementation": {
+    "baseline_sha": "f098e14579fa2687c1432c3366144646ed481471",
+    "tested_source_sha": "2d7c5b79530d6eaa22b606f7862dd5e2237c89e7",
+    "status": "IMPLEMENTED_AND_VERIFIED_SYNTHETIC",
+    "operations": ["browser_smoke", "mariadb_synthetic"],
+    "ssh": "DISABLED",
+    "python_affected_tests": "17 PASS / 0 FAIL",
+    "node_api_tests": "36 PASS / 0 FAIL",
+    "syntax_and_diff": "Python compilation, browser script node --check, and git diff --check PASS",
+    "runtime_acceptance": {
+      "chromium": "NOT TESTED on this source SHA; no repeated sandbox attempt. Wrapper child inherits seccomp socket denial and browser sandbox.",
+      "mariadb": "NOT TESTED on this source SHA; no repeated sandbox attempt. Wrapper child inherits seccomp socket denial; previous AF_UNIX EPERM evidence unchanged.",
+      "live_hermes_registration": "NOT TESTED; callback not injected or activated"
+    },
+    "security": "Fixed operation map, empty arguments, approved project/branch/checkpoint/mandate/operation scope, profile-bounded timeout <=300s, hash-only native approval evidence, existing worktree lock, private checkpoint/audit, per-job temporary directory and existing Landlock/seccomp inherited by runtime children. No sandbox relaxations.",
+    "host_registration_artifact": "docs/integrations/GDI02R_RUNTIME_EXECUTOR.md",
+    "note": "The Node route test injects a synthetic adapter returning BLOCKED; it does not execute Chromium or MariaDB and is not runtime evidence."
   }
 }

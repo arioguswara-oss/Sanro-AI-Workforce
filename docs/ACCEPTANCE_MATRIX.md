@@ -55,6 +55,21 @@ The full `apps/api` suite passed **21/21**, including synthetic Git-snapshot, Di
 
 Counts are not added to the historical ten-gate matrix; this runtime-focused follow-up is a separate evidence set. See `evidence/GDI02R_RUNTIME_ACCEPTANCE_20261126.json`.
 
+### Fixed-operation wrapper continuation — 2026-11-26
+
+| Area | Result | Evidence |
+|---|---|---|
+| Wrapper policy, project/mandate/checkpoint admission | VERIFIED SYNTHETIC | Python wrapper/adaptor/preflight/launcher tests: 17 PASS / 0 FAIL; expiry, mismatch, scope, timeout, evidence shape, replay and fixed argv rejection |
+| Workforce API admission and native approval handoff | VERIFIED SYNTHETIC | Full Node API suite: 36 PASS / 0 FAIL; operation-specific approval and rejection of boolean-only native approval |
+| Browser DOM/JavaScript/screenshot | NOT TESTED | No browser launch this continuation; wrapper keeps existing seccomp and browser sandbox |
+| Isolated MariaDB SQL | NOT TESTED | No database launch this continuation; wrapper keeps existing seccomp/network denial |
+| Host registration / live Hermes | NOT TESTED | Registration artifact ready; host callback not injected or activated |
+| SSH | DISABLED | No profile, target, or authentication mechanism |
+
+Tested implementation SHA: `2d7c5b79530d6eaa22b606f7862dd5e2237c89e7`. Existing worker seccomp denies socket syscalls; wrapper retains that policy, so runtime results remain NOT TESTED here and require an approved compatible runtime executor.
+
+These fixture tests verify admission and integration plumbing only. They do not claim runtime PASS. See `evidence/GDI02R_RUNTIME_ACCEPTANCE_20261126.json` and `integrations/GDI02R_RUNTIME_EXECUTOR.md`.
+
 ### Executor continuation
 
 At checkpoint `28d692c42739e71558a3cb18b326b6d3e29fa7d3`, available connected tools exposed no callable official Hermes native executor or Local CI runtime interface. The orchestration contract confirms the reviewed wrapper is not installed into Hermes. Runtime acceptance was therefore **BLOCKED before invocation**; no mock was substituted, no browser/database/SSH attempt repeated, and no runtime PASS added. See the continuation record in `evidence/GDI02R_RUNTIME_ACCEPTANCE_20261126.json`.

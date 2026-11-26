@@ -1,5 +1,16 @@
 # Hermes-first development checkpoint — 25 November 2026 Jakarta
 
+## GDI-02R project-scoped runtime wrapper — 2026-11-26
+
+- **Baseline:** continued from `f098e14579fa2687c1432c3366144646ed481471`; prior GDI implementation retained.
+- **IMPLEMENTED:** added a fixed-operation executor for `browser_smoke` and `mariadb_synthetic`, a Workforce adapter, a dedicated operation-scoped API admission route, strict private profile validation, and an inactive host `runtimeExecutor` callback contract. Generic job submission cannot use runtime profiles. SSH has no operation or profile.
+- **Security:** requires project/repository/branch/worker identity, clean source/checkpoint SHA, unexpired zero-cost project mandate, operation-specific scope, approval reference and bound native approval evidence. No request-supplied executable/command/arguments; timeout is profile-bound to at most 300 s. Per-worktree lock, unique temporary directory, private durable checkpoint/audit, secret redaction, and duplicate replay rejection are applied. Runtime children inherit existing Landlock/seccomp through `apply_job_sandbox`; no sandbox relaxation or fallback.
+- **VERIFIED SYNTHETIC:** wrapper/admission Python tests **16 PASS / 0 FAIL**; API Node suite **36 PASS / 0 FAIL**; Python compile, browser script syntax, and `git diff --check` PASS. Node route tests use an injected adapter returning BLOCKED and verify the native approval callback cannot be invoked with a boolean; these are not runtime execution evidence.
+- **Runtime operations — NOT TESTED in this continuation:** Chromium and MariaDB were not launched because the same sandbox socket-denial mechanism remains and the wrapper intentionally inherits the current seccomp policy. Prior actual EPERM evidence remains recorded above; no same-method retries. `runtimeExecutor` has not been registered with live Hermes/Local CI. This source provides a reviewed integration contract, not activation.
+- **Registration artifact:** [project-scoped executor integration](integrations/GDI02R_RUNTIME_EXECUTOR.md). The endpoint fails closed without an explicitly injected host callback that obtains native approval bound to actor/project/job/operation. No live Hermes config changed.
+- **SSH / live safety:** SSH remains disabled without an allowed target and authentication path. No active worker, Studio, database, production system, or live Hermes service was accessed.
+- **Tested implementation SHA:** `2d7c5b79530d6eaa22b606f7862dd5e2237c89e7`; tests apply to this source commit. Documentation/evidence is committed separately. Existing seccomp explicitly denies socket syscalls, so actual browser/MariaDB runtime under this profile cannot pass; this restriction is retained.
+
 ## GDI-02R project-scoped runtime executor continuation — 2026-11-26
 
 - **Starting checkpoint:** `28d692c42739e71558a3cb18b326b6d3e29fa7d3`, clean `feature/hermes-workforce-foundation`; prior Playwright, MariaDB, and SSH outcomes below remain unchanged and were not retried.
