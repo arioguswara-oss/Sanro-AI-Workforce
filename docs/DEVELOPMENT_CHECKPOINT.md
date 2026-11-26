@@ -7,7 +7,7 @@
 - Added a private state-directory advisory worktree lock helper with exclusive creation and fail-closed collision behavior. Unit coverage verifies exclusive acquisition and release. **Lifecycle integration with the long-running worker is not yet complete**, so this helper alone does not prove runtime serialization beyond the existing FIFO queue.
 - Existing mandate validation in Director already binds repository, branch, isolated-development environment, owner, zero cost, allowed/forbidden actions, and fixed project pipeline profiles. Existing job checkpoint/resume and one synthetic Herdr acceptance path were reused; no new recovery replay or external runtime was triggered.
 - Verification: `node --test apps/api/test/worktree-lock.test.js apps/api/test/director.test.js apps/api/test/api.test.js`: **11 PASS / 0 FAIL / 0 SKIP**, including one isolated synthetic API→queue→worker acceptance job. `git diff --check`: **PASS**.
-- GitHub PR metadata could not be queried from this environment due to API network failure; push and Draft PR update are pending.
+- Owner independently verified PR #2 OPEN, DRAFT, NOT MERGED at remote head `4bdbc8c11a731898701e28d496b5b97fce8b9ac7`.
 
 Authorized repository/branch: `arioguswara-oss/Sanro-AI-Workforce`, `feature/hermes-workforce-foundation`; existing Draft PR #2. Starting remote SHA `6efeba5b0e0985da2feb352ad5c8877c262743bc`.
 
