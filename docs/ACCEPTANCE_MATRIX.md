@@ -106,11 +106,11 @@ Observed approval prompts: **0**. Tested source SHA: `1a35dcb910602d39d8efd0a1e2
 | Area | Result | Evidence |
 |---|---|---|
 | Reuse pinned Playwright MCP and project browser configuration | PASS (source package) | Reuses `@playwright/mcp@0.0.86`, seven-tool config, cached Chromium; no dependencies added |
-| Host authorization and sandbox/capacity validation | BLOCKED | SSH agent unavailable; `hc machine ls` empty; live Core status has no shell executor; reported 4 vCPU / 8 GB not measured |
-| MCP and synthetic browser flow on the authorized host | NOT RUN | One-shot host runner prepared; no host execution or sandbox retry |
-| Loopback acceptance flow, private artifacts, cleanup and resource sampling | IMPLEMENTED, NOT RUNTIME-VERIFIED | New runner performs initialize/tools/list, synthetic DOM flow, screenshot, process cleanup and host/RSS/CPU-tick evidence |
-| Authenticated persistent service and project/job gateway | NOT IMPLEMENTED | Requires native Workforce host executor integration; no general MCP listener activated |
-| Default-deny egress and CPU/memory enforcement | NOT IMPLEMENTED | Requires reviewed per-service host boundary; MCP origin allowlist is not treated as enforcement |
-| Codex/Hermes registration | NOT ACTIVE | Codex HTTP URL held until gateway exists; no verified isolated Hermes interface |
+| Host authorization and sandbox/capacity validation | PARTIAL | Owner reports UID 1001, 4 vCPU, 7.8 GiB RAM, 3.2 GiB available, 1.7 GiB swap in use, Node 22.22.1 and userns/AppArmor values; transient systemd capability not host-tested |
+| Workforce project/job admission and authenticated runtime API | IMPLEMENTED, NOT HOST-REGISTERED | Fixed private-browser operation uses existing bearer auth, project scopes, `runtime:browser` approval, mandate/native-approval callback, project/SHA/job checks and bounded single-active FIFO |
+| MCP and synthetic browser flow on the authorized host | NOT RUN | Runner now refuses launch without a verified private netns, cgroup caps, non-root UID and sandbox config; no host invocation or sandbox retry |
+| Per-job resource boundary and cleanup | IMPLEMENTED IN SOURCE, NOT RUNTIME-VERIFIED | systemd transient user unit specifies 1 CPU, 2 GiB RAM, 128 tasks, hard timeout, `KillMode=control-group`, private tmp, strict filesystem defaults and private job artifacts |
+| Default-deny egress and MCP listener isolation | IMPLEMENTED IN SOURCE, NOT RUNTIME-VERIFIED | `PrivateNetwork=yes`; runner checks private netns/loopback-only/no default route and rejects external, metadata and unrelated localhost connection probes |
+| Codex/Hermes registration | NOT ACTIVE | Official native runtime callback and private host profile are not registered; no Codex HTTP or isolated Hermes registration |
 
-Focused source checks are recorded in `docs/evidence/PRIVATE_CLOUD_BROWSER_V1_20261126.json`. Current readiness is **NO-GO** for service activation; the host execution package is ready for the authorized executor after SSH/runtime access is restored.
+Focused source checks are recorded in `docs/evidence/PRIVATE_CLOUD_BROWSER_V1_20261126.json`. Current readiness is **NO-GO** for host activation until the official native runtime callback/profile is registered and the target confirms systemd delegated network/cgroup controls. No kernel or AppArmor change is authorized.

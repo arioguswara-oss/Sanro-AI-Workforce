@@ -4,40 +4,42 @@
   "repository": "arioguswara-oss/Sanro-AI-Workforce",
   "branch": "feature/hermes-workforce-foundation",
   "baseline_sha": "397b7cb1884023b875d182927095a54f9d15ab8f",
-  "latest_reviewed_source_sha": "cc70cd2bcce782cb95ef8ccd49e2731572ec2af9",
-  "tested_source_sha": "37b0a88b41b3f6d991185c85a3300c79890edc1b",
-  "implementation_commit_sha": "37b0a88b41b3f6d991185c85a3300c79890edc1b",
+  "latest_reviewed_source_sha": "f0165a569c5ac1f6e3a7cb955a523fd18cd53f61",
+  "tested_source_sha": "1973349c5f91818b4a524bd23c157f5a07575d3c",
+  "implementation_commit_sha": "1973349c5f91818b4a524bd23c157f5a07575d3c",
   "host_runtime_validation": {
-    "status": "BLOCKED_BEFORE_HOST_CONNECTION",
+    "status": "OWNER_PREFLIGHT_REPORTED; SYSTEMD_BOUNDARY_NOT_TESTED",
     "authorized_host": "existing Hermes VPS vmi3646685 (owner-authorized target; no connection made)",
     "ssh_agent_check": "FAIL: ssh-add -l returned Error connecting to agent: No such file or directory",
     "official_executor_recheck": "hc machine ls returned machines: []; hc server status confirmed the existing Core is live but provides no shell execution capability",
     "remote_command_attempted": false,
-    "host_capacity": "4 vCPU / 8 GB RAM reported in prior evidence; not measured in this session",
-    "chromium_sandbox_compatibility": "NOT TESTED ON HOST",
-    "kernel_userns_appArmor_browser_dependencies": "NOT TESTED ON HOST",
+    "host_capacity": "Owner-reported preflight: 4 vCPU, 7.8 GiB RAM, 3.2 GiB available, 1.7 GiB swap used",
+    "host_runtime_facts": "Owner-reported UID 1001; Node v22.22.1; kernel.unprivileged_userns_clone=1; kernel.apparmor_restrict_unprivileged_userns=1; runner syntax PASS; worktree clean at f0165a5",
+    "chromium_sandbox_compatibility": "NOT TESTED; sandbox launch acceptance remains pending",
+    "kernel_userns_appArmor_browser_dependencies": "Owner reported userns/AppArmor settings; systemd PrivateNetwork/cgroup support and Chromium compatibility NOT TESTED",
     "compatibility_with_Hermes": "NOT TESTED; Core was only previously observed live; not queried or modified this run"
   },
   "implementation": {
-    "status": "HOST_ACCEPTANCE_PACKAGE_PREPARED; SERVICE_NOT_ACTIVATED",
+    "status": "HOST_CONTROLLER_IMPLEMENTED; SERVICE_NOT_ACTIVATED",
     "reused": "@playwright/mcp@0.0.86, apps/web/playwright-mcp.config.json, project browser cache, existing seven-tool project allowlist",
     "new_dependencies": 0,
     "new_entrypoint": "apps/web/scripts/private-browser-mcp-acceptance.mjs",
-    "entrypoint_design": "one-shot non-root synthetic acceptance; ephemeral loopback MCP and fixture ports; sandbox=true; private per-run screenshot; MCP initialize/tools/list and browser flow; process cleanup; host facts and process-tree RSS/CPU tick sampling",
-    "exact_authorized_host_invocation": "SANRO_PROJECT_ID=sanro-ai-workforce SANRO_JOB_ID=private-browser-v1-acceptance-20261126 node apps/web/scripts/private-browser-mcp-acceptance.mjs",
+    "new_controller": "private_browser_controller.py",
+    "entrypoint_design": "one-shot synthetic acceptance; per-job systemd user unit; 100% CPU quota, 2 GiB MemoryMax, TasksMax 128, RuntimeMaxSec, cgroup cleanup, PrivateNetwork, PrivateTmp, NoNewPrivileges, ProtectSystem=strict; env -i; runner verifies active cgroup/netns, no default route, loopback-only, sandbox config and no --no-sandbox; denies external/metadata/unrelated localhost TCP probes; private screenshot and resource sampling",
+    "authorized_invocation": "POST ${WORKFORCE_API_URL}/api/projects/sanro-ai-workforce/runtime-acceptance with authenticated owner token, private-browser profile, existing approved runtime:browser approval reference, and unique idempotency key; do not invoke the runner directly",
     "actual_invocation": false,
-    "runner_review": "Source reviewed: refuses root; verifies pinned MCP, browser executable/libraries and chromiumSandbox=true; owner-only state/artifacts; ephemeral loopback MCP/fixture; samples process-tree RSS/CPU ticks; cleanup. One-shot acceptance runner only; does not itself implement authentication/project-job admission, FIFO, cgroup CPU/RAM limits, default-deny egress or persistent service isolation.",
-    "persistent_authenticated_gateway": "NOT IMPLEMENTED",
-    "project_job_native_admission": "HOST_EXECUTOR_INTEGRATION_UNAVAILABLE",
-    "network_egress_boundary": "NOT IMPLEMENTED; Playwright origin allowlist alone is explicitly insufficient",
-    "resource_limit_service_unit": "NOT IMPLEMENTED OR ACTIVATED",
+    "runner_review": "Source implementation reuses Workforce runtime project, approval, native callback and wrapper gates. API serializes up to 16 queued runtime requests. Systemd unit enforces resource/time/network/filesystem boundaries; runner rejects boundary mismatch. Focused source tests pass; no systemd or browser runtime has been executed.",
+    "persistent_authenticated_gateway": "Existing Workforce bearer-authenticated runtime API; private-browser profile/native runtime callback NOT REGISTERED on VPS",
+    "project_job_native_admission": "IMPLEMENTED IN SOURCE; HOST CALLBACK NOT REGISTERED",
+    "network_egress_boundary": "SYSTEMD PrivateNetwork=yes IMPLEMENTED IN SOURCE; HOST NAMESPACE NOT VERIFIED",
+    "resource_limit_service_unit": "CPU 100%, memory 2G, tasks 128, hard job timeout, KillMode=control-group IMPLEMENTED IN SOURCE; HOST CGROUP NOT VERIFIED",
     "codex_http_registration": "NOT WRITTEN; endpoint and authenticated tunnel unavailable",
     "hermes_integration": "NOT TESTED OR ACTIVATED; no official isolated runtime interface present",
     "host_policy_changes": false
   },
   "browser_acceptance": {
-    "status": "BLOCKED BEFORE HOST INVOCATION; OFFICIAL EXECUTOR UNAVAILABLE",
-    "latest_host_executor_check": "ssh agent unavailable; hc machine ls empty; live Core status is read-only and provides no shell execution route",
+    "status": "NOT RUN; NATIVE HOST CALLBACK/PROFILE NOT REGISTERED",
+    "latest_host_executor_check": "Owner supplied non-root VPS preflight. No systemd unit or Chromium invocation was made from this session.",
     "prior_codex_sandbox_failure": "No usable sandbox; SIGTRAP; not repeated",
     "host_mcp_initialize_tools_list_browser_flow": "NOT TESTED",
     "browser_version": null,
@@ -48,16 +50,16 @@
     "reported_capacity": "4 vCPU / 8 GB RAM; not a measurement"
   },
   "security_gaps_that_block_activation": [
-    "No authenticated client gateway bound to Workforce project/job and native approval",
-    "No verified service-level default-deny network egress control that covers redirects, DNS, private/link-local, and metadata destinations",
-    "Existing runtime wrapper denies socket syscalls and cannot run MCP HTTP without an approved compatible isolated runtime profile",
-    "No reviewed persistent supervisor with one-job FIFO, CPU/memory limits, and per-project/job lifecycle cleanup",
-    "No verified official isolated Hermes runtime registration interface"
+    "Official native runtime callback and private-browser profile are not registered in the authorized VPS runtime",
+    "systemd user transient unit support for PrivateNetwork, cgroup CPUQuota, MemoryMax, TasksMax and RuntimeMaxSec is unverified under the supplied AppArmor/userns settings",
+    "Chromium sandbox launch and synthetic MCP acceptance have not been run on the host",
+    "Codex HTTP and isolated Hermes integration remain inactive"
   ],
   "regressions": {
     "node_syntax_check": "PASS: node --check apps/web/scripts/private-browser-mcp-acceptance.mjs",
-    "python_project_runtime_executor": "PASS: 9 tests",
-    "node_api": "NOT RUN; apps/api has no node_modules or package lock; no install attempted",
+    "python_project_runtime_executor_and_private_controller": "PASS: 14 tests",
+    "node_api_runtime_executor": "PASS: 5 tests (authorization binding, private profile scope, FIFO serialization)",
+    "node_syntax_python_compile_and_json_diff_checks": "PASS",
     "host_browser_acceptance": "NOT RUN"
   },
   "interactive_approvals": {
@@ -65,9 +67,8 @@
     "native_host_execution_approvals_observed": 0,
     "native_shell_escalations_this_continuation": 0,
     "host_executor_invoked": false,
-    "counting_note": "This activation recheck observed zero interactive MCP prompts, zero native host execution approvals, zero shell escalations and zero host executor invocations. Earlier GDI-02R setup-operation counts are historical and separate."
+    "counting_note": "This implementation continuation observed zero interactive MCP prompts, zero native host execution approvals, zero shell escalations, and zero host runtime invocations. Unit tests are not runtime acceptance."
   },
   "cleanup": "No browser/MCP/host process was started. No screenshot/temp artifacts, service, worker, or Hermes resource created or changed.",
-  "evidence_update_commit_sha": "2ca4b4b",
-  "delivery_sha": "Final checkpoint commit SHA is reported in the activation recheck report"
+  "delivery_sha": "Implementation source tested at 1973349c5f91818b4a524bd23c157f5a07575d3c; final checkpoint delivery SHA is reported in the completion report"
 }

@@ -1,5 +1,17 @@
 # Hermes-first development checkpoint — 25 November 2026 Jakarta
 
+## SANRO Private Cloud Browser V1 — host runtime controller implementation — 2026-11-26
+
+- Baseline reviewed: `f0165a569c5ac1f6e3a7cb955a523fd18cd53f61`; branch `feature/hermes-workforce-foundation`. Owner-reported VPS preflight: UID 1001, 4 vCPU, 7.8 GiB RAM, 3.2 GiB available, 1.7 GiB swap used, Node 22.22.1, `unprivileged_userns_clone=1`, `apparmor_restrict_unprivileged_userns=1`. These are owner-supplied readings, not remeasured here.
+- Implemented fixed `private_browser_acceptance` operation through the existing Workforce runtime wrapper, project/branch/source-SHA/mandate/native-approval policy, authenticated runtime API, and bounded serial runtime FIFO (one active, up to 16 waiting). Restricted operation to `sanro-ai-workforce`; no generic shell or command parameters.
+- Implemented transient systemd user-unit launch with CPU 100%, MemoryMax 2 GiB, TasksMax 128, hard RuntimeMaxSec, 3-second stop grace, control-group kill, PrivateNetwork, PrivateTmp, NoNewPrivileges, ProtectSystem=strict, one private writable job root, and a clean `env -i` browser environment. No AppArmor/kernel changes; no Chromium sandbox disable.
+- The runner now refuses execution unless actual cgroup v2 limits are present, network namespace differs from host init, loopback is the only interface, no default route exists, and TCP probes to public IP, metadata IP, and unrelated loopback port fail. It verifies non-root, sandbox config and absence of Chromium `--no-sandbox`; it validates MCP/browser steps, screenshot digest, measured resources and cleanup before reporting PASS. It preserves screenshot only on PASS.
+- Targeted source regressions: Python runtime executor/controller **14 PASS**; Node API runtime executor **5 PASS** (including private profile approval and FIFO serialization); JavaScript syntax, Python compilation, registry JSON, and `git diff --check` PASS.
+- Tested implementation commit: `1973349c5f91818b4a524bd23c157f5a07575d3c`.
+- Host acceptance remains **NOT RUN**. The official native runtime callback and private `private-browser` profile are not registered on VPS. systemd user PrivateNetwork/cgroup availability under current AppArmor/userns policy and Chromium sandbox launch remain unverified. Direct runner/systemd invocation is not an approved substitute; the documented API request remains gated until the official callback/profile is installed.
+- No Hermes restart, active worker interaction, production access, global config, dependency install, or privileged host change. Approvals this continuation: **0 MCP prompts, 0 native host approvals, 0 shell escalations**. Runtime result: **NO-GO pending host activation**; source implementation does not imply runtime PASS.
+- Machine-readable evidence: [Private Cloud Browser V1 evidence](evidence/PRIVATE_CLOUD_BROWSER_V1_20261126.json). Implementation and final delivery SHAs are recorded after commit.
+
 ## SANRO Private Cloud Browser V1 — host activation recheck — 2026-11-26
 
 - Latest reviewed HEAD and origin branch SHA: `cc70cd2bcce782cb95ef8ccd49e2731572ec2af9`; workspace clean before this evidence update. Host execution package remains `apps/web/scripts/private-browser-mcp-acceptance.mjs`.
