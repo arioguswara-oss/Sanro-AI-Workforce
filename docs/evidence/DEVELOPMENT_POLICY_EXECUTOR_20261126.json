@@ -53,7 +53,7 @@
   "approvalCounts": {
     "interactiveOwnerPrompts": 0,
     "nativeExecutorApprovals": 0,
-    "escalations": 0,
+    "escalatedGitWriteInvocations": 2,
     "activeHookSyntheticFixturesRequestingApproval": 4
   },
   "resourceUsage": "NOT_MEASURED",
