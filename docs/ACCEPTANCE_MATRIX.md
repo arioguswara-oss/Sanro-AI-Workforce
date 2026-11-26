@@ -127,3 +127,18 @@ Observed approval prompts: **0**. Tested source SHA: `1a35dcb910602d39d8efd0a1e2
 | Codex/Hermes registration | NOT ACTIVE | Official native runtime callback and private host profile are not registered; no Codex HTTP or isolated Hermes registration |
 
 Focused source checks are recorded in `docs/evidence/PRIVATE_CLOUD_BROWSER_V1_20261126.json`. Current readiness is **NO-GO** for host activation until the official native runtime callback/profile is registered and the target confirms systemd delegated network/cgroup controls. No kernel or AppArmor change is authorized.
+
+## SANRO QA native Hermes profile candidate — 2026-11-26
+
+| Gate | Result | Evidence |
+|---|---|---|
+| Hermes v0.22 plugin contract and exact tool registration | PASS (synthetic) | Fake context verifies exactly two fixed-schema tools and zero hooks |
+| Project/operation binding and fail-closed authorization | PASS (synthetic) | Fixed Workforce project/operation mapping; missing auth, redirect, API failure, mismatch and malformed-result tests |
+| Safe profile staging helper | PASS (synthetic/source) | Idempotency, file allowlist, target conflict and exact profile path checks; helper not run on host |
+| Plugin/activation tests | PASS | 10 tests |
+| Existing policy/executor/worker/Hermes regression | PASS | 39 tests |
+| Backup/DR security gate regression | PASS | 11 tests; active hook/config unchanged |
+| Installed-profile doctor/activation/rollback | NOT TESTED | No host execution or live-profile mutation |
+| Local CI Playwright, Chromium, screenshot, cleanup | NOT TESTED | Native callback and QA profile authorization not activated |
+
+Candidate acceptance **NO-GO for runtime activation**. Total targeted result: 60 PASS / 0 FAIL. Both profiles use OS user `sanro`; profile scoping does not provide OS isolation. See [native profile integration and activation procedure](integrations/SANRO_QA_NATIVE_HERMES_PROFILE_V1.md) and [sanitized evidence](evidence/SANRO_QA_NATIVE_HERMES_PROFILE_V1_20261126.json).

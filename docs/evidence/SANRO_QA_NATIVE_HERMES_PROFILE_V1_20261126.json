@@ -1,0 +1,49 @@
+{
+  "milestone": "SANRO QA Native Hermes Profile Integration V1",
+  "date": "2026-11-26",
+  "repository": "arioguswara-oss/Sanro-AI-Workforce",
+  "branch": "feature/hermes-workforce-foundation",
+  "draft_pr": 2,
+  "baseline_sha": "4584c1a52c5d9bec3f5f703f50f05b58749745bb",
+  "tested_source_sha": "4584c1a52c5d9bec3f5f703f50f05b58749745bb (baseline; tested changes are in the delivery commit)",
+  "final_sha": "RECORDED_IN_DELIVERY_CHECKPOINT",
+  "implementation": {
+    "status": "IMPLEMENTED_CANDIDATE_NOT_ACTIVATED",
+    "hermes_contract": "v0.22.0 directory plugin: plugin.yaml, __init__.py register(ctx), ctx.register_tool",
+    "profile_scope": "sanro-qa only; no profile created or changed by this work",
+    "tools": [
+      {"id": "sanro_qa_browser_smoke", "project": "sanro-ai-workforce", "fixed_operation": "browser_smoke"},
+      {"id": "sanro_qa_private_browser_acceptance", "project": "sanro-ai-workforce", "fixed_operation": "private_browser_acceptance"}
+    ],
+    "hooks": 0,
+    "privileged_capabilities": 0,
+    "arbitrary_command_input": false,
+    "activation_helper": "integrations/hermes/sanro_qa_runtime/profile_activation.py"
+  },
+  "tests": {
+    "plugin_and_activation": {"status": "PASS", "pass": 10, "fail": 0},
+    "policy_executor_worker_adapter": {"status": "PASS", "pass": 39, "fail": 0},
+    "approval_gate": {"status": "PASS", "pass": 11, "fail": 0},
+    "approval_gate": {"status": "PASS", "pass": 11, "fail": 0},
+    "clean_combined_suite": {"status": "PASS", "pass": 60, "fail": 0},
+    "first_combined_invocation": {"status": "INVOCATION_ERROR_RECOVERED", "detail": "Initial import omitted PYTHONPATH for the test under a hyphenated directory; corrected full run passed 60/60."},
+    "host_hermes_doctor_enable_rollback": "NOT_TESTED",
+    "local_ci_playwright_screenshot": "NOT_TESTED"
+  },
+  "isolation": {
+    "same_os_uid": true,
+    "profile_is_os_security_boundary": false,
+    "loopback_authenticated": "client requires bearer token; backend still enforces project ACL, approval scope, native callback and runtime policy",
+    "secrets_read_or_copied": false,
+    "live_profile_gateway_hooks_or_workers_changed": false
+  },
+  "runtime_acceptance": "NOT_TESTED",
+  "interactive_approval_prompts": 0,
+  "native_execution_approval_count": 0,
+  "cost": "$0",
+  "blockers": [
+    "Host executor/profile activation is unavailable from this session and live activation is explicitly not authorized.",
+    "No QA-profile-specific Workforce bearer authorization/native approval context was provisioned or inspected.",
+    "Same OS UID means the Hermes profile alone is not a security boundary."
+  ]
+}
