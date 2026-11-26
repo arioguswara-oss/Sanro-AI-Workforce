@@ -42,6 +42,8 @@ export class Director {
     if(!runColumns.has('instruction_json'))db.exec('ALTER TABLE director_runs ADD COLUMN instruction_json TEXT');
   }
   active(principal,project,approval){
+    const registered=this.auth.projects.get(project.id);
+    if(!registered||registered.workspace!==project.workspace||(this.auth.workspaceRegistry&&this.auth.workspaceRegistry.get(registered.workspace)!==project.id))return false;
     const grants=principal?.projects?.[project.id];
     const scopes=['read','workflow:run','workflow:director','workflow:developer','workflow:qa','engineering:execute','engineering:read'];
     if(!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(project.repository??'')||!project.branch||['main','master'].includes(project.branch)||project.environment!=='isolated-development')return false;
