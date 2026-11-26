@@ -8,6 +8,7 @@ import {loadAuth,authenticate,projectAccess} from './auth.js';
 import {Store,AGENTS} from './store.js';
 import {monitoringSnapshot} from './monitoring.js';
 import {Director} from './director.js';
+import {validateJobAdmission} from './admission.js';
 import {WorkerController} from './worker-controller.js';
 import {HerdrWorkerController} from './herdr-worker-controller.js';
 
@@ -39,7 +40,12 @@ function approvalStatus(auth,principal,projectId,ref,scope='engineering:execute'
 }
 function privateDirectory(path){mkdirSync(path,{recursive:true,mode:0o700});const s=lstatSync(path);if(s.isSymbolicLink()||!s.isDirectory()||s.uid!==process.getuid())throw new Error('state directory must be real and owned by current user');if((s.mode&0o077)!==0)throw new Error('state directory permissions must be 0700');}
 async function workerCall(stateDir,auth,principal,project,request){
-  const payload={...request,principal,project:{id:project.id,workspace:project.workspace},projects:Object.fromEntries([...auth.projects].map(([k,v])=>[k,{workspace:v.workspace}])),profiles:auth.profiles};
+  let admission=null,mandate=null,commandProfile=null;
+  if(request.action==='submit'){
+    commandProfile=auth.profiles[request.profile];mandate=approvalStatus(auth,principal,project.id,request.approval_ref);
+    admission=await validateJobAdmission({auth,principal,project,request,mandate,commandProfile});
+  }
+  const payload={...request,principal,mandate,admission,project:{id:project.id,name:project.name,workspace:project.workspace,repository:project.repository,branch:project.branch,worker_id:project.worker_id,environment:project.environment,permission_profile:project.permission_profile},projects:Object.fromEntries([...auth.projects].map(([k,v])=>[k,{id:v.id,workspace:v.workspace,repository:v.repository,branch:v.branch,worker_id:v.worker_id,environment:v.environment,permission_profile:v.permission_profile}])),profiles:auth.profiles};
   const env={PATH:'/usr/bin:/bin',HOME:stateDir,TMPDIR:join(stateDir,'tmp'),LANG:'C.UTF-8',PYTHONNOUSERSITE:'1',WORKFORCE_WORKER_STATE:stateDir};
   return await new Promise((resolve,reject)=>{
     const child=spawn(process.env.PYTHON??'python3',[join(root,'workforce_worker_bridge.py')],{cwd:root,env,stdio:['pipe','pipe','ignore'],shell:false});
@@ -47,7 +53,7 @@ async function workerCall(stateDir,auth,principal,project,request){
     child.stdout.on('data',x=>{stdout+=x;if(stdout.length>128*1024)child.kill('SIGKILL');});
     child.on('error',()=>{if(settled)return;settled=true;clearTimeout(timer);reject(Object.assign(new Error('worker adapter unavailable'),{status:503}));});
     child.on('close',code=>{if(settled)return;settled=true;clearTimeout(timer);let result;try{result=JSON.parse(stdout);}catch{reject(Object.assign(new Error('worker adapter failed'),{status:503}));return;}
-      if(code!==0){const denied=result.error==='PermissionError';reject(Object.assign(new Error(denied?'operation is not authorized':'worker adapter request failed'),{status:denied?403:400}));return;}resolve(result);});
+      if(code!==0){const denied=result.error==='PermissionError';reject(Object.assign(new Error(denied?'operation is not authorized':'worker adapter request failed'),{status:denied?403:400}));return;}resolve({...result,...(admission?{admission}:{})});});
     child.stdin.on('error',()=>{});child.stdin.end(JSON.stringify(payload));
   });
 }
@@ -153,7 +159,7 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
           if(!access.grants.scopes.includes('engineering:execute'))return reply(res,403,{error:'engineering:execute scope required'});const b=await readBody(req);if(typeof b.profile!=='string'||typeof b.idempotency_key!=='string'||b.idempotency_key.length<8||b.idempotency_key.length>200)return reply(res,400,{error:'profile and bounded idempotency_key required'});
           const profile=auth.profiles[b.profile];if(!profile||!Array.isArray(profile.projects)||!profile.projects.includes(projectId))return reply(res,403,{error:'command profile is not permitted for this project'});
           const approval=b.approval_ref;if(!approvalStatus(auth,principal,projectId,approval))return reply(res,403,{error:'valid, unexpired project approval required'});
-          const result=await dispatchWorker(principal,project,{action:'submit',profile:b.profile,approval_ref:approval,idempotency_key:b.idempotency_key,timeout:b.timeout});const created=date();db.prepare('INSERT OR IGNORE INTO worker_jobs(job_id,project_id,owner,profile,created_at,checkpoint_json) VALUES(?,?,?,?,?,?)').run(result.job_id,projectId,principal.subject,b.profile,created,JSON.stringify({status:'QUEUED',updated_at:created,project_id:projectId,owner:principal.subject,profile:b.profile}));audit(projectId,principal.subject,'ENGINEERING_JOB_SUBMITTED',result.job_id);return reply(res,202,{...result,project_id:projectId});
+          const result=await dispatchWorker(principal,project,{action:'submit',profile:b.profile,approval_ref:approval,idempotency_key:b.idempotency_key,timeout:b.timeout});const created=date();db.prepare('INSERT OR IGNORE INTO worker_jobs(job_id,project_id,owner,profile,created_at,checkpoint_json) VALUES(?,?,?,?,?,?)').run(result.job_id,projectId,principal.subject,b.profile,created,JSON.stringify({status:'QUEUED',updated_at:created,project_id:projectId,owner:principal.subject,profile:b.profile,admission:result.admission}));audit(projectId,principal.subject,'ENGINEERING_JOB_SUBMITTED',result.job_id);return reply(res,202,{...result,project_id:projectId});
         }
       }
       m=path.match(/^\/api\/projects\/([^/]+)\/jobs\/([a-f0-9-]+)(?:\/(logs|result|cancel|checkpoint|resume))?$/);
@@ -166,7 +172,7 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
           const profile=auth.profiles[body.profile];if(!profile||!profile.projects?.includes(projectId))return reply(res,403,{error:'command profile is not permitted for this project'});
           const approval=approvalStatus(auth,principal,projectId,body.approval_ref,'engineering:recover');if(!approval||!approvalStatus(auth,principal,projectId,body.approval_ref,'engineering:execute'))return reply(res,403,{error:'active recovery and execution approvals are required'});
           const prior=await workerCall(stateDir,auth,principal,access.project,{action:'status',job_id:jobId});if(prior.status!=='INTERRUPTED')return reply(res,409,{error:'only an interrupted job can be resumed'});
-          const result=await dispatchWorker(principal,access.project,{action:'submit',profile:body.profile,approval_ref:body.approval_ref,idempotency_key:`resume:${jobId}:${body.resume_key}`,timeout:body.timeout});const checkpoint=JSON.stringify({status:result.status,parent_job_id:jobId,side_effects_reconciled:true,recovery_note_sha256:createHash('sha256').update(body.recovery_note).digest('hex'),updated_at:date()});db.prepare('INSERT OR IGNORE INTO worker_jobs(job_id,project_id,owner,profile,created_at,parent_job_id,resume_key,checkpoint_json) VALUES(?,?,?,?,?,?,?,?)').run(result.job_id,projectId,principal.subject,body.profile,date(),jobId,body.resume_key,checkpoint);audit(projectId,principal.subject,'ENGINEERING_JOB_RESUMED_FROM_INTERRUPTED',result.job_id);return reply(res,202,{...result,project_id:projectId,parent_job_id:jobId});
+          const result=await dispatchWorker(principal,access.project,{action:'submit',profile:body.profile,approval_ref:body.approval_ref,idempotency_key:`resume:${jobId}:${body.resume_key}`,timeout:body.timeout});const checkpoint=JSON.stringify({status:result.status,parent_job_id:jobId,side_effects_reconciled:true,recovery_note_sha256:createHash('sha256').update(body.recovery_note).digest('hex'),updated_at:date(),admission:result.admission});db.prepare('INSERT OR IGNORE INTO worker_jobs(job_id,project_id,owner,profile,created_at,parent_job_id,resume_key,checkpoint_json) VALUES(?,?,?,?,?,?,?,?)').run(result.job_id,projectId,principal.subject,body.profile,date(),jobId,body.resume_key,checkpoint);audit(projectId,principal.subject,'ENGINEERING_JOB_RESUMED_FROM_INTERRUPTED',result.job_id);return reply(res,202,{...result,project_id:projectId,parent_job_id:jobId});
         }
         const operation=action==='logs'?'logs':action==='result'?'result':action==='cancel'?'cancel':'status';const result=await dispatchWorker(principal,access.project,{action:operation,job_id:jobId});persistCheckpoint(owned,result);if(action==='cancel')audit(projectId,principal.subject,'ENGINEERING_JOB_CANCEL_REQUESTED',jobId);return reply(res,200,result);
       }
@@ -185,7 +191,7 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
       return reply(res,404,{error:'not found'});
     }catch(e){return reply(res,e.status??400,{error:e.status===503?'worker adapter unavailable':String(e.message??'request failed').slice(0,240)});}
   }
-  function persistCheckpoint(row,result){let previous={};try{previous=JSON.parse(row.checkpoint_json??'{}');}catch{}const checkpoint={...previous,status:result.status,updated_at:date(),...(result.exit_code!==undefined?{exit_code:result.exit_code}:{}),...(result.error?{error:result.error}: {})};db.prepare('UPDATE worker_jobs SET checkpoint_json=? WHERE job_id=?').run(JSON.stringify(checkpoint),row.job_id);}
+  function persistCheckpoint(row,result){let previous={};try{previous=JSON.parse(row.checkpoint_json??'{}');}catch{}const checkpoint={...previous,status:result.status,updated_at:date(),...(result.exit_code!==undefined?{exit_code:result.exit_code}:{}),...(result.error?{error:result.error}:{}),...(result.admission?{admission:result.admission}:{})};db.prepare('UPDATE worker_jobs SET checkpoint_json=? WHERE job_id=?').run(JSON.stringify(checkpoint),row.job_id);}
   function audit(projectId,actor,event,entity){db.prepare('INSERT INTO audit_events VALUES(?,?,?,?,?,?)').run(randomUUID(),projectId,actor,event,entity,date());}
   const server=http.createServer((req,res)=>{void handler(req,res);});server.on('close',()=>{director.stop();store.close();void stopWorker();});
   return {server,handler,auth,store,stateDir,workerController,director,stopWorker};

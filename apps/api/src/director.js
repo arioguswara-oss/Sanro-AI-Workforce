@@ -136,14 +136,15 @@ export class Director {
       if(typeof result.job_id!=='string'||!/^([a-f0-9]{32}|[a-f0-9-]{36})$/.test(result.job_id))throw new Error('invalid job response');
       this.db.exec('BEGIN IMMEDIATE');try{
         const next=this.change(run,{job_id:result.job_id});
-        this.db.prepare('INSERT OR IGNORE INTO worker_jobs(job_id,project_id,owner,profile,created_at,checkpoint_json) VALUES(?,?,?,?,?,?)').run(result.job_id,project.id,principal.subject,profile,iso(),JSON.stringify({status:'QUEUED',run_id:run.id,updated_at:iso()}));
+        this.db.prepare('INSERT OR IGNORE INTO worker_jobs(job_id,project_id,owner,profile,created_at,checkpoint_json) VALUES(?,?,?,?,?,?)').run(result.job_id,project.id,principal.subject,profile,iso(),JSON.stringify({status:'QUEUED',run_id:run.id,updated_at:iso(),admission:result.admission}));
         this.heartbeat(next,'working');this.db.exec('COMMIT');
       }catch(e){this.db.exec('ROLLBACK');throw e;}
       return;
     }
     const result=await this.workerCall(principal,project,{action:'status',job_id:run.job_id});
     if(!['QUEUED','RUNNING','COMPLETED','FAILED','CANCELLED','INTERRUPTED'].includes(result.status))throw new Error('invalid worker state');
-    this.db.prepare('UPDATE worker_jobs SET checkpoint_json=? WHERE job_id=?').run(JSON.stringify({status:result.status,run_id:run.id,updated_at:iso(),exit_code:result.exit_code??null}),run.job_id);
+    let priorCheckpoint={};try{priorCheckpoint=JSON.parse(this.db.prepare('SELECT checkpoint_json FROM worker_jobs WHERE job_id=?').get(run.job_id)?.checkpoint_json??'{}');}catch{}
+    this.db.prepare('UPDATE worker_jobs SET checkpoint_json=? WHERE job_id=?').run(JSON.stringify({...priorCheckpoint,status:result.status,run_id:run.id,updated_at:iso(),exit_code:result.exit_code??null,...(result.admission?{admission:result.admission}:{})}),run.job_id);
     this.heartbeat(run,result.status==='QUEUED'?'idle':'working');
     if(['QUEUED','RUNNING'].includes(result.status))return;
     if(['INTERRUPTED','CANCELLED'].includes(result.status)){this.block(run,'SIDE_EFFECT_REVIEW_REQUIRED');return;}

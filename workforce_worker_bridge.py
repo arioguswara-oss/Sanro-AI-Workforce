@@ -2,20 +2,62 @@
 import json
 import os
 import math
+import pathlib
+import subprocess
 import sys
 
 from hermes_adapter import Authorization, HermesAdapter
+from codex_job_launcher import build_codex_argv
 
 
-def require_codex_no_daemon(profile):
-    """Make the configured Codex CLI stay in the supervised foreground."""
-    command = profile.get("command")
-    if profile.get("executor") != "codex":
-        return
-    if not isinstance(command, list) or not command or command[0].rstrip("/").split("/")[-1] != "codex":
-        raise PermissionError("Codex executor profile must invoke the Codex CLI directly")
-    if "--no-daemon" not in command[1:]:
-        command.insert(1, "--no-daemon")
+def verify_bridge_admission(request):
+    project = request["project"]
+    registered = request["projects"].get(project["id"])
+    admission = request.get("admission")
+    mandate = request.get("mandate")
+    if not isinstance(admission, dict) or not isinstance(registered, dict) or not isinstance(mandate, dict):
+        raise PermissionError("validated project admission required")
+    workspace = pathlib.Path(project["workspace"])
+    if not workspace.is_absolute() or ".." in workspace.parts or workspace.resolve(strict=True) != workspace:
+        raise PermissionError("canonical workspace required")
+    for parent in [workspace, *workspace.parents]:
+        if parent.is_symlink():
+            raise PermissionError("workspace symlinks are not permitted")
+    fields = {"project_id": project["id"], "repository": project.get("repository"), "branch": project.get("branch"), "environment": project.get("environment"), "workspace": str(workspace), "worker_id": project.get("worker_id"), "permission_profile": project.get("permission_profile")}
+    if any(admission.get(key) != value for key, value in fields.items()):
+        raise PermissionError("project admission does not match the workspace registry")
+    if admission.get("command_profile") != (request.get("profile_config") or {}).get("executor", "local"):
+        raise PermissionError("executor identity does not match admission")
+    if mandate.get("status") != "APPROVED" or mandate.get("project_id") != project["id"] or mandate.get("repository") != project.get("repository") or mandate.get("branch") != project.get("branch") or mandate.get("environment") != "isolated-development" or mandate.get("owner_actor") != request["principal"].get("subject") or mandate.get("max_cost_usd") != 0:
+        raise PermissionError("mandate does not match admission")
+    grants = request["principal"].get("projects", {}).get(project["id"], {})
+    if "engineering:execute" not in grants.get("scopes", []) or request.get("approval_ref") not in grants.get("approval_refs", []) or "engineering:execute" not in mandate.get("scopes", []):
+        raise PermissionError("approval is not bound to the project principal")
+    if not all(x in mandate.get("allowed_actions", []) for x in ("engineering:execute", "qa:execute")) or not all(x in mandate.get("forbidden_actions", []) for x in ("merge", "production:deploy", "paid-api", "other-repository:write")):
+        raise PermissionError("mandate action scope is incomplete")
+    if mandate.get("expires_at") is None:
+        raise PermissionError("mandate expiration is required")
+    from datetime import datetime
+    expires = datetime.fromisoformat(mandate["expires_at"].replace("Z", "+00:00"))
+    if expires.timestamp() <= __import__("time").time() or admission.get("mandate_expires_at") != mandate["expires_at"]:
+        raise PermissionError("mandate expired")
+    if request.get("instruction"):
+        manifest = json.loads(request["instruction"])
+        if manifest.get("project_id") != project["id"] or manifest.get("run_id") != admission.get("job_id") or manifest.get("baseline_sha") != admission.get("checkpoint_sha"):
+            raise PermissionError("current job or checkpoint does not match admission")
+    elif admission.get("job_id") != request.get("idempotency_key"):
+        raise PermissionError("current job does not match admission")
+    if registered.get("workspace") != str(workspace) or registered.get("worker_id") != admission.get("worker_id"):
+        raise PermissionError("workspace registry mismatch")
+    run_git = lambda *args: subprocess.run(["git", "-C", str(workspace), *args], check=True, capture_output=True, text=True, timeout=5, env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "GIT_CONFIG_NOSYSTEM": "1"}).stdout.strip()
+    branch = run_git("branch", "--show-current")
+    remote = run_git("config", "--get", "remote.origin.url").removesuffix(".git")
+    expected = {f"https://github.com/{project['repository']}", f"git@github.com:{project['repository']}"}
+    current_sha = run_git("rev-parse", "HEAD")
+    dirty = run_git("status", "--porcelain", "--untracked-files=all")
+    if branch != project.get("branch") or remote not in expected or current_sha != admission.get("checkpoint_sha") or dirty:
+        raise PermissionError("repository, branch, checkpoint or clean-worktree admission failed")
+    return admission
 
 
 def main():
@@ -23,9 +65,6 @@ def main():
     state_root = os.environ["WORKFORCE_WORKER_STATE"]
     projects = request["projects"]
     profiles = request["profiles"]
-    for profile in profiles.values():
-        if isinstance(profile, dict):
-            require_codex_no_daemon(profile)
     allowed = [entry["command"] for entry in profiles.values()]
     adapter = HermesAdapter(state_root, {k: v["workspace"] for k, v in projects.items()}, allowed)
     try:
@@ -48,7 +87,14 @@ def main():
                 raise PermissionError("an explicit authorized approval reference is required")
             if p["id"] not in profile.get("projects", []):
                 raise PermissionError("profile project mismatch")
+            request["profile_config"] = profile
+            admission = verify_bridge_admission(request)
             command = list(profile["command"])
+            if profile.get("executor") == "codex":
+                if not isinstance(request.get("instruction"), str):
+                    raise PermissionError("Codex executor requires a checkpoint-bound instruction")
+                command = build_codex_argv(profile, admission, json.loads(request["instruction"]))
+                adapter.allowed_commands = [tuple(command)]
             if "{workforce_instruction}" in command:
                 instruction = request.get("instruction")
                 if not isinstance(instruction, str) or len(instruction) > 20000:

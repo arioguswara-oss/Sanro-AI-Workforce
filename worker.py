@@ -34,10 +34,49 @@ def apply_job_sandbox(workspace, job_tmp):
     apply_process_policy()
 
 
+def canonical_worktree(path):
+    candidate = pathlib.Path(path).expanduser()
+    if not candidate.is_absolute() or ".." in candidate.parts:
+        raise ValueError("job cwd must be absolute and traversal-free")
+    root = pathlib.Path(candidate.anchor)
+    cursor = root
+    for part in candidate.parts[1:]:
+        cursor = cursor / part
+        try:
+            if cursor.is_symlink():
+                raise ValueError("job cwd cannot contain symlinks")
+        except OSError as error:
+            raise ValueError("job cwd is unavailable") from error
+    try:
+        canonical = candidate.resolve(strict=True)
+    except OSError as error:
+        raise ValueError("job cwd is unavailable") from error
+    if canonical != candidate or not canonical.is_dir():
+        raise ValueError("job cwd must be a canonical directory")
+    return str(canonical)
+
+
 def acquire_worktree_lock(state_root, workspace):
-    """Hold a per-workspace advisory lock for the complete child process lifetime."""
+    """Hold a per-workspace lock; Git workspaces share one metadata inode across UIDs."""
     canonical = str(pathlib.Path(workspace).resolve(strict=True))
-    lock_dir = pathlib.Path(tempfile.gettempdir()) / f"sanro-workforce-worktree-locks-{os.getuid()}"
+    git_entry = pathlib.Path(canonical) / ".git"
+    if git_entry.is_symlink():
+        raise PermissionError("workspace Git metadata cannot be a symlink")
+    if git_entry.is_dir():
+        metadata_root = git_entry
+    elif git_entry.is_file():
+        marker = git_entry.read_text(encoding="utf-8").strip()
+        if not marker.startswith("gitdir: ") or "\n" in marker:
+            raise PermissionError("workspace Git metadata pointer is invalid")
+        pointer = pathlib.Path(marker[8:])
+        metadata_root = (pointer if pointer.is_absolute() else pathlib.Path(canonical) / pointer).resolve(strict=True)
+        if not metadata_root.is_dir():
+            raise PermissionError("workspace Git metadata directory is invalid")
+    else:
+        # Non-Git fixtures are supported for local worker unit tests only.
+        metadata_root = pathlib.Path(tempfile.gettempdir()) / f"sanro-workforce-worktree-locks-{os.getuid()}"
+        metadata_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    lock_dir = metadata_root / "sanro-workforce-locks"
     lock_dir.mkdir(mode=0o700, exist_ok=True)
     info = lock_dir.lstat()
     if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
@@ -145,9 +184,7 @@ class Queue:
     def submit(self, command, cwd, timeout, dedupe_key):
         if not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or not 0 < timeout <= 86400:
             raise ValueError("timeout must be finite and between zero and 86400 seconds")
-        cwd = str(pathlib.Path(cwd).resolve())
-        if not pathlib.Path(cwd).is_dir():
-            raise ValueError("job cwd must be an existing directory")
+        cwd = canonical_worktree(cwd)
         job_id = uuid.uuid4().hex
         log = str((self.root / "logs" / (job_id + ".log")).resolve())
         try:
@@ -231,7 +268,8 @@ def worker_loop(q, idle_exit=False):
         started = time.monotonic()
         code, state, error = None, "succeeded", None
         with open(row["log_path"], "ab", buffering=0) as log:
-            log.write((f"[{now()}] start {redact_text(json.dumps(command))}\n").encode())
+            codex_executor = pathlib.Path(command[0]).name == "codex" and len(command) > 1 and command[1] == "exec"
+            log.write((f"[{now()}] start executor=codex output=suppressed\n" if codex_executor else f"[{now()}] start {redact_text(json.dumps(command))}\n").encode())
             proc, output_thread = None, None
             job_tmp = tempfile.mkdtemp(prefix=".jd04-job-", dir=row["cwd"])
             worktree_lock_fd = None
@@ -242,7 +280,8 @@ def worker_loop(q, idle_exit=False):
                     preexec_fn=lambda: apply_job_sandbox(row["cwd"], job_tmp))
                 def copy_output():
                     for line in iter(proc.stdout.readline, b""):
-                        log.write(redact_text(line.decode("utf-8", errors="replace")).encode())
+                        if not codex_executor:
+                            log.write(redact_text(line.decode("utf-8", errors="replace")).encode())
                     proc.stdout.close()
                 output_thread = threading.Thread(target=copy_output, daemon=True)
                 output_thread.start()

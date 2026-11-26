@@ -9,7 +9,7 @@ import time
 import unittest
 from contextlib import redirect_stdout
 
-from worker import Queue, herdr_console_event, herdr_job_status, herdr_status, worker_loop
+from worker import Queue, acquire_worktree_lock, herdr_console_event, herdr_job_status, herdr_status, release_worktree_lock, worker_loop
 
 ROOT = pathlib.Path(__file__).resolve().parent
 PY = sys.executable
@@ -82,6 +82,19 @@ class WorkerTests(unittest.TestCase):
             self.assertEqual(first_worker.wait(timeout=5), 0)
             other_queue.close()
         self.assertEqual(self.state(first), "succeeded")
+
+    def test_stale_lock_file_does_not_block_authorized_recovery(self):
+        first = acquire_worktree_lock(self.root, self.tmp.name)
+        release_worktree_lock(first)
+        # The inode remains as stale metadata, but no kernel lock remains held.
+        second = acquire_worktree_lock(pathlib.Path(self.tmp.name) / "other-state", self.tmp.name)
+        release_worktree_lock(second)
+
+    def test_worker_queue_rejects_symlink_and_traversal_workspaces(self):
+        link = pathlib.Path(self.tmp.name) / "workspace-link"
+        link.symlink_to(self.tmp.name, target_is_directory=True)
+        self.assertRaises(ValueError, self.q.submit, [PY, "-c", "pass"], str(link), 3, "symlink-workspace")
+        self.assertRaises(ValueError, self.q.submit, [PY, "-c", "pass"], str(pathlib.Path(self.tmp.name) / ".." / "outside"), 3, "traversal-workspace")
 
     def test_timeout(self):
         jid = self.submit("import time; print('started', flush=True); time.sleep(4)", timeout=.2)

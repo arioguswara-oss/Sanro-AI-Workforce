@@ -1,7 +1,14 @@
 import {createHash,timingSafeEqual} from 'node:crypto';
 import {realpathSync,readFileSync,lstatSync,statSync} from 'node:fs';
+import {isAbsolute,parse,resolve,join,sep} from 'node:path';
 
 const hash = value => createHash('sha256').update(value).digest();
+function canonicalWorkspace(path){
+  if(typeof path!=='string'||!isAbsolute(path)||path.split(sep).includes('..'))throw new Error('workspace must be absolute and traversal-free');
+  const absolute=resolve(path),root=parse(absolute).root;let cursor=root;
+  for(const part of absolute.slice(root.length).split(sep).filter(Boolean)){cursor=join(cursor,part);if(lstatSync(cursor).isSymbolicLink())throw new Error('workspace path cannot contain symlinks');}
+  const canonical=realpathSync(absolute);if(canonical!==absolute)throw new Error('workspace must use its canonical path');return canonical;
+}
 export function loadAuth(path) {
   if (!path) throw new Error('WORKFORCE_AUTH_FILE is required; authorization is deny-by-default');
   const fileStat=lstatSync(path);if(fileStat.isSymbolicLink()||!fileStat.isFile()||fileStat.uid!==process.getuid()||(fileStat.mode&0o077)!==0)throw new Error('authorization file must be a real file owned by current user with mode 0600');
@@ -20,13 +27,17 @@ export function loadAuth(path) {
   const projects = new Map(), workspaceOwners = new Map();
   for (const p of config.projects) {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(p.id) || !p.name || !p.workspace) throw new Error('invalid project entry');
-    const workspace = realpathSync(p.workspace);
+    const workspace = canonicalWorkspace(p.workspace);
     const wsStat=statSync(workspace);if(!wsStat.isDirectory())throw new Error('project workspace must be a directory');
     if(workspaceOwners.has(workspace))throw new Error('workspace is already registered to another project');
     const permissionProfile=p.permission_profile??{version:1,read_only:false,allow_network:false,allow_process_creation:false,write_scope:'project-worktree'};
     if(!permissionProfile||permissionProfile.version!==1||typeof permissionProfile.read_only!=='boolean'||typeof permissionProfile.allow_network!=='boolean'||typeof permissionProfile.allow_process_creation!=='boolean'||permissionProfile.write_scope!=='project-worktree')throw new Error('invalid project permission profile');
     workspaceOwners.set(workspace,p.id);
-    projects.set(p.id,{...p,workspace,permission_profile:permissionProfile});
+    const worker_id=p.worker_id??`workforce-${p.id}`;
+    if(!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(worker_id))throw new Error('invalid project worker id');
+    if(p.repository!==undefined&&!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(p.repository))throw new Error('invalid project repository identity');
+    if(p.branch!==undefined&&(!/^[A-Za-z0-9._/-]{1,120}$/.test(p.branch)||p.branch.includes('..')||p.branch.startsWith('-')))throw new Error('invalid project branch identity');
+    projects.set(p.id,{...p,workspace,worker_id,permission_profile:permissionProfile});
   }
   const profiles=config.command_profiles??{},approvals=config.approvals??{};
   if(!profiles||typeof profiles!=='object'||Array.isArray(profiles)||!approvals||typeof approvals!=='object'||Array.isArray(approvals))throw new Error('invalid profile or approval registry');

@@ -24,7 +24,7 @@ function fixture(t){
   const jobs=new Map();let executorCalls=0;
   const app=createApp({authPath,stateDir,snapshot:async()=> 'a'.repeat(40),executor:async(_p,_project,request)=>{executorCalls++;if(request.action==='submit'){const job_id=randomUUID();jobs.set(job_id,{status:'COMPLETED',exit_code:0});return {job_id};}return jobs.get(request.job_id);}});
   t.after(async()=>{app.director.stop();await app.workerController.shutdown();app.store.close();rmSync(dir,{recursive:true,force:true});});
-  return {app,owner,monitor,dir,authPath,config,get executorCalls(){return executorCalls;},request:(path,options={})=>invoke(app,path,{token:owner,...options})};
+  return {app,owner,monitor,dir,workspace,authPath,config,get executorCalls(){return executorCalls;},request:(path,options={})=>invoke(app,path,{token:owner,...options})};
 }
 
 test('isolated API acceptance: Owner instruction through Director to read-only monitor, with zero monitor mutations',async t=>{
@@ -36,8 +36,8 @@ test('isolated API acceptance: Owner instruction through Director to read-only m
   for(let i=0;i<5;i++)await f.app.director.tick();
   const db=f.app.store.db;
   const before=db.prepare('SELECT total_changes() n').get().n,calls=f.executorCalls;
-  const result=await f.request(path,{token:f.monitor});assert.equal(result.status,200);assert.equal(result.data.runs[0].state,'REPORTED');assert.equal(result.data.runs[0].progress.percent,100);assert.equal(result.data.runs[0].latest_checkpoint.commit_sha,'a'.repeat(40));assert.equal(result.data.approval.pending_count,1);assert.equal(result.data.hermes_health.status,'UNAVAILABLE');
-  const raw=JSON.stringify(result.data);for(const prohibited of [f.dir,'private instruction','Secret-looking','token_sha256','approval_ref','workspace','authorization','Bearer'])assert.equal(raw.includes(prohibited),false,prohibited);
+  const result=await f.request(path,{token:f.monitor});assert.equal(result.status,200);assert.equal(result.data.runs[0].state,'REPORTED');assert.equal(result.data.runs[0].progress.percent,100);assert.equal(result.data.runs[0].latest_checkpoint.commit_sha,'a'.repeat(40));assert.equal(result.data.approval.pending_count,1);assert.equal(result.data.hermes_health.status,'UNAVAILABLE');assert.ok(result.data.jobs[0].project_id==='pilot');assert.equal(result.data.jobs[0].working_directory,f.workspace);assert.ok(result.data.jobs[0].worker_id);assert.ok(result.data.jobs[0].current_task.task_id);assert.equal(result.data.jobs[0].last_checkpoint.test_status,'PASS');assert.ok(['CURRENT','STALE','UNAVAILABLE'].includes(result.data.jobs[0].freshness.state));
+  const raw=JSON.stringify(result.data);for(const prohibited of ['private instruction','Secret-looking','token_sha256','approval_ref','authorization','Bearer'])assert.equal(raw.includes(prohibited),false,prohibited);
   for(const method of ['POST','PUT','PATCH','DELETE','HEAD','OPTIONS'])assert.equal((await f.request(path,{token:f.monitor,method,body:{action:'start'}})).status,405);
   assert.equal((await f.request(path+'?action=start',{token:f.monitor})).status,400);
   for(const route of ['/api/projects/pilot/tasks','/api/projects/pilot/jobs','/api/projects/pilot/worker','/api/projects/pilot/runs','/api/agents','/api/monitoring/v1/projects/pilot/execute']){
