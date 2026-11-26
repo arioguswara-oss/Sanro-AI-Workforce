@@ -86,3 +86,17 @@ At checkpoint `28d692c42739e71558a3cb18b326b6d3e29fa7d3`, available connected to
 | Build and dependency check | PASS | `npm ls @playwright/mcp playwright --depth=0`; `npm run build` (Vite 8.4.0) |
 
 The MCP package's transitive Playwright `1.66.0-alpha-2026-11-18` expects Chromium revision 1255, matching the existing cached Chromium Headless Shell `159.0.8154.6`. Package README tool names are not counted as runtime tool discovery. A fresh Codex session is required to load the corrected project entry: `cd /home/sanro/workforce-dev/Sanro-AI-Workforce-gdi02 && codex`. See the detailed probe and approval observations in `evidence/GDI02R_RUNTIME_ACCEPTANCE_20261126.json`.
+
+### Fresh Codex session result — 2026-11-26
+
+| Area | Result | Evidence |
+|---|---|---|
+| Project MCP initialize and actual tool discovery | PASS | Fresh session exposed all seven scoped Playwright tools; navigation entered the MCP server |
+| Chromium navigation and synthetic browser flow | BLOCKED | Browser launch failed before page creation: Chromium fatal `No usable sandbox`, then `SIGTRAP`; sandbox remains enabled |
+| DOM inspection, click, input, JavaScript state, screenshot | NOT TESTED | No page was created; no screenshot produced |
+| Hermes isolated integration | NOT RUN | Browser acceptance prerequisite failed; no Hermes process/config touched |
+| Python regressions | PASS | 35 tests across project runtime executor, Hermes adapter, worker |
+| Selected Node API regressions | BLOCKED | Test processes exited before registration; `apps/api/node_modules` absent; no reinstall attempted |
+| Resource cleanup | PASS | No Chromium/MCP/profile process remained; no screenshot or temporary page |
+
+Observed approval prompts: **0**. Tested source SHA: `1a35dcb910602d39d8efd0a1e26470688d05dd3e`; delivery SHA is recorded in the follow-up commit. No sandbox relaxation, alternate browser transport, global configuration change, Hermes access, or production access occurred.

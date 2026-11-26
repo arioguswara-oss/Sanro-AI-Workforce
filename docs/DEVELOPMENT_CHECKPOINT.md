@@ -1,5 +1,16 @@
 # Hermes-first development checkpoint — 25 November 2026 Jakarta
 
+## Fresh-session Playwright MCP runtime acceptance — 2026-11-26
+
+- Tested source SHA: `1a35dcb910602d39d8efd0a1e26470688d05dd3e`; branch `feature/hermes-workforce-foundation`.
+- **MCP initialize/tool discovery: PASS.** This fresh session discovered all seven project-scoped tools (`browser_navigate`, `browser_snapshot`, `browser_click`, `browser_fill_form`, `browser_evaluate`, `browser_take_screenshot`, `browser_close`). The navigate call reached the server.
+- **Chromium synthetic acceptance: BLOCKED.** Browser launch failed before page creation. Exact Chromium fatal: `No usable sandbox`; process ended `SIGTRAP`. The project setting remains `chromiumSandbox: true`. No DOM interaction, fill, JavaScript assertion, or screenshot ran. One launch attempt was made; no retry and no sandbox weakening.
+- No alternative transport was needed for MCP initialization. Another browser transport would not remove the host sandbox prerequisite, so none was attempted. Hermes remained untouched because the browser prerequisite did not pass.
+- Focused Python regressions: **35 PASS** (`test_project_runtime_executor`, `test_hermes_adapter`, `test_worker`). Selected Node API tests were **BLOCKED before test registration** because `apps/api/node_modules` is absent; no dependency install was repeated. Cleanup **PASS**: no browser/server/profile process remained and no screenshot/temp page was created.
+- Interactive approval prompts observed: **0**. Global configuration, dependencies, Hermes, production, and sandbox policy unchanged.
+- Full machine-readable record: [fresh-session evidence](evidence/GDI02R_RUNTIME_ACCEPTANCE_20261126.json). This supersedes the earlier MCP initialize/tool-discovery status while retaining its historical probes.
+- Final delivery SHA: pending commit/push.
+
 ## Playwright MCP handshake recovery — 2026-11-26
 
 - **Base/tested source SHA:** `697a74a61b2ab9b95bfc76929db48f4d7339fee0`; branch `feature/hermes-workforce-foundation` was clean and synchronized with origin at start.

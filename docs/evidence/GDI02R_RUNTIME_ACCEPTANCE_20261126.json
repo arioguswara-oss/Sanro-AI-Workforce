@@ -182,5 +182,38 @@
     "security_and_cleanup": "No active worker, Hermes service, production resource, or global Codex configuration touched. No browser process or screenshot created. No sandbox relaxation, origin bypass, or live network browser navigation performed.",
     "hermes_config_changed": false,
     "branch_delivery": "FAST_FORWARD_PUSHED; origin/feature/hermes-workforce-foundation advanced 44f7136..24d00d1; no amend, force push, or merge"
+  },
+  "fresh_session_final_runtime_acceptance": {
+    "tested_source_sha": "1a35dcb910602d39d8efd0a1e26470688d05dd3e",
+    "branch": "feature/hermes-workforce-foundation",
+    "project_mcp_initialization_and_tool_discovery": {
+      "status": "PASS",
+      "evidence": "Fresh Codex session exposed browser_navigate, browser_snapshot, browser_click, browser_fill_form, browser_evaluate, browser_take_screenshot, browser_close from project-scoped Playwright server. Navigation call entered MCP server."
+    },
+    "synthetic_chromium_acceptance": {
+      "status": "BLOCKED",
+      "navigation": "FAIL_BEFORE_PAGE_CREATION",
+      "root_cause": "Chromium stderr: FATAL zygote_host_impl_linux.cc:145: No usable sandbox; process ended SIGTRAP. MCP reported Chromium sandboxing failed and recommended enabling environment sandbox support. Project config keeps chromiumSandbox=true.",
+      "dom_inspection_click_input_javascript_verification": "NOT_RUN",
+      "screenshot": null,
+      "retry_policy": "STOPPED_AFTER_FIRST_BROWSER_LAUNCH_FAILURE; no same-method retry and no sandbox disabling",
+      "alternative_transport": "NOT_NEEDED_FOR_MCP_HANDSHAKE; discovery succeeded. Browser-side supported transport cannot resolve the host Chromium sandbox prerequisite without changing the security boundary."
+    },
+    "hermes_integration": "NOT_RUN; browser acceptance prerequisite did not pass; no Hermes worker, configuration, or service touched",
+    "regressions": {
+      "python": "PASS: 35 tests across test_project_runtime_executor, test_hermes_adapter, test_worker",
+      "node_api": "BLOCKED: admission.test.js, api.test.js, runtime-executor.test.js exited before test registration; apps/api has no node_modules and dependencies were not reinstalled"
+    },
+    "cleanup": {
+      "status": "PASS",
+      "evidence": "Browser launch process exited with SIGTRAP; subsequent process inventory found no chrome-headless-shell, playwright-mcp, or playwright_chromiumdev_profile process. MCP close call also reported the failed launch and did not leave a process. No screenshot or temp page was created."
+    },
+    "interactive_approval_prompts_observed": 0,
+    "owner_authorization": "Existing authorization retained; no new approval prompt observed",
+    "hermes_or_production_access": false,
+    "global_configuration_changed": false,
+    "dependencies_installed": false,
+    "tested_sha": "1a35dcb910602d39d8efd0a1e26470688d05dd3e",
+    "delivery": "PENDING_COMMIT_AND_PUSH"
   }
 }
