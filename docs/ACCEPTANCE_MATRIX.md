@@ -39,3 +39,18 @@ Progress delta is implementation scope: added project-specific worker identity/i
 ## Focused follow-up after upstream reconciliation
 
 The full `apps/api` suite passed **21/21**, including synthetic Git-snapshot, Director, monitoring, Herdr adapter wiring and worker-controller cases. The Python worker suite passed **10/10** with Landlock ABI 8. These focused totals overlap the historical 70-test evidence and are not additive. Latest simulated API submission latency was **0.220 s** and foreground read latency **0.000535 s**. Herdr CLI tests use a mock runner; Herdr Core, SSH target, VPS resources and Android app were not exercised.
+
+## GDI-02R runtime remediation — 2026-11-26
+
+| Acceptance area | Result | Evidence |
+|---|---|---|
+| Project source editing, lint/build | PASS | Runtime preflight and capability routing changes; 64 Python tests; Vite 8.4.0 build PASS |
+| Director/admission/worker/QA/checkpoint orchestration | VERIFIED SYNTHETIC | Full API suite 33 PASS, including GDI-03 and GDI-04 acceptance |
+| Capability-aware support-model fallback | VERIFIED SYNTHETIC | 9Router/FreeLLMAPI fixtures: workload filtering, quota cooldown, malformed tool-call rejection, temporary network fallback and pause/resume |
+| MariaDB isolated server/SQL | BLOCKED | Temporary datadir initialized; isolated server Unix socket bind failed with `Operation not permitted`; no schema/data query ran |
+| Playwright/Chromium DOM/screenshot | BLOCKED | Playwright 1.65.1 and Chromium headless shell 159.0.8154.6 installed project-scoped; runtime sandbox terminated launch with `Operation not permitted`; no screenshot |
+| Git metadata and delivery | APPROVAL_REQUIRED | Normal process cannot write `.git`; project-scoped runtime reviewer required. Source commit `5c986863f6dc2e6d4f25b1701d050c90c9e1cc5e`; checkpoint commit and push outcome reported after delivery |
+| SSH staging | BLOCKED | SSH agent socket unavailable in inherited context and no project staging target allowlist; no connection attempted |
+| Production/live Hermes | NOT TESTED | No live service, database, provider, Studio workspace, staging target or production resource was accessed |
+
+Counts are not added to the historical ten-gate matrix; this runtime-focused follow-up is a separate evidence set. See `evidence/GDI02R_RUNTIME_ACCEPTANCE_20261126.json`.
