@@ -3,9 +3,10 @@ import json
 import os
 import pathlib
 import stat
+from runtime_preflight import require_capabilities
 
 
-def build_codex_argv(profile, admission, instruction):
+def build_codex_argv(profile, admission, instruction, preflight=None):
     command = profile.get("command")
     if not isinstance(command, list) or len(command) != 1 or not isinstance(command[0], str):
         raise PermissionError("Codex profile must contain only the explicit Codex executable")
@@ -25,5 +26,10 @@ def build_codex_argv(profile, admission, instruction):
         raise PermissionError("unsupported project permission profile")
     if admission.get("permission_profile", {}).get("allow_network") is not False:
         raise PermissionError("Codex network access must remain disabled")
+    required_capabilities = profile.get("runtime_requirements", ["project_identity", "canonical_workspace", "authorized_branch", "source_repository", "workspace_write", "git_metadata", "mandate", "checkpoint", "codex_cli"])
+    allowed_capabilities = {"project_identity", "canonical_workspace", "authorized_branch", "source_repository", "workspace_write", "git_metadata", "mandate", "checkpoint", "codex_cli", "ssh_agent", "network", "mariadb", "playwright_chromium", "local_ci", "staging_target", "checkpoint_evidence"}
+    if not isinstance(required_capabilities, list) or not all(name in allowed_capabilities for name in required_capabilities):
+        raise PermissionError("unsupported runtime capability requirement")
+    require_capabilities(preflight, required_capabilities)
     prompt = "SANRO authorized engineering job. Respect this JSON mandate and checkpoint; do not access other projects, merge, deploy, or use paid APIs.\n" + json.dumps({"admission": admission, "instruction": instruction}, ensure_ascii=False, separators=(",", ":"))
     return [str(executable), "exec", "--cd", admission["workspace"], "--sandbox", "workspace-write", "--approve-for-me", "--json", "--ephemeral", prompt]

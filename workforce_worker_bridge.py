@@ -8,6 +8,7 @@ import sys
 
 from hermes_adapter import Authorization, HermesAdapter
 from codex_job_launcher import build_codex_argv
+from runtime_preflight import CapabilityPreflightError, collect_runtime_preflight, require_capabilities
 
 
 def verify_bridge_admission(request):
@@ -93,7 +94,10 @@ def main():
             if profile.get("executor") == "codex":
                 if not isinstance(request.get("instruction"), str):
                     raise PermissionError("Codex executor requires a checkpoint-bound instruction")
-                command = build_codex_argv(profile, admission, json.loads(request["instruction"]))
+                preflight = collect_runtime_preflight(p, mandate, admission.get("checkpoint_sha"))
+                requirements = profile.get("runtime_requirements", ["project_identity", "canonical_workspace", "authorized_branch", "source_repository", "workspace_write", "git_metadata", "mandate", "checkpoint", "codex_cli"])
+                require_capabilities(preflight, requirements)
+                command = build_codex_argv(profile, admission, json.loads(request["instruction"]), preflight)
                 adapter.allowed_commands = [tuple(command)]
             if "{workforce_instruction}" in command:
                 instruction = request.get("instruction")
@@ -132,5 +136,8 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except Exception as exc:
         # Return a generic error: do not copy command arguments or private paths into API output.
-        print(json.dumps({"error": type(exc).__name__, "message": "worker operation rejected" if isinstance(exc, (PermissionError, ValueError, KeyError)) else "worker operation failed"}))
+        response = {"error": type(exc).__name__, "message": "worker operation rejected" if isinstance(exc, (PermissionError, ValueError, KeyError)) else "worker operation failed"}
+        if isinstance(exc, CapabilityPreflightError):
+            response["preflight"] = exc.preflight
+        print(json.dumps(response))
         raise SystemExit(1)
