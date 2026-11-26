@@ -2,6 +2,11 @@ name: sanro-qa-runtime
 version: "1.0.0"
 description: Project-bound synthetic QA job submitter for the Workforce Local CI runtime
 requires_hermes: ">=0.22.0"
+requires_env:
+  - name: SANRO_QA_WORKFORCE_BEARER_TOKEN
+    secret: true
+  - name: SANRO_QA_APPROVAL_REF
+    secret: true
 provides_tools:
   - sanro_qa_browser_smoke
   - sanro_qa_private_browser_acceptance

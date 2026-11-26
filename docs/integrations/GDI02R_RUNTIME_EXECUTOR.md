@@ -23,28 +23,19 @@ The project principal and active mandate must both carry the matching operation 
 
 ## Native approval and host registration
 
-`createApp({ runtimeExecutor })` accepts an explicit host adapter. The adapter receives the already validated project, profile, mandate, admission and an `invokeAfterNativeApproval` callback. It must request approval through the installed Hermes/Local CI native approval mechanism and invoke that callback only after its native result is literally `approved === true`. A pending, denied, absent, stale or mismatched result must not invoke it. The Workforce API business approval by itself does not satisfy this native gate.
+`createApp({ runtimeExecutor })` accepts an explicit host adapter. The adapter receives the already validated project, profile, mandate, admission and an `invokeAfterNativeApproval` callback. `createApp({ nativeApprovalProvider })` now registers the fixed adapter from `apps/api/src/native-runtime-executor.js`; the provider receives only actor/project/job/operation and must return a literal approved record bound to that tuple. A pending, denied, absent, stale or mismatched result must not invoke execution. The Workforce API business approval by itself does not satisfy this native gate. The default `node src/server.js` startup supplies neither adapter and remains fail-closed.
 
-Example registration shape for a reviewed host adapter:
+The provider parameter is an application integration seam, not a claim that Hermes v0.22 exposes such a provider. Hermes approval transports route a human approval that another supported runtime has already created; they are not an approval policy/callback API. No native provider was found in the installed-runtime evidence for this checkpoint. Do not pass a guessed Hermes function or synthesize an approval.
+
+Example registration shape after a real supported provider is available:
 
 ```js
 createApp({
-  runtimeExecutor: async context => {
-    const native = await existingHermesNativeApproval(context);
-    if (!native || native.approved !== true) return { status: 'BLOCKED' };
-    return context.invokeAfterNativeApproval({
-      approved: true,
-      actor: native.actor,
-      project_id: native.project_id,
-      job_id: native.job_id,
-      operation: context.profile.runtime_operation,
-      id: native.id
-    });
-  }
+  nativeApprovalProvider: verifiedNativeApprovalProvider
 });
 ```
 
-`existingHermesNativeApproval` is a host-provided integration point, not a new service or a function implemented here. The callback must return actor, project, job, operation and native approval ID bound to that exact pending request. The API validates those bindings and stores only a SHA256 of the native approval ID. Do not register this callback until it is bound to the real host actor/session and native approval evidence. With no callback registered, the endpoint fails closed with 503.
+`verifiedNativeApprovalProvider` must be a real installed host mechanism bound to the active actor/session and exact pending job. The API validates those bindings and stores only a SHA256 of the native approval ID. This function is intentionally not supplied by this repository. With no provider registered, the endpoint fails closed with 503.
 
 After the native gate, the existing Workforce bridge revalidates project registry, repository, branch, clean source SHA, current mandate, approval reference and Local CI identity. `workforce_runtime_adapter.py` maps only the fixed operation to `project_runtime_executor.py`. The wrapper takes the existing per-worktree lock, uses a unique temporary directory, caps execution at 300 seconds, creates private durable job/audit records, and rejects duplicate replay. Its child inherits the existing Landlock and seccomp worker policy through `apply_job_sandbox`; there is no sandbox downgrade or fallback. Network and SSH remain unavailable.
 
@@ -64,6 +55,12 @@ The HTTP request cannot supply a shell command, arguments, executable, workspace
 
 Registration and execution remain inactive until the Owner-authorized host integrator wires the official native approval callback and verifies the executor’s inherited sandbox. No Hermes configuration was changed by this implementation.
 
-## Consolidated activation proposal
+## Consolidated host preflight and activation blocker
 
-The host administrator should register this callback for the single authorized Workforce project, bind it to native actor/session and job/operation approval, and provide a project-scoped Local CI execution profile that supports Chromium and isolated MariaDB while preserving network denial, workspace boundaries, timeouts and audit. The current seccomp profile denies all socket syscalls, so these operations cannot pass under it; any compatible executor policy must receive security review and must not be implemented as an unrestricted shell or global sandbox change. Then run one synthetic browser and MariaDB acceptance and capture the evidence before considering any live activation. Hermes config registration and any host policy change remain outside this source-only implementation.
+Run the single read-only preflight from the authorized non-root VPS checkout:
+
+```bash
+bash scripts/sanro-qa-runtime-activation.sh
+```
+
+It verifies the existing `sanro-qa` profile/plugin prerequisites, then exits `3` with the exact blocker. It never installs/enables the plugin, reads secrets, starts a job, or restarts Hermes. This is the safe procedure for the current runtime contract. There is no supported activation command until Hermes/Local CI provides a documented native per-job approval provider bound to actor/session and job/operation, and the installed API is started with that provider. Merely approving plugin activation cannot manufacture that missing callback. Once that interface exists, the host activation must separately validate the SANRO-Browser-QA project/workspace/repository/branch/worker and operation scopes, provision profile-local env values through Hermes `requires_env`, and run one authorized synthetic job. The current API worker sandbox also denies socket syscalls; Chromium/MCP cannot be declared ready until a supported isolated executor path preserves the security boundaries and passes actual acceptance.

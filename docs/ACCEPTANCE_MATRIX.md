@@ -79,6 +79,17 @@ Counts are not added to the historical ten-gate matrix; this runtime-focused fol
 | Host registration / live Hermes | NOT TESTED | Registration artifact ready; host callback not injected or activated |
 | SSH | DISABLED | No profile, target, or authentication mechanism |
 
+### SANRO runtime integration completion continuation — 2026-11-26
+
+| Gate | Result | Evidence |
+|---|---|---|
+| Workforce native adapter seam | IMPLEMENTED / synthetic tests | `createApp({ nativeApprovalProvider })` registers a fixed adapter; actor/project/job/operation are bound and denied/mismatched approvals do not reach execution |
+| Native Hermes per-job approval source | BLOCKED | Hermes v0.22 source evidence documents approval transport for already-created approvals, not a per-job policy/callback provider. No host provider is available |
+| Hermes secret manifest | IMPLEMENTED / source test | Plugin declares token and approval reference via `requires_env` with secret prompting; no profile values provisioned |
+| Pilot project binding | PARTIAL / fail-closed | Plugin targets only `sanro-browser-qa` and pilot-specific profiles; host auth registry workspace/repository/branch/worker/mandate and matching fixed entrypoint were not available to verify |
+| Integrated host activation | BLOCKED before mutation | `bash scripts/sanro-qa-runtime-activation.sh` performs read-only checks then exits 3 with the missing native provider blocker |
+| Actual Local CI / Chromium / screenshot | NOT TESTED | No authorized host executor, native approval provider, pilot checkout binding, or browser job was available. No runtime PASS claimed |
+
 Tested implementation SHA: `2d7c5b79530d6eaa22b606f7862dd5e2237c89e7`. Existing worker seccomp denies socket syscalls; wrapper retains that policy, so runtime results remain NOT TESTED here and require an approved compatible runtime executor.
 
 These fixture tests verify admission and integration plumbing only. They do not claim runtime PASS. See `evidence/GDI02R_RUNTIME_ACCEPTANCE_20261126.json` and `integrations/GDI02R_RUNTIME_EXECUTOR.md`.

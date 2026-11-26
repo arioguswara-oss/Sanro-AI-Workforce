@@ -8,12 +8,12 @@ from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
-PROJECT_ID = "sanro-ai-workforce"
+PROJECT_ID = "sanro-browser-qa"
 API_URL = "http://127.0.0.1:8787"
 API_PATH = f"/api/projects/{PROJECT_ID}/runtime-acceptance"
 PROFILE_BY_TOOL = {
-    "sanro-qa-browser-smoke": "sanro-qa-browser-smoke",
-    "sanro-qa-private-browser-acceptance": "sanro-qa-private-browser-acceptance",
+    "sanro-qa-browser-smoke": "sanro-browser-qa-browser-smoke",
+    "sanro-qa-private-browser-acceptance": "sanro-browser-qa-private-browser-acceptance",
 }
 TIMEOUT_BY_TOOL = {
     "sanro-qa-browser-smoke": 150,

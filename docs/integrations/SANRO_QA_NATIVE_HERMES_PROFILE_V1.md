@@ -4,7 +4,7 @@
 
 This package targets the installed Hermes v0.22.0 plugin contract: a directory plugin has `plugin.yaml`, `__init__.py`, and `register(ctx)`, with tools registered through `ctx.register_tool`. The manifest requires Hermes `>=0.22.0`. It declares no hooks and no privileged plugin capabilities. Source references: [v0.22.0 plugin guide](https://raw.githubusercontent.com/NousResearch/hermes-agent/v0.22.0/website/docs/user-guide/features/plugins.md), [v0.22.0 plugin runtime](https://raw.githubusercontent.com/NousResearch/hermes-agent/v0.22.0/hermes_cli/plugins.py), and [v0.22.0 plugin CLI](https://raw.githubusercontent.com/NousResearch/hermes-agent/v0.22.0/hermes_cli/plugins_cmd.py).
 
-The two tools submit only fixed operations for project `sanro-ai-workforce` to `http://127.0.0.1:8787/api/projects/sanro-ai-workforce/runtime-acceptance`:
+The two tools submit only fixed operations for the pilot project ID `sanro-browser-qa` to `http://127.0.0.1:8787/api/projects/sanro-browser-qa/runtime-acceptance`. API auth must independently bind that ID to the exact SANRO-Browser-QA repository, workspace, branch, worker identity, fixed profiles, mandate and scopes; the plugin does not create or broaden that registry entry.
 
 | Tool | Workforce profile | Fixed operation | Timeout |
 |---|---|---|---:|
@@ -15,7 +15,7 @@ Tool arguments accept only schema version 1 and a bounded idempotency/job ID. Th
 
 ## Isolation and activation status
 
-The plugin is a candidate and is not installed/enabled in the host profile by this change. The profile and default profile use the same OS user; a Hermes profile is configuration separation, not an OS security boundary. Do not put credentials in this repository or copy them from another profile. The host profile must already receive its own authorized Workforce token and approval context through the existing secret mechanism; no such secret was inspected or provisioned in this work. The loopback Workforce API and its native approval callback must be available before enabling the plugin. Same-UID local processes can potentially connect to loopback, so loopback binding is not a substitute for authentication and runtime isolation.
+The manifest now declares both `SANRO_QA_WORKFORCE_BEARER_TOKEN` and `SANRO_QA_APPROVAL_REF` with Hermes `requires_env` secret prompting. Values are never stored in the repository or copied from the default profile. The plugin is not installed/enabled and no secret was inspected or provisioned. The profile and default profile use the same OS user; a Hermes profile is configuration separation, not an OS security boundary. The loopback Workforce API and a genuine native per-job approval provider must be available before enabling the plugin. Hermes v0.22's documented approval transport does not create that provider; the current host preflight exits blocked without changing profile state.
 
 Do not enable while `sanro-qa` is serving a session through a live gateway. Enabling is a profile-scoped configuration change and may change tools visible to sessions using that profile. This work did not run Hermes CLI, alter the profile, change gateway/default profile/hooks, or start a Local CI/Playwright job. No host command is authorized by the current “do not activate” boundary.
 

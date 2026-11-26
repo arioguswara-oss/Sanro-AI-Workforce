@@ -12,6 +12,7 @@ import {validateJobAdmission} from './admission.js';
 import {ensureArtifactTables,ProjectDriveArtifactDelivery,validateArtifactManifest} from './artifact-delivery.js';
 import {WorkerController} from './worker-controller.js';
 import {HerdrWorkerController} from './herdr-worker-controller.js';
+import {createNativeRuntimeExecutor} from './native-runtime-executor.js';
 
 const root=resolve(fileURLToPath(new URL('../../../',import.meta.url)));
 const date=()=>new Date().toISOString();
@@ -63,8 +64,10 @@ async function workerCall(stateDir,auth,principal,project,request){
   });
 }
 
-export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=process.env.WORKFORCE_STATE_DIR,startWorker=process.env.WORKFORCE_WORKER_AUTOSTART==='1',allowWorkerControl=process.env.WORKFORCE_ALLOW_WORKER_CONTROL==='1',startDirector=false,executor,runtimeExecutor,snapshot,monitorMaxAgeMs=60000,herdrRunner,artifactTransport}={}){
+export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=process.env.WORKFORCE_STATE_DIR,startWorker=process.env.WORKFORCE_WORKER_AUTOSTART==='1',allowWorkerControl=process.env.WORKFORCE_ALLOW_WORKER_CONTROL==='1',startDirector=false,executor,runtimeExecutor,nativeApprovalProvider,snapshot,monitorMaxAgeMs=60000,herdrRunner,artifactTransport}={}){
   if(!Number.isFinite(monitorMaxAgeMs)||monitorMaxAgeMs<1000||monitorMaxAgeMs>3600000)throw new Error('invalid monitoring freshness bound');
+  if(runtimeExecutor&&nativeApprovalProvider)throw new Error('provide one native runtime integration, not two');
+  if(nativeApprovalProvider)runtimeExecutor=createNativeRuntimeExecutor({requestNativeApproval:nativeApprovalProvider});
   const auth=loadAuth(authPath);
   if(!stateDir)throw new Error('WORKFORCE_STATE_DIR is required');
   stateDir=resolve(stateDir);privateDirectory(stateDir);privateDirectory(join(stateDir,'tmp'));

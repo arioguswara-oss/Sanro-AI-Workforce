@@ -5,6 +5,7 @@ import importlib
 import json
 import unittest
 from io import BytesIO
+from pathlib import Path
 from urllib.error import HTTPError
 
 from integrations.hermes.sanro_qa_runtime import client
@@ -38,6 +39,12 @@ class Context:
 
 
 class HermesQAPluginTests(unittest.TestCase):
+    def test_manifest_declares_profile_local_secret_prompting(self):
+        manifest = Path(__file__).with_name("plugin.yaml").read_text()
+        self.assertIn('requires_hermes: ">=0.22.0"', manifest)
+        self.assertIn("name: SANRO_QA_WORKFORCE_BEARER_TOKEN\n    secret: true", manifest)
+        self.assertIn("name: SANRO_QA_APPROVAL_REF\n    secret: true", manifest)
+
     def test_register_uses_v022_directory_plugin_tool_contract_without_hooks(self):
         plugin = importlib.import_module("integrations.hermes.sanro_qa_runtime")
         ctx = Context()
@@ -91,7 +98,7 @@ class HermesQAPluginTests(unittest.TestCase):
             {"version": 1, "job_id": "job-qa-0001"})
         self.assertEqual(captured["url"], client.API_URL + client.API_PATH)
         self.assertEqual(captured["auth"], "Bearer synthetic-token-not-real")
-        self.assertEqual(captured["payload"], {"profile": "sanro-qa-browser-smoke",
+        self.assertEqual(captured["payload"], {"profile": "sanro-browser-qa-browser-smoke",
                                                "approval_ref": "approval-qa-synthetic",
                                                "idempotency_key": "job-qa-0001"})
         self.assertEqual(captured["timeout"], 150)
@@ -114,7 +121,7 @@ class HermesQAPluginTests(unittest.TestCase):
 
         result = client.make_handler("sanro-qa-private-browser-acceptance", environ=env, opener=opener)(
             {"version": 1, "job_id": "job-qa-0002"})
-        self.assertEqual(captured["payload"]["profile"], "sanro-qa-private-browser-acceptance")
+        self.assertEqual(captured["payload"]["profile"], "sanro-browser-qa-private-browser-acceptance")
         self.assertEqual(captured["timeout"], 300)
         self.assertEqual(json.loads(result)["operation"], "private_browser_acceptance")
 
