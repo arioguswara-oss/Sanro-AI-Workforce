@@ -4,7 +4,7 @@
 
 This is a host execution and acceptance package, not an activated persistent browser service. It reuses the pinned Microsoft Playwright MCP `0.0.86`, the project-local browser cache, the existing isolated Chromium configuration, and the existing seven-tool MCP allowlist. No dependency was installed or changed.
 
-The current Codex session cannot reach the authorized Hermes VPS: `ssh-add -l` returned `Error connecting to agent: No such file or directory`. No SSH connection or remote command was attempted. The previously reviewed Workforce runtime wrapper applies seccomp that denies socket syscalls, so it cannot host MCP HTTP without a separately reviewed compatible host execution boundary. It has not been weakened or bypassed.
+The current Codex session cannot reach an authorized host executor. `ssh-add -l` returned `Error connecting to agent: No such file or directory`; `hc machine ls` returned no machines. `hc server status` confirmed the existing Hermes Core is live, but exposes no shell execution capability. No SSH connection or remote command was attempted. The previously reviewed Workforce runtime wrapper applies seccomp that denies socket syscalls, so it cannot host MCP HTTP without a separately reviewed compatible host execution boundary. It has not been weakened or bypassed.
 
 ## Host acceptance package
 
@@ -43,9 +43,9 @@ The official Codex configuration should use its supported HTTP MCP `url` field f
 
 ## Current execution evidence
 
-- Last tested source SHA: `397b7cb1884023b875d182927095a54f9d15ab8f`.
+- Latest reviewed source SHA: `cc70cd2bcce782cb95ef8ccd49e2731572ec2af9` (branch and origin match; workspace clean at review start). Host runner source checks are repeated for this checkpoint; host execution remains blocked.
 - Authorized VPS capacity is **reported** as 4 vCPU / 8 GB RAM, not measured in this session. The acceptance runner records actual host values and peak process-tree resources when the authorized executor can invoke it.
-- This session did not launch Chromium, change host policy, touch the Hermes Core, inspect or signal workers, or access production.
+- This continuation did not launch Chromium, change host policy, touch the Hermes Core, inspect or signal workers, or access production. The read-only Core status query only confirmed it is live; it did not provide an execution route.
 - The previous sandbox Chromium failure remains: `No usable sandbox`, `SIGTRAP`. This method was not repeated. The host package has not run, so no host PASS, browser version, resource measurement, or screenshot is claimed.
 - Codex and Hermes service integration: NOT ACTIVE. Authentication/project-job gateway, default-deny network enforcement, persistent queueing/session supervisor, and host runtime registration remain implementation/activation gates.
 

@@ -106,7 +106,7 @@ Observed approval prompts: **0**. Tested source SHA: `1a35dcb910602d39d8efd0a1e2
 | Area | Result | Evidence |
 |---|---|---|
 | Reuse pinned Playwright MCP and project browser configuration | PASS (source package) | Reuses `@playwright/mcp@0.0.86`, seven-tool config, cached Chromium; no dependencies added |
-| Host authorization and sandbox/capacity validation | BLOCKED | SSH agent unavailable (`ssh-add -l`: no agent socket); reported 4 vCPU / 8 GB not measured |
+| Host authorization and sandbox/capacity validation | BLOCKED | SSH agent unavailable; `hc machine ls` empty; live Core status has no shell executor; reported 4 vCPU / 8 GB not measured |
 | MCP and synthetic browser flow on the authorized host | NOT RUN | One-shot host runner prepared; no host execution or sandbox retry |
 | Loopback acceptance flow, private artifacts, cleanup and resource sampling | IMPLEMENTED, NOT RUNTIME-VERIFIED | New runner performs initialize/tools/list, synthetic DOM flow, screenshot, process cleanup and host/RSS/CPU-tick evidence |
 | Authenticated persistent service and project/job gateway | NOT IMPLEMENTED | Requires native Workforce host executor integration; no general MCP listener activated |

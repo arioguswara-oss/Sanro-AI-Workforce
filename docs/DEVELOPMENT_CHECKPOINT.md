@@ -1,5 +1,14 @@
 # Hermes-first development checkpoint — 25 November 2026 Jakarta
 
+## SANRO Private Cloud Browser V1 — host activation recheck — 2026-11-26
+
+- Latest reviewed HEAD and origin branch SHA: `cc70cd2bcce782cb95ef8ccd49e2731572ec2af9`; workspace clean before this evidence update. Host execution package remains `apps/web/scripts/private-browser-mcp-acceptance.mjs`.
+- Executor capability recheck: `ssh-add -l` failed with `Error connecting to agent: No such file or directory`; `hc machine ls` returned `machines: []`. Read-only `hc server status` confirmed the existing Core is live (`vmi3646685`, version `0.1.22`) but provides no host shell executor. No connection or remote command was attempted.
+- Runner review: non-root check, pinned MCP `0.0.86`, `chromiumSandbox: true`, owner-only state/artifact permissions, loopback-only ephemeral MCP/fixture listeners, process-tree sampling and cleanup are present. This is a one-shot acceptance runner. It does not enforce authenticated project/job admission, FIFO itself, per-job cgroup CPU/RAM limits, default-deny egress, or a persistent service boundary; origin allowlists are not treated as a network security boundary.
+- Runtime acceptance: **BLOCKED before host invocation**. Chromium/MCP browser flow, screenshot, project isolation, unauthorized request rejection, measured resource limits and cleanup are **NOT TESTED**. No Codex HTTP or isolated Hermes registration. No browser retry in the Codex sandbox.
+- Exact single host invocation after the authorized executor validates project/branch/mandate/zero-cost/native approval: `SANRO_PROJECT_ID=sanro-ai-workforce SANRO_JOB_ID=private-browser-v1-acceptance-20261126 node apps/web/scripts/private-browser-mcp-acceptance.mjs`.
+- Approval counts for this continuation: 0 MCP interactive prompts, 0 native host execution approvals, 0 shell escalations, 0 host executor invocations. No runtime PASS is claimed. Detailed evidence: [host activation recheck](evidence/PRIVATE_CLOUD_BROWSER_V1_20261126.json).
+
 ## SANRO Private Cloud Browser V1 — host execution package — 2026-11-26
 
 - Starting source SHA: `397b7cb1884023b875d182927095a54f9d15ab8f`; tested implementation commit SHA: `37b0a88b41b3f6d991185c85a3300c79890edc1b`; authorized branch `feature/hermes-workforce-foundation`.
