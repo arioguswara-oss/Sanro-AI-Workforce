@@ -29,6 +29,9 @@ SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
 MAX_TIMEOUT_SECONDS = 300
+_PROTECTED_WORKSPACE_COMPONENTS = {
+    ".hermes", ".ssh", ".aws", ".gnupg", "credentials", "secrets",
+}
 
 
 class RuntimeAdmissionError(PermissionError):
@@ -84,6 +87,21 @@ def _validate_policy(policy: dict, request: dict, now: datetime | None = None) -
     workspace = workspace.resolve(strict=True)
     if str(workspace) != workspace_text or not workspace.is_dir():
         raise RuntimeAdmissionError("workspace path is not canonical")
+    # The executor can only enter a registry-approved project checkout. Refuse
+    # common host credential/runtime roots even if a malformed registry points
+    # at one; this is defense in depth, not a replacement for Landlock.
+    lowered_parts = {part.casefold() for part in workspace.parts}
+    protected_local_share = any(
+        tuple(part.casefold() for part in workspace.parts[index:index + 2]) == (".local", "share")
+        for index in range(len(workspace.parts) - 1)
+    )
+    protected_opt_worktree = (
+        workspace.parts[:1] == ("/",) and len(workspace.parts) > 2
+        and workspace.parts[1].casefold() == "opt"
+        and any(part.casefold() == "worktrees" for part in workspace.parts[2:])
+    )
+    if lowered_parts & _PROTECTED_WORKSPACE_COMPONENTS or protected_local_share or protected_opt_worktree:
+        raise RuntimeAdmissionError("workspace resolves inside a protected host path")
     for parent in (workspace, *workspace.parents):
         if parent.is_symlink():
             raise RuntimeAdmissionError("workspace path contains a symlink")
@@ -94,6 +112,19 @@ def _validate_policy(policy: dict, request: dict, now: datetime | None = None) -
         raise RuntimeAdmissionError("project registry identity does not match")
     if policy.get("version") != 1 or project.get("status") != "AUTHORIZED":
         raise RuntimeAdmissionError("project policy is not authorized")
+
+    jobs = policy.get("jobs")
+    job = jobs.get(request["job_id"]) if isinstance(jobs, dict) else None
+    job_fields = {
+        "status": "AUTHORIZED", "project_id": request["project_id"],
+        "worker_id": request["worker_id"], "branch": request["branch"],
+        "source_sha": request["source_sha"], "operation": request["operation"],
+        "mandate_id": request["mandate_id"], "subject": request["subject"],
+        "approval_ref": request["approval_ref"],
+        "native_approval_sha256": request["native_approval_sha256"],
+    }
+    if not isinstance(job, dict) or any(job.get(key) != value for key, value in job_fields.items()):
+        raise RuntimeAdmissionError("authorized job registry identity does not match")
 
     mandates = policy.get("mandates")
     mandate = mandates.get(request["mandate_id"]) if isinstance(mandates, dict) else None

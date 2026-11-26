@@ -46,6 +46,10 @@ class ProjectRuntimeExecutorTests(unittest.TestCase):
             "projects": {"runtime-test": {"status": "AUTHORIZED", "workspace": str(self.workspace),
                 "repository": "synthetic/runtime-test", "branch": "feature/runtime-test",
                 "worker_id": "local-ci", "state_root": str(self.state)}},
+            "jobs": {"job-001": {"status": "AUTHORIZED", "project_id": "runtime-test",
+                "worker_id": "local-ci", "branch": "feature/runtime-test", "source_sha": self.sha,
+                "operation": "browser_smoke", "mandate_id": "mandate-001", "subject": "owner:synthetic",
+                "approval_ref": "approval-001", "native_approval_sha256": "b" * 64}},
             "mandates": {"mandate-001": {"status": "APPROVED", "project_id": "runtime-test",
                 "repository": "synthetic/runtime-test", "branch": "feature/runtime-test",
                 "workspace": str(self.workspace), "subject": "owner:synthetic",
@@ -96,6 +100,8 @@ class ProjectRuntimeExecutorTests(unittest.TestCase):
         authorized_policy = copy.deepcopy(self.policy)
         authorized_policy["projects"]["sanro-ai-workforce"] = authorized_policy["projects"].pop("runtime-test")
         authorized_policy["mandates"]["mandate-001"]["project_id"] = "sanro-ai-workforce"
+        authorized_policy["jobs"]["job-001"]["project_id"] = "sanro-ai-workforce"
+        authorized_policy["jobs"]["job-001"]["operation"] = "private_browser_acceptance"
         _validate_policy(authorized_policy, authorized_request)
 
         screenshot_root = self.state / "accepted-job" / "artifacts"
@@ -143,11 +149,43 @@ class ProjectRuntimeExecutorTests(unittest.TestCase):
 
     def test_rejects_missing_approval_or_branch_mismatch(self):
         wrong_approval = dict(self.request, approval_ref="not-authorized")
+        policy_with_bound_job = copy.deepcopy(self.policy)
+        policy_with_bound_job["jobs"]["job-001"]["approval_ref"] = "not-authorized"
         with self.assertRaisesRegex(RuntimeAdmissionError, "approval reference"):
-            _validate_policy(self.policy, wrong_approval)
+            _validate_policy(policy_with_bound_job, wrong_approval)
         wrong_branch = dict(self.request, branch="main")
         with self.assertRaisesRegex(RuntimeAdmissionError, "project registry"):
             _validate_policy(self.policy, wrong_branch)
+
+    def test_rejects_job_identity_or_native_approval_rebinding(self):
+        wrong_job = dict(self.request, job_id="job-002")
+        with self.assertRaisesRegex(RuntimeAdmissionError, "job registry"):
+            _validate_policy(self.policy, wrong_job)
+        rebound = copy.deepcopy(self.policy)
+        rebound["jobs"]["job-001"]["worker_id"] = "other-worker"
+        with self.assertRaisesRegex(RuntimeAdmissionError, "job registry"):
+            _validate_policy(rebound, self.request)
+
+    def test_rejects_protected_credential_and_runtime_workspaces(self):
+        protected_paths = [
+            self.root / ".hermes",
+            self.root / ".ssh",
+            self.root / "secrets",
+            self.root / ".local" / "share" / "private-runtime",
+        ]
+        for protected in protected_paths:
+            with self.subTest(path=protected):
+                protected.mkdir(parents=True, exist_ok=True)
+                request = dict(self.request, workspace=str(protected))
+                self.policy["projects"]["runtime-test"]["workspace"] = str(protected)
+                self.policy["mandates"]["mandate-001"]["workspace"] = str(protected)
+                with self.assertRaisesRegex(RuntimeAdmissionError, "protected host path"):
+                    _validate_policy(self.policy, request)
+
+    def test_backup_or_arbitrary_operation_cannot_be_admitted(self):
+        for operation in ("backup", "restore", "shell", "terminal"):
+            with self.subTest(operation=operation), self.assertRaisesRegex(RuntimeAdmissionError, "not allowlisted"):
+                _validate_policy(self.policy, dict(self.request, operation=operation))
 
     def test_duplicate_checkpoint_is_rejected_without_runtime_launch(self):
         jobs = self.state / "jobs"
@@ -177,6 +215,8 @@ class ProjectRuntimeExecutorTests(unittest.TestCase):
         self.assertEqual(wrapped["required_capabilities"], ["browser_runtime"])
         self.assertEqual(wrapped["source_sha"], self.sha)
         self.assertEqual(wrapped["arguments"], {})
+        self.assertEqual(policy["jobs"]["job-001"]["source_sha"], self.sha)
+        self.assertEqual(policy["jobs"]["job-001"]["worker_id"], "local-ci")
         self.assertEqual(policy["mandates"][wrapped["mandate_id"]]["allowed_actions"], ["runtime:browser"])
 
     def test_workforce_adapter_rejects_unapproved_operation(self):

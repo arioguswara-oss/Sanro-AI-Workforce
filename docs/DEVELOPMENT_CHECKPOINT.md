@@ -1,5 +1,16 @@
 # Hermes-first development checkpoint — 25 November 2026 Jakarta
 
+## Development policy and isolated executor candidate — 2026-11-26
+
+- Baseline source: `4b0a10f7bb3d3de19f4f1cd194fe080fb0c8d291` on `feature/hermes-workforce-foundation`; worktree was clean at start.
+- **IMPLEMENTED:** the fixed-operation executor now validates a private job record bound to project, worker, branch, source SHA, operation, mandate, subject and approval evidence, and rejects workspace roots under protected Hermes, credential, SSH/cloud-key, and private runtime roots even if a malformed project policy points there. Existing operation allowlist, repository/scope/expiry/native approval checks, worker sandbox, timeout, audit, and replay controls remain in force. No arbitrary command interface was added.
+- **VERIFIED SYNTHETIC:** focused policy/executor/gate tests **24 PASS / 0 FAIL** and worker/Hermes adapter regressions **26 PASS / 0 FAIL**. Cases cover safe QA fixtures, archive/database/restore escalation, arbitrary operation rejection, job/worker rebinding, protected workspace paths, mandate expiry, project/branch mismatch, fixed arguments, and native approval binding.
+- **VERIFIED READ-ONLY OBSERVATION:** the installed Hermes hook source at `/home/sanro/.hermes/agent-hooks/sanro-backup-dr-approval-gate.py` was not changed. Synthetic invocation of the live hook confirmed `cat config.json | jq .backup.enabled` triggers exact-call approval (text-keyword false positive); `pytest -q tests/test_backup_parser.py` was a no-op. Synthetic archive, database dump and protected `.hermes` access triggered approval as expected. The hook requests native approval; these observations do not demonstrate execution or bypass.
+- **NOT TESTED:** the Hermes native registration interface/profile, Local CI invocation of this policy candidate, browser/Chromium runtime, host resources and active Hermes continuity beyond leaving the service untouched. No host executor was available; no attempt was made from the Codex sandbox.
+- **Activation:** one integrated review procedure is in [HERMES_DEVELOPMENT_POLICY_CANDIDATE_V1.md](integrations/HERMES_DEVELOPMENT_POLICY_CANDIDATE_V1.md). The candidate is not registered. Registration stays NO-GO until an exact, documented native Hermes interface and scope receive specific Owner approval.
+- **Approvals/safety:** 0 interactive approval prompts, 0 native executor approvals, 0 escalations. No live hook/config, Hermes service, worker, production resource, dependency, global policy, or credential was modified/accessed.
+- Evidence: [policy/executor candidate evidence](evidence/DEVELOPMENT_POLICY_EXECUTOR_20261126.json). Tested base SHA above; delivery SHA is recorded in the final evidence commit.
+
 ## SANRO Private Cloud Browser V1 — host runtime controller implementation — 2026-11-26
 
 - Baseline reviewed: `f0165a569c5ac1f6e3a7cb955a523fd18cd53f61`; branch `feature/hermes-workforce-foundation`. Owner-reported VPS preflight: UID 1001, 4 vCPU, 7.8 GiB RAM, 3.2 GiB available, 1.7 GiB swap used, Node 22.22.1, `unprivileged_userns_clone=1`, `apparmor_restrict_unprivileged_userns=1`. These are owner-supplied readings, not remeasured here.

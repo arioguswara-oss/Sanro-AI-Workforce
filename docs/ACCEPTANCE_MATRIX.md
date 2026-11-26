@@ -30,6 +30,19 @@ Both Vite builds, secret-pattern scan and `git diff --check` also PASS; these ar
 
 The first combined acceptance run found two obsolete dedup test expectations plus an unsupported worker case that a test-name filter did not exclude. These were corrected: duplicate content remains idempotent, conflicting content raises an error, and unsupported worker acceptance is explicitly NOT TESTED. Initial evidence is retained as `HERMES_FIRST_INITIAL_ACCEPTANCE.json`; final authoritative result is `HERMES_FIRST_FINAL_ACCEPTANCE.json`. The earlier baseline full root run had 10 failures and 1 error caused by unavailable confinement; no protections were disabled.
 
+## Development policy and isolated executor candidate — 2026-11-26
+
+| Gate | Result | Evidence |
+|---|---|---|
+| Synthetic Backup/DR vs Dev/QA gate characterization | PASS | Candidate hook tests; live installed hook invoked read-only with synthetic payloads. `.backup.enabled` metadata triggered approval; a test filename containing `backup` alone did not. Archive, database dump and protected `.hermes` path also triggered approval. |
+| Project/job/worker/scope/mandate authorization | PASS (synthetic) | Existing fixed executor policy tests; exact registry identity, job scope, mandate expiry/zero-cost, approval reference and native-approval evidence required. |
+| Fixed isolated execution and protected path denial | PASS (synthetic) | Arbitrary shell/backup/restore denied; `.hermes`, `.ssh`, `.aws`, `.gnupg`, `credentials`, `secrets`, and `.local/share` workspace roots rejected before launch. Existing Landlock/seccomp is retained. |
+| Focused policy/runtime regression | PASS | 24 policy/executor/gate tests plus 26 worker/Hermes adapter regressions; 50 PASS / 0 failures. |
+| Live Hermes profile registration and Local CI invocation | NOT TESTED | No verified native registration interface or host executor available; live hook remains unchanged. |
+| Chromium/browser and live runtime acceptance | NOT TESTED | No browser launch attempted. No sandbox workaround. |
+
+This is a source candidate, not a live activation claim. Registration is NO-GO pending explicit Owner approval of a verified native Hermes interface. Detailed review/rollback procedure is in `integrations/HERMES_DEVELOPMENT_POLICY_CANDIDATE_V1.md`.
+
 ## Herdr adapter code-delta tests — 2026-11-25
 
 Changed adapter tests only: API **5/5 PASS**, Herdr controller **8/8 PASS**, bridge `--no-daemon` **4/4 PASS**. Total **17 PASS / 0 FAIL**. The API test's mock `hc` runner launches the actual synthetic Python queue consumer locally, confirms approved job completion, logs/result retrieval, worker status and test cleanup, and rejects another authorized project before enqueue. This is isolated simulation; the Herdr CLI is mocked. It does not establish VPS/Core/Android/Codex-model acceptance. Mocked Herdr submission **0.711 s**; foreground request during a synthetic background worker **0.000872 s**.
