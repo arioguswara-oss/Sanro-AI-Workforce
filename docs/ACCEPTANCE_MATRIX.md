@@ -79,10 +79,10 @@ At checkpoint `28d692c42739e71558a3cb18b326b6d3e29fa7d3`, available connected to
 | Area | Result | Evidence |
 |---|---|---|
 | Official package installation | PASS | `@playwright/mcp@0.0.86` pinned in `apps/web`; npm integrity recorded in lockfile; audit 0 vulnerabilities; Node 22.22.1 satisfies package Node >=20 requirement |
-| Project-scoped Codex registration | PASS (config discovery) | `.codex/config.toml`; `codex mcp list/get` reports enabled; tool allowlist contains seven browser-only operations; existing Hostinger entry remains enabled |
-| MCP initialization and tool discovery | BLOCKED | Stdio MCP initialize closed before `tools/list`; subprocess exited 0 without a response or stderr. Registration is not treated as tool discovery |
-| Chromium synthetic browser acceptance | BLOCKED before browser launch | No MCP tool call reached the browser; no DOM/click/fill/JavaScript result or screenshot. Chromium sandbox was not disabled and no socket/security boundary was changed |
+| Project-scoped Codex registration | PASS (config discovery; path corrected) | `.codex/config.toml`; inherited cwd is project root, so config argument now names `apps/web/playwright-mcp.config.json`; seven browser-only tools remain allowlisted; Hostinger unchanged |
+| MCP initialization and tool discovery | BLOCKED | Prior stdio child exited 0 without stdout/stderr before `tools/list`; initiating closure cause remains unconfirmed. One official loopback Streamable HTTP attempt failed bind with `listen EPERM` on `127.0.0.1:18765`; no live tools discovered |
+| Chromium synthetic browser acceptance | BLOCKED before MCP initialize/browser launch | No MCP tool call reached Chromium; DOM/click/fill/JavaScript and screenshot are NOT TESTED. Chromium sandbox remains enabled; no network/sandbox boundary changed |
 | Hermes MCP registration | NOT TESTED | Conditional on Codex browser acceptance succeeding; no Hermes config or service touched |
 | Build and dependency check | PASS | `npm ls @playwright/mcp playwright --depth=0`; `npm run build` (Vite 8.4.0) |
 
-The MCP package's transitive Playwright `1.66.0-alpha-2026-11-18` expects Chromium revision 1255, matching the existing cached Chromium Headless Shell `159.0.8154.6`. Package README tool names are not counted as runtime tool discovery. See the detailed probe and approval observations in `evidence/GDI02R_RUNTIME_ACCEPTANCE_20261126.json`.
+The MCP package's transitive Playwright `1.66.0-alpha-2026-11-18` expects Chromium revision 1255, matching the existing cached Chromium Headless Shell `159.0.8154.6`. Package README tool names are not counted as runtime tool discovery. A fresh Codex session is required to load the corrected project entry: `cd /home/sanro/workforce-dev/Sanro-AI-Workforce-gdi02 && codex`. See the detailed probe and approval observations in `evidence/GDI02R_RUNTIME_ACCEPTANCE_20261126.json`.

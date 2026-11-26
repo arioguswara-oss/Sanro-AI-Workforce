@@ -7,6 +7,45 @@
   "tested_source_sha": "5c986863f6dc2e6d4f25b1701d050c90c9e1cc5e",
   "checkpoint_sha": "1471ba3dcd6a249fe6dedfb4f2baa2d99759491d",
   "draft_pr": 2,
+  "playwright_mcp_handshake_recovery": {
+    "base_sha": "697a74a61b2ab9b95bfc76929db48f4d7339fee0",
+    "project_config_correction": {
+      "status": "IMPLEMENTED",
+      "prior_command": "npm --prefix apps/web exec -- playwright-mcp --config playwright-mcp.config.json",
+      "confirmed_codex_cwd": "inherited project root (codex mcp get reports cwd: -)",
+      "corrected_command": "apps/web/node_modules/.bin/playwright-mcp --config apps/web/playwright-mcp.config.json",
+      "verification": "codex mcp get reports corrected project command, config argument, stdio transport, seven allowed browser tools, startup timeout 30s, tool timeout 20s; corrected CLI/config command exits 0 with stdin EOF",
+      "global_config_changed": false
+    },
+    "pinned_server": {
+      "package": "@playwright/mcp@0.0.86",
+      "executable": "apps/web/node_modules/.bin/playwright-mcp",
+      "version_help": "PASS",
+      "stdio_initialize": "BLOCKED before tools/list; previous observed child exit code 0, stdout empty, stderr empty",
+      "stdio_initiating_cause": "UNCONFIRMED; evidence does not distinguish client stdin EOF from another client/runtime closure; no server diagnostic captured"
+    },
+    "official_loopback_transport": {
+      "mode": "Playwright MCP --port Streamable HTTP (/mcp)",
+      "requested_bind": "127.0.0.1:18765",
+      "status": "BLOCKED",
+      "exit_code": 1,
+      "stderr": "Error: listen EPERM: operation not permitted 127.0.0.1:18765",
+      "stdout": "empty",
+      "retry": false
+    },
+    "live_handshake": "BLOCKED; initialize incomplete, tools/list not reached, live tools discovered 0",
+    "browser_acceptance": {
+      "status": "BLOCKED BEFORE BROWSER LAUNCH",
+      "tool_calls": 0,
+      "dom_interaction": "NOT TESTED",
+      "screenshot": null,
+      "chromium_sandbox_disabled": false
+    },
+    "fresh_codex_session_required": true,
+    "resume_command": "cd /home/sanro/workforce-dev/Sanro-AI-Workforce-gdi02 && codex",
+    "interactive_approvals_in_continuation": 0,
+    "cleanup": "HTTP process exited on failed bind; no listener/browser/resource remained; dependencies, global settings, Hermes and workers untouched"
+  },
   "results": {
     "source_edit_lint_build": {
       "status": "PASS",

@@ -1,5 +1,16 @@
 # Hermes-first development checkpoint — 25 November 2026 Jakarta
 
+## Playwright MCP handshake recovery — 2026-11-26
+
+- **Base/tested source SHA:** `697a74a61b2ab9b95bfc76929db48f4d7339fee0`; branch `feature/hermes-workforce-foundation` was clean and synchronized with origin at start.
+- **Configuration correction — IMPLEMENTED:** `codex mcp get playwright` confirmed `cwd: -` (inherited project root). The previous relative config argument pointed at `playwright-mcp.config.json` in the root although the file is `apps/web/playwright-mcp.config.json`. Updated the project-only entry to launch `apps/web/node_modules/.bin/playwright-mcp --config apps/web/playwright-mcp.config.json`; no global config changed. Codex reports the corrected command and argument, seven-tool allowlist, stdio transport, and 30/20 second startup/tool limits. CLI with the corrected config path exits 0 when stdin is deliberately EOF; this validates command/config parsing only, not MCP initialization.
+- **Server/package distinction:** pinned official `@playwright/mcp@0.0.86` executable and `--help`/version are available. Prior independent stdio initialization evidence records child exit code 0 with empty stdout/stderr before `tools/list`. That observation does not identify whether the client closed stdin or why; no server-side error/exit cause was captured, so the original stdio closure's initiating cause remains **UNCONFIRMED**. This is not evidence of a Codex handshake.
+- **Official loopback transport attempt — BLOCKED by runtime:** the package's documented `--port` mode starts MCP Streamable HTTP on `/mcp`. One attempt bound explicitly to `127.0.0.1:18765` under the existing sandbox failed before listening: Node `listen EPERM: operation not permitted 127.0.0.1:18765`, exit code 1, no stdout. No escalation or retry was used. Therefore server initialization, `tools/list`, and browser calls remain unverified; zero tools discovered by a live handshake.
+- **Browser acceptance:** **BLOCKED before MCP initialize/browser launch**. No Chromium was launched, no synthetic DOM interaction ran, and no screenshot exists. Chromium sandbox setting remains enabled. No public endpoint was opened.
+- **Session loading:** project MCP configuration is read by a newly started Codex CLI session; this already-running session cannot load the corrected registration. Exact resume command: `cd /home/sanro/workforce-dev/Sanro-AI-Workforce-gdi02 && codex`. Do not count fresh-session startup as browser acceptance; if stdio still closes there, retain the captured error and stop rather than weakening sandbox.
+- **Approvals/safety:** 0 interactive Owner prompts in this continuation. No global settings, Hermes configuration/service, active worker, dependency, or production resource was changed. Evidence details: `docs/evidence/GDI02R_RUNTIME_ACCEPTANCE_20261126.json`.
+- **Status:** config correction **IMPLEMENTED**; package executable **VERIFIED RUNTIME (CLI only)**; MCP handshake/tools discovery **BLOCKED**; Chromium acceptance **BLOCKED / NOT TESTED**. No screenshot evidence.
+
 ## Playwright MCP project integration — 2026-11-26
 
 - **Starting SHA:** `44f713686140fc521b0066a6178191ea187694d1`; authorized Workforce branch was clean before this change.
