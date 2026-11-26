@@ -54,3 +54,7 @@ The full `apps/api` suite passed **21/21**, including synthetic Git-snapshot, Di
 | Production/live Hermes | NOT TESTED | No live service, database, provider, Studio workspace, staging target or production resource was accessed |
 
 Counts are not added to the historical ten-gate matrix; this runtime-focused follow-up is a separate evidence set. See `evidence/GDI02R_RUNTIME_ACCEPTANCE_20261126.json`.
+
+### Executor continuation
+
+At checkpoint `28d692c42739e71558a3cb18b326b6d3e29fa7d3`, available connected tools exposed no callable official Hermes native executor or Local CI runtime interface. The orchestration contract confirms the reviewed wrapper is not installed into Hermes. Runtime acceptance was therefore **BLOCKED before invocation**; no mock was substituted, no browser/database/SSH attempt repeated, and no runtime PASS added. See the continuation record in `evidence/GDI02R_RUNTIME_ACCEPTANCE_20261126.json`.

@@ -53,5 +53,17 @@
     }
   },
   "cost": "No additional costs incurred.",
-  "live_autonomous_operation": "NOT_VERIFIED"
+  "live_autonomous_operation": "NOT_VERIFIED",
+  "executor_continuation": {
+    "starting_sha": "28d692c42739e71558a3cb18b326b6d3e29fa7d3",
+    "status": "BLOCKED_BEFORE_INVOCATION",
+    "verified_interface": null,
+    "evidence": "Connected tool inventory exposed no callable Hermes native executor or Local CI runtime interface. The repository orchestration contract states that a reviewed Codex/Local CI wrapper must consume the bounded instruction and that no wrapper is installed into Hermes. Workforce FIFO/API/bridge code is present but is not evidence of an attached authorized host executor.",
+    "runtime_attempted": false,
+    "browser_or_mariadb_retried": false,
+    "ssh_attempted": false,
+    "regression_tests_rerun": false,
+    "reason": "No official project-scoped runtime invocation interface was available to verify mandate/capability authorization. Generic shell execution is not accepted as a runtime executor.",
+    "required_next_step": "Expose or authorize the existing Hermes native executor or Local CI through an official callable project-scoped interface enforcing project identity, mandate expiry, capability allowlist, bounded execution, audit evidence, and checkpoints."
+  }
 }

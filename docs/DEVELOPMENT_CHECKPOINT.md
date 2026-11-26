@@ -1,5 +1,14 @@
 # Hermes-first development checkpoint — 25 November 2026 Jakarta
 
+## GDI-02R project-scoped runtime executor continuation — 2026-11-26
+
+- **Starting checkpoint:** `28d692c42739e71558a3cb18b326b6d3e29fa7d3`, clean `feature/hermes-workforce-foundation`; prior Playwright, MariaDB, and SSH outcomes below remain unchanged and were not retried.
+- **Official executor discovery — BLOCKED:** available connected tools expose no Hermes native executor or Local CI runtime invocation interface. The relevant [orchestration contract](ORCHESTRATION_CONTRACT.md) says a reviewed Codex/Local CI wrapper must consume the bounded instruction and explicitly says no wrapper is installed into Hermes. The current Workforce FIFO/bridge is repository code, not proof of an attached official host executor. Generic shell execution is not an authorized executor interface for this acceptance.
+- **Execution decision:** no executor authorization could be verified/invoked through an official interface, so the continuation stopped before runtime acceptance. Chromium, MariaDB, SSH, active workers, Studio, and production were not accessed. This cycle adds no runtime PASS and did not repeat the earlier failed socket methods.
+- **Required integration blocker:** expose/authorize the existing Hermes native executor or Local CI through a callable, project-scoped interface that enforces the existing project ID, mandate expiry, capability allowlist, bounded execution, and audit/checkpoint contract. Do not replace it with a generic shell broker.
+- **Tests:** no source code changed, so no regression suite was rerun. Prior tests remain valid only for their recorded source SHA `5c986863f6dc2e6d4f25b1701d050c90c9e1cc5e`; this documentation-only continuation was not code-tested.
+- **Evidence:** `evidence/GDI02R_RUNTIME_ACCEPTANCE_20261126.json` records this executor discovery and the no-runtime-attempt outcome.
+
 ## GDI-02R runtime remediation — 2026-11-26
 
 - **Baseline:** clean authorized branch at `9a77dc5bf31239b980e3e53c371e49e79a7e9ca6`; GDI-01 through GDI-04 and previous GDI-02R work retained.

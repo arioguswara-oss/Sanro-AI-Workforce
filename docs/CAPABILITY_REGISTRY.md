@@ -22,4 +22,6 @@
 
 | Herdr terminal lifecycle text | Active in pilot `t4`; opt-in supervisor reports safe running/completed text plus OSC 7501 | Runtime terminal output and Core `done`/`reported=true` verified; Python suites 22 PASS | Android Spaces/Inbox visual after update pending Owner; child stdout stays in private job logs |
 
+| GDI-02R project-scoped runtime executor | Existing Workforce FIFO/API/bridge and fixed Local CI/Codex profile contracts are present; no callable official Hermes/Local CI executor tool is attached to this session | Executor discovery is BLOCKED at the integration boundary; no runtime call attempted and no mock counted | Chromium/MariaDB acceptance remains BLOCKED; requires official project-scoped executor exposure with mandate, capability, timeout, audit, and checkpoint enforcement |
+
 Current test-case totals in the prior broad acceptance matrix remain unchanged; this runtime continuation adds 9 controller and 2 API focused PASS cases. See [acceptance matrix](ACCEPTANCE_MATRIX.md), [prior final evidence](evidence/HERMES_FIRST_FINAL_ACCEPTANCE.json), and [VPS pilot evidence](evidence/HERDR_VPS_RUNTIME_PILOT_20261125.json). Final Android acceptance remains NO-GO pending Owner's Spaces and Inbox check.
