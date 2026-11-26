@@ -5,8 +5,8 @@
   "branch": "feature/hermes-workforce-foundation",
   "draft_pr": 2,
   "baseline_sha": "4584c1a52c5d9bec3f5f703f50f05b58749745bb",
-  "tested_source_sha": "4584c1a52c5d9bec3f5f703f50f05b58749745bb (baseline; tested changes are in the delivery commit)",
-  "final_sha": "RECORDED_IN_DELIVERY_CHECKPOINT",
+  "tested_source_sha": "5f465facc3a77dd3237f3f171ace1783a6e07d4f",
+  "final_sha": "5f465facc3a77dd3237f3f171ace1783a6e07d4f",
   "implementation": {
     "status": "IMPLEMENTED_CANDIDATE_NOT_ACTIVATED",
     "hermes_contract": "v0.22.0 directory plugin: plugin.yaml, __init__.py register(ctx), ctx.register_tool",
@@ -39,7 +39,8 @@
   },
   "runtime_acceptance": "NOT_TESTED",
   "interactive_approval_prompts": 0,
-  "native_execution_approval_count": 0,
+  "native_execution_approval_count": 1,
+  "native_execution_approval_detail": "One successful sandbox escalation approval to write the authorized git commit; no Hermes tool approval or runtime approval was invoked.",
   "cost": "$0",
   "blockers": [
     "Host executor/profile activation is unavailable from this session and live activation is explicitly not authorized.",
