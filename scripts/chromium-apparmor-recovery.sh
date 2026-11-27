@@ -42,6 +42,12 @@ profile ${PROFILE_NAME} ${browser} flags=(unconfined) {
 EOF
 }
 
+profile_is_loaded() {
+  local status_output
+  status_output="$(aa-status --verbose)" || return 2
+  awk -v name="$PROFILE_NAME" '$1 == name { found = 1 } END { exit(found ? 0 : 1) }' <<< "$status_output"
+}
+
 preflight() {
   check_browser
   info "PREFLIGHT PASS: trusted root-owned Chromium executable: ${browser}"
@@ -73,7 +79,7 @@ apply_profile() {
   local created=0 active=0
   staged=""
   rollback_on_error() {
-    local code=$?
+    local code=${1:-$?}
     trap - ERR INT TERM
     if [[ "$active" -eq 1 ]]; then
       apparmor_parser -R "$PROFILE_FILE" >/dev/null 2>&1 || true
@@ -86,13 +92,21 @@ apply_profile() {
   if [[ -e "$PROFILE_FILE" ]]; then
     grep -Fqx "$PROFILE_MARKER" "$PROFILE_FILE" || die "target profile path is occupied by an unowned file"
     cmp -s "$PROFILE_FILE" <(profile_text) || die "existing SANRO profile differs; manual review required"
-    if aa-status --profiled | grep -Fq "$PROFILE_NAME"; then
+    if profile_is_loaded; then
       apparmor_parser -r "$PROFILE_FILE"
     else
+      local status_rc=$?
+      (( status_rc == 1 )) || die "aa-status failed; refusing to infer whether SANRO profile is loaded"
       active=1
       apparmor_parser -a "$PROFILE_FILE"
     fi
   else
+    if profile_is_loaded; then
+      die "SANRO profile is loaded but its profile file is absent"
+    else
+      local status_rc=$?
+      (( status_rc == 1 )) || die "aa-status failed; refusing to infer whether SANRO profile is loaded"
+    fi
     staged="$(mktemp /etc/apparmor.d/.${PROFILE_NAME}.XXXXXX)"
     profile_text > "$staged"
     chmod 0644 "$staged"
@@ -103,7 +117,13 @@ apply_profile() {
     active=1
     apparmor_parser -a "$PROFILE_FILE"
   fi
-  aa-status --profiled | grep -Fq "$PROFILE_NAME"
+  if profile_is_loaded; then
+    :
+  else
+    local status_rc=$?
+    printf 'BLOCKED: unable to verify SANRO profile loaded state after apply (probe status %s); rolling back this invocation\n' "$status_rc" >&2
+    rollback_on_error 3
+  fi
   info "PROFILE ACTIVE: ${PROFILE_NAME}; Chromium sandbox is still required by the acceptance runner"
   trap - ERR INT TERM
 }
@@ -112,12 +132,26 @@ rollback_profile() {
   [[ "$#" -eq 1 && -n "$1" ]] || die "rollback requires the recorded Owner approval reference"
   [[ "$(id -u)" -eq 0 ]] || die "rollback must be run by root"
   [[ "${SANRO_QA_OWNER_APPROVAL:-}" = "$1" ]] || die "approval reference must also be supplied as SANRO_QA_OWNER_APPROVAL"
-  [[ -e "$PROFILE_FILE" ]] || { info "IDEMPOTENT: SANRO profile file is absent"; exit 0; }
+  if [[ ! -e "$PROFILE_FILE" ]]; then
+    if profile_is_loaded; then
+      die "SANRO profile is loaded although its profile file is absent"
+    else
+      local status_rc=$?
+      (( status_rc == 1 )) || die "aa-status failed; refusing to infer whether SANRO profile remains loaded"
+    fi
+    info "IDEMPOTENT: SANRO profile file is absent and profile is not loaded"
+    exit 0
+  fi
   grep -Fqx "$PROFILE_MARKER" "$PROFILE_FILE" || die "refusing to remove profile without SANRO marker"
   apparmor_parser -R "$PROFILE_FILE"
   rm -f -- "$PROFILE_FILE"
   [[ ! -e "$PROFILE_FILE" ]] || die "profile file remains after rollback"
-  if aa-status --profiled | grep -Fq "$PROFILE_NAME"; then die "profile remains loaded after rollback"; fi
+  if profile_is_loaded; then
+    die "profile remains loaded after rollback"
+  else
+    local status_rc=$?
+    (( status_rc == 1 )) || die "aa-status failed; refusing to claim rollback verification"
+  fi
   info "ROLLBACK PASS: SANRO profile unloaded and removed"
 }
 
