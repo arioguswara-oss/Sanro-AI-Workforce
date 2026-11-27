@@ -1,25 +1,33 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Minimal, rollbackable AppArmor userns allowlist for the existing Playwright
-# Chromium 1255 executable. This script never changes sysctls or global policy.
+# Minimal, rollbackable AppArmor userns allowlist for a root-owned, immutable
+# copy of Playwright Chromium 1255. Never profile a worker-writable executable.
 readonly PROFILE_NAME="sanro-playwright-chromium-1255"
 readonly PROFILE_FILE="/etc/apparmor.d/${PROFILE_NAME}"
-readonly PROFILE_MARKER="# SANRO QA Chromium userns exception v1"
-readonly OWNER="sanro"
-readonly BROWSER_REL=".cache/ms-playwright/chromium-1255/chrome-linux64/chrome"
+readonly PROFILE_MARKER="# SANRO QA Chromium userns exception v2"
+readonly TRUSTED_BROWSER="/usr/local/lib/sanro-playwright/chromium-1255/chrome-linux64/chrome"
 
 die() { printf 'BLOCKED: %s\n' "$*" >&2; exit 3; }
 info() { printf '%s\n' "$*"; }
 
-owner_home="$(getent passwd "$OWNER" | cut -d: -f6)"
-[[ -n "$owner_home" && "$owner_home" = /* ]] || die "cannot resolve ${OWNER} home directory"
-browser="${owner_home}/${BROWSER_REL}"
-[[ -x "$browser" && ! -L "$browser" ]] || die "expected executable not present as a regular file: ${browser}"
-browser_real="$(readlink -f -- "$browser")"
-[[ "$browser_real" = "$browser" ]] || die "browser path resolves elsewhere; refusing broader or unexpected executable path"
+browser="$TRUSTED_BROWSER"
 command -v apparmor_parser >/dev/null || die "apparmor_parser is unavailable"
 command -v aa-status >/dev/null || die "aa-status is unavailable"
+
+check_browser() {
+  [[ -x "$browser" && -f "$browser" && ! -L "$browser" ]] || die "trusted root-owned Chromium is not staged at ${browser}"
+  local browser_real path_part path_mode
+  browser_real="$(readlink -f -- "$browser")"
+  [[ "$browser_real" = "$browser" ]] || die "browser path resolves elsewhere; refusing unexpected executable path"
+  path_part="$browser"
+  while [[ "$path_part" != "/" ]]; do
+    [[ "$(stat -c %u -- "$path_part")" = "0" ]] || die "trusted Chromium path contains a non-root-owned component: ${path_part}"
+    path_mode="$(stat -c %a -- "$path_part")"
+    (( (8#${path_mode} & 0022) == 0 )) || die "trusted Chromium path is group/world writable: ${path_part}"
+    path_part="$(dirname -- "$path_part")"
+  done
+}
 
 profile_text() {
   cat <<EOF
@@ -35,16 +43,17 @@ EOF
 }
 
 preflight() {
-  info "PREFLIGHT PASS: existing Chromium executable: ${browser}"
+  check_browser
+  info "PREFLIGHT PASS: trusted root-owned Chromium executable: ${browser}"
   aa-status --enabled || die "AppArmor is not enabled"
   [[ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)" = "1" ]] || die "expected AppArmor unprivileged userns restriction is not enabled"
   info "PREFLIGHT PASS: AppArmor is enabled and unprivileged userns restriction is 1"
-  for stock_profile in /etc/apparmor.d/chrome /etc/apparmor.d/chromium; do
-    [[ -r "$stock_profile" ]] || die "expected existing profile unavailable: ${stock_profile}"
-    info "EXISTING PROFILE ${stock_profile}:"
-    grep -nE '^(@\{chromium\}|profile |[[:space:]]*userns,)' "$stock_profile" || true
-  done
-  info "PROFILE MATCH: this exact executable is outside the observed chrome/chromium profile paths"
+  info "PROFILE MATCH: this exact immutable executable receives the SANRO userns exception"
+  local parse_file
+  parse_file="$(mktemp /tmp/${PROFILE_NAME}.XXXXXX)"
+  profile_text > "$parse_file"
+  if ! apparmor_parser -K -Q "$parse_file"; then rm -f -- "$parse_file"; die "AppArmor parser rejected generated profile"; fi
+  rm -f -- "$parse_file"
   if [[ -e "$PROFILE_FILE" ]]; then
     grep -Fqx "$PROFILE_MARKER" "$PROFILE_FILE" || die "target profile path is occupied by an unowned file"
     cmp -s "$PROFILE_FILE" <(profile_text) || die "existing SANRO profile differs; manual review required"
@@ -77,18 +86,23 @@ apply_profile() {
   if [[ -e "$PROFILE_FILE" ]]; then
     grep -Fqx "$PROFILE_MARKER" "$PROFILE_FILE" || die "target profile path is occupied by an unowned file"
     cmp -s "$PROFILE_FILE" <(profile_text) || die "existing SANRO profile differs; manual review required"
-    apparmor_parser -r "$PROFILE_FILE"
+    if aa-status --profiled | grep -Fq "$PROFILE_NAME"; then
+      apparmor_parser -r "$PROFILE_FILE"
+    else
+      active=1
+      apparmor_parser -a "$PROFILE_FILE"
+    fi
   else
     staged="$(mktemp /etc/apparmor.d/.${PROFILE_NAME}.XXXXXX)"
     profile_text > "$staged"
     chmod 0644 "$staged"
-    apparmor_parser -Q "$staged"
+    apparmor_parser -K -Q "$staged"
     mv -- "$staged" "$PROFILE_FILE"
     staged=""
     created=1
+    active=1
     apparmor_parser -a "$PROFILE_FILE"
   fi
-  active=1
   aa-status --profiled | grep -Fq "$PROFILE_NAME"
   info "PROFILE ACTIVE: ${PROFILE_NAME}; Chromium sandbox is still required by the acceptance runner"
   trap - ERR INT TERM
@@ -109,7 +123,8 @@ rollback_profile() {
 
 case "${1:---preflight}" in
   --preflight) [[ "$#" -eq 1 ]] || die "unexpected arguments"; preflight ;;
+  --render-profile) [[ "$#" -eq 1 ]] || die "unexpected arguments"; profile_text ;;
   --apply) shift; apply_profile "$@" ;;
   --rollback) shift; rollback_profile "$@" ;;
-  *) die "usage: $0 [--preflight | --apply OWNER-APPROVAL-REF | --rollback OWNER-APPROVAL-REF]" ;;
+  *) die "usage: $0 [--preflight | --render-profile | --apply OWNER-APPROVAL-REF | --rollback OWNER-APPROVAL-REF]" ;;
 esac
