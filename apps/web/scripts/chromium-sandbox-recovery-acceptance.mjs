@@ -4,7 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
-import { parseNamespaceSandbox } from './chromium-sandbox-diagnostics.mjs';
+import { parseChromiumSandbox } from './chromium-sandbox-diagnostics.mjs';
 
 const artifactDir = process.env.SANRO_CHROMIUM_EVIDENCE_DIR;
 const html = path.join(os.tmpdir(), `sanro-chromium-recovery-${process.pid}.html`);
@@ -96,9 +96,9 @@ try {
     result.diagnosticsScreenshotError = String(error?.stack || error);
     record(stage, 'CAPTURE_FAILED', { diagnosticsScreenshotError: result.diagnosticsScreenshotError });
   }
-  result.namespaceSandbox = parseNamespaceSandbox(diagnostics);
-  if (!result.namespaceSandbox.active) throw new Error(`Chromium namespace sandbox not proven active: ${result.namespaceSandbox.reason}`);
-  record(stage, 'PASS', { namespaceSandbox: result.namespaceSandbox });
+  result.sandboxAssessment = parseChromiumSandbox(diagnostics);
+  if (!result.sandboxAssessment.active) throw new Error(`Chromium mandatory sandbox controls not proven: ${result.sandboxAssessment.failures.join('; ')}`);
+  record(stage, 'PASS', { sandboxAssessment: result.sandboxAssessment });
   result.status = 'PASS';
   result.chromiumSandbox = true;
 } catch (error) {
