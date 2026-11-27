@@ -1,0 +1,66 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {createHash,randomBytes} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
+import {EventEmitter} from 'node:events';
+import {Writable} from 'node:stream';
+import {createApp} from '../src/server.js';
+
+const zip=Buffer.from('UEsDBBQAAAAIAFVbel3bYH/hFAAAABIAAAAHAAAAYXBwLnR4dCuuzCvJSC3JTFZILCrJTEtMLgEAUEsBAhQDFAAAAAgAVVt6Xdtgf+EUAAAAEgAAAAcAAAAAAAAAAAAAAIABAAAAAGFwcC50eHRQSwUGAAAAAAEAAQA1AAAAOQAAAAAA','base64');
+async function invoke(app,path,{method='GET',body,token}={}){
+  const req=new EventEmitter();Object.assign(req,{method,url:path,headers:token?{authorization:`Bearer ${token}`}: {}});process.nextTick(()=>{if(body!==undefined)req.emit('data',Buffer.from(JSON.stringify(body)));req.emit('end');});
+  let status,output='';const res=new Writable({write(chunk,_encoding,callback){output+=chunk;callback();}});res.writeHead=code=>{status=code;};await app.handler(req,res);return {status,data:JSON.parse(output)};
+}
+const hash=value=>createHash('sha256').update(value).digest('hex');
+const jobId=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+
+test('GDI-04 isolated acceptance: interrupt→checkpoint→authorized resume→ZIP→private Drive readback→report',async t=>{
+  const dir=mkdtempSync(join(tmpdir(),'gdi04-accept-')),workspace=join(dir,'workspace'),stateDir=join(dir,'state');mkdirSync(workspace,{mode:0o700});mkdirSync(stateDir,{mode:0o700});
+  const git=(...args)=>execFileSync('git',args,{cwd:workspace,stdio:'ignore',env:{...process.env,GIT_CONFIG_NOSYSTEM:'1',GIT_AUTHOR_NAME:'Synthetic',GIT_AUTHOR_EMAIL:'synthetic@example.invalid',GIT_COMMITTER_NAME:'Synthetic',GIT_COMMITTER_EMAIL:'synthetic@example.invalid'}});
+  git('init','-b','feature/gdi04');git('config','user.name','Synthetic');git('config','user.email','synthetic@example.invalid');
+  writeFileSync(join(workspace,'.gitignore'),'dist/\n');writeFileSync(join(workspace,'README.md'),'synthetic source\n');git('add','.');git('commit','-m','synthetic baseline');git('remote','add','origin','https://github.com/synthetic/pilot.git');
+  const sourceSha=execFileSync('git',['rev-parse','HEAD'],{cwd:workspace,encoding:'utf8'}).trim(),ownerToken=randomBytes(32).toString('hex'),monitorToken=randomBytes(32).toString('hex');
+  const scopes=['read','task:create','workflow:run','workflow:director','workflow:developer','workflow:qa','engineering:execute','engineering:read','engineering:recover','artifact:deliver','artifact:read'];
+  const mandate=(extra={})=>({project_id:'pilot',subject:'owner',status:'APPROVED',repository:'synthetic/pilot',branch:'feature/gdi04',environment:'isolated-development',owner_actor:'owner',max_cost_usd:0,allowed_actions:['engineering:execute','qa:execute','artifact:deliver'],forbidden_actions:['merge','production:deploy','paid-api','other-repository:write'],scopes:['engineering:execute','engineering:recover','artifact:deliver'],expires_at:new Date(Date.now()+3600000).toISOString(),...extra});
+  const project={id:'pilot',name:'Synthetic pilot',workspace,repository:'synthetic/pilot',branch:'feature/gdi04',environment:'isolated-development',worker_id:'worker-pilot',draft_pr:'https://github.com/synthetic/pilot/pull/2',drive_delivery:{project_id:'pilot',account_id:'synthetic-drive-account',folder_id:'private-folder-123456',visibility:'private'},pipeline:{developer:'dev',qa:'qa',self_fix:'fix'}};
+  const config={version:1,projects:[project],principals:[{subject:'owner',token_sha256:hash(ownerToken),projects:{pilot:{workspace,scopes,approval_refs:['run','recover','drive','expired','revoked']}}},{subject:'monitor',token_sha256:hash(monitorToken),projects:{pilot:{workspace,scopes:['monitor:read']}}}],approvals:{run:mandate(),recover:mandate(),drive:mandate(),expired:mandate({expires_at:new Date(Date.now()-1000).toISOString()}),revoked:mandate({status:'REVOKED'})},command_profiles:Object.fromEntries(['dev','qa','fix'].map(id=>[id,{command:['/usr/bin/true'],projects:['pilot'],role:id==='qa'?'qa':'developer',executor:id==='qa'?'local-ci':'codex'}]))};
+  const authPath=join(dir,'auth.json');writeFileSync(authPath,JSON.stringify(config),{mode:0o600});const jobs=new Map();let jobNumber=0;
+  const remote=new Map(),uploadKeys=new Map();let failUpload=true,wrongFolder=false,corruptReadback=false,uploadCalls=0;
+  const drive={async findExisting({idempotencyKey}){const file_id=uploadKeys.get(idempotencyKey);return file_id?{file_id}:null;},async upload(request){uploadCalls++;assert.equal(request.visibility,'private');assert.equal(request.accountId,'synthetic-drive-account');assert.equal(request.folderId,'private-folder-123456');if(failUpload){failUpload=false;throw new Error('upload interrupted by synthetic timeout');}let id=uploadKeys.get(request.idempotencyKey);if(!id){id='synthetic-file-123456';uploadKeys.set(request.idempotencyKey,id);remote.set(id,Buffer.from(request.bytes));}return {file_id:id};},async readback({accountId,folderId,fileId}){let bytes=Buffer.from(remote.get(fileId));if(corruptReadback)bytes[bytes.length-1]^=1;return {file_id:fileId,account_id:accountId,folder_id:wrongFolder?'unauthorized-folder':folderId,visibility:'private',download_link:`https://drive.google.com/file/d/${fileId}/view`,bytes};}};
+  const app=createApp({authPath,stateDir,executor:async(_principal,_project,request)=>{if(request.action==='submit'){const id=jobId(++jobNumber);jobs.set(id,{status:'QUEUED'});return {job_id:id};}return jobs.get(request.job_id)??{status:'FAILED'};},artifactTransport:drive});t.after(()=>{app.store.close();rmSync(dir,{recursive:true,force:true});});
+  const owner=app.auth.principals.values().next().value,registered=app.auth.projects.get('pilot');
+  const created=app.store.db.prepare("INSERT INTO tasks(id,project_id,owner,title,description,state,assigned_role,created_at,updated_at) VALUES('task-1','pilot','owner','synthetic task','synthetic work','CREATED','owner',datetime('now'),datetime('now'))").run();assert.ok(created);
+  const run=app.director.submit(owner,registered,{task_id:'task-1',approval_ref:'run',idempotency_key:'gdi04-idempotency'});
+  assert.equal(app.director.submit(owner,registered,{task_id:'task-1',approval_ref:'run',idempotency_key:'gdi04-idempotency'}).id,run.id,'duplicate execution reuses the same run');
+  await app.director.tick();const first=app.director.get(run.id),firstJob=first.job_id;assert.equal(firstJob,jobId(1),JSON.stringify(first));jobs.set(firstJob,{status:'INTERRUPTED'});await app.director.tick();
+  let checkpoint=JSON.parse(app.director.get(run.id).checkpoint_json);assert.equal(checkpoint.source_sha,sourceSha);assert.equal(checkpoint.job_id,firstJob);assert.equal(checkpoint.resume_eligibility,'OWNER_REVIEW_REQUIRED');
+  await assert.rejects(app.director.resume(owner,registered,run.id,{side_effects_reconciled:true,recovery_note:'Review synthetic run',approval_ref:'expired'}),e=>e.status===403,'expired mandate is rejected');
+  await assert.rejects(app.director.resume(owner,registered,run.id,{side_effects_reconciled:true,recovery_note:'Review synthetic run',approval_ref:'revoked'}),e=>e.status===403,'revoked mandate is rejected');
+  const originalSnapshot=app.director.snapshot;app.director.snapshot=async()=> 'b'.repeat(40);
+  await assert.rejects(app.director.resume(owner,registered,run.id,{side_effects_reconciled:true,recovery_note:'Review synthetic run',approval_ref:'recover'}),e=>e.status===409,'source SHA mismatch is rejected');app.director.snapshot=originalSnapshot;
+  const resume=await app.director.resume(owner,registered,run.id,{side_effects_reconciled:true,recovery_note:'Reviewed synthetic side effects',approval_ref:'recover'});assert.equal(resume.state,'ACTIVE');assert.equal(resume.recovery_count,1);
+  await app.director.tick();jobs.set(jobId(2),{status:'COMPLETED',exit_code:0});await app.director.tick();await app.director.tick();jobs.set(jobId(3),{status:'COMPLETED',exit_code:0});await app.director.tick();
+  assert.equal(app.director.get(run.id).state,'REPORTED');checkpoint=JSON.parse(app.director.get(run.id).checkpoint_json);assert.deepEqual(checkpoint.completed_tasks,['DEVELOPER','QA']);assert.equal(checkpoint.source_sha,sourceSha);
+  const artifactDir=join(workspace,'dist');mkdirSync(artifactDir);const artifactPath=join(artifactDir,'pilot-1.0.0.zip');writeFileSync(artifactPath,zip);
+  const manifest={schema_version:1,project_id:'pilot',artifact_filename:'pilot-1.0.0.zip',version:'1.0.0',release_status:'RELEASE_CANDIDATE',source_commit_sha:sourceSha,build_timestamp:new Date().toISOString(),file_size:zip.length,sha256:hash(zip),release_notes:'Synthetic acceptance artifact',qa_status:'PASS',owner_release_approval:null};
+  const base='/api/projects/pilot/artifacts',driveToken=ownerToken;
+  let response=await invoke(app,base,{method:'POST',token:driveToken,body:{approval_ref:'expired',artifact_path:'dist/pilot-1.0.0.zip',manifest}});assert.equal(response.status,403,'expired delivery mandate is rejected');
+  response=await invoke(app,base,{method:'POST',token:driveToken,body:{approval_ref:'drive',artifact_path:'dist/pilot-1.0.0.zip',manifest:{...manifest,source_commit_sha:'c'.repeat(40)}}});assert.equal(response.status,409,'artifact source SHA mismatch is rejected');assert.equal(uploadCalls,0);
+  response=await invoke(app,base,{method:'POST',token:driveToken,body:{approval_ref:'drive',artifact_path:'dist/pilot-1.0.0.zip',folder_id:'attacker-folder',manifest}});assert.equal(response.status,502,'upload interruption is checkpointed and retryable');
+  let row=app.store.db.prepare('SELECT status,checkpoint_json FROM artifact_deliveries').get();assert.equal(row.status,'FAILED');assert.equal(JSON.parse(row.checkpoint_json).failure_code,'UPLOAD_INTERRUPTED');
+  wrongFolder=true;response=await invoke(app,base,{method:'POST',token:driveToken,body:{approval_ref:'drive',artifact_path:'dist/pilot-1.0.0.zip',manifest}});assert.equal(response.status,502,'remote unauthorized folder readback is rejected');
+  wrongFolder=false;corruptReadback=true;response=await invoke(app,base,{method:'POST',token:driveToken,body:{approval_ref:'drive',artifact_path:'dist/pilot-1.0.0.zip',manifest}});assert.equal(response.status,502,'checksum mismatch is rejected');
+  corruptReadback=false;response=await invoke(app,base,{method:'POST',token:driveToken,body:{approval_ref:'drive',artifact_path:'dist/pilot-1.0.0.zip',manifest}});assert.equal(response.status,200);assert.equal(response.data.status,'VERIFIED');assert.equal(response.data.download_link,'https://drive.google.com/file/d/synthetic-file-123456/view');
+  const callsAfterVerification=uploadCalls;response=await invoke(app,base,{method:'POST',token:driveToken,body:{approval_ref:'drive',artifact_path:'dist/pilot-1.0.0.zip',manifest}});assert.equal(response.status,200);assert.equal(response.data.deduplicated,true);assert.equal(uploadCalls,callsAfterVerification,'verified upload is not duplicated');
+  let artifactReport;
+  await app.director.deliverReports({async send(payload){if(payload.event==='ARTIFACT_VERIFIED'){artifactReport=payload;throw new Error('synthetic report outage');}return {delivered:true};}});
+  let report=app.store.db.prepare("SELECT delivery_status,attempt_count FROM report_outbox WHERE delivery_key=?").get(`artifact:pilot:${manifest.sha256}`);assert.equal(report.delivery_status,'QUEUED');assert.equal(report.attempt_count,1);
+  await app.director.deliverReports({async send(){return {delivered:true};},async acknowledged(key){return key===artifactReport.delivery_key;}});
+  await app.director.deliverReports({async send(){throw new Error('must not resend delivered artifact report');},async acknowledged(key){return key===artifactReport.delivery_key;}});
+  report=app.store.db.prepare("SELECT delivery_status FROM report_outbox WHERE delivery_key=?").get(artifactReport.delivery_key);assert.equal(report.delivery_status,'ACKNOWLEDGED');
+  const monitor=await invoke(app,'/api/monitoring/v1/projects/pilot',{token:monitorToken});assert.equal(monitor.status,200);assert.equal(monitor.data.artifacts[0].status,'VERIFIED');assert.equal(monitor.data.artifacts[0].telegram_status,'ACKNOWLEDGED');assert.equal(monitor.data.reports.ACKNOWLEDGED,1);
+  console.log('GDI-04 synthetic interruption→resume→artifact→Drive readback→report PASS; no remote services called');
+});

@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "source_sha": "4e14da9518434ab37c11adaefe2511bb2968ade6",
+  "source_tree": "dcae1be5f5f49375a66d80b2b496dd847f385d66",
+  "landlock_abi": 0,
+  "scope": "ISOLATED_SYNTHETIC_CANDIDATE",
+  "live_runtime": "NOT_TESTED",
+  "commands": [
+    {
+      "command": [
+        "node",
+        "--test",
+        "--test-name-pattern=^(?!approved fixed-profile jobs)"
+      ],
+      "status": "FAIL",
+      "output_sha256": "931c004390a30319e035a10a6e2b07323d8a24214e48cee6504214277ca62b09"
+    },
+    {
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "status": "PASS",
+      "output_sha256": "a6a3b4c2637444924d6ae112ea7a624647f3b31d36e9e62a31cb6e4a0ac49e60"
+    },
+    {
+      "command": [
+        "node",
+        "node_modules/vite/bin/vite.js",
+        "build",
+        "--config",
+        "vite.monitor.config.js"
+      ],
+      "status": "PASS",
+      "output_sha256": "6446702062aa2b2f143f0f996d9d741ba1955417964f2f60daadf90567070e0c"
+    },
+    {
+      "command": [
+        "node",
+        "--test",
+        "test/monitor-render.test.js"
+      ],
+      "status": "PASS",
+      "output_sha256": "44fb5470005b876bf95e97d6a269004c0de2a116c6754bff92576c217ce5e386"
+    },
+    {
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/secret_scan.py"
+      ],
+      "status": "PASS",
+      "output_sha256": "f7bbe0709975c6a945d53524fe97b2dc5c7ae6244c33622fe34788873e764f2c"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "status": "PASS",
+      "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "python": {
+    "run": 69,
+    "pass": 56,
+    "fail": 0,
+    "error": 2,
+    "not_tested": 11,
+    "skipped": [
+      {
+        "test": "test_hermes_adapter.AdapterTests.test_45_second_job_nonblocking_and_foreground_response",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_hermes_adapter.AdapterTests.test_completion_result_and_secret_redaction",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_hermes_adapter.AdapterTests.test_landlock_denies_host_and_other_project_paths_but_allows_project_work",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_hermes_adapter.AdapterTests.test_supervisor_shutdown_interrupts_active_job",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_hermes_native_plugin.NativePluginTests.test_verified_register_tool_contract_and_scoped_job",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_worker.WorkerTests.test_child_network_and_process_group_escape_are_denied",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_worker.WorkerTests.test_conversation_responsive_while_job_runs",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_worker.WorkerTests.test_fast_process_exit_preserves_return_code",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_worker.WorkerTests.test_fifo_completion_and_logs",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_worker.WorkerTests.test_running_cancellation",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      },
+      {
+        "test": "test_worker.WorkerTests.test_timeout",
+        "reason": "NOT TESTED: Landlock unavailable; real execution remains fail-closed"
+      }
+    ],
+    "failed_tests": [
+      "test_hermes_adapter.AdapterTests.test_duplicate_submission_is_idempotent",
+      "test_worker.WorkerTests.test_duplicate_key_returns_same_job"
+    ]
+  },
+  "portable_result": "FAIL",
+  "worker_runtime": "BLOCKED_LANDLOCK_UNAVAILABLE",
+  "activation": "NO_GO"
+}

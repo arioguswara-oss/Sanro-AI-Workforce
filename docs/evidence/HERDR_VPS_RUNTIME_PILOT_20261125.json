@@ -1,0 +1,69 @@
+{
+  "recorded_at_utc": "2026-11-25T06:27:21Z",
+  "repository": "arioguswara-oss/Sanro-AI-Workforce",
+  "branch": "feature/hermes-workforce-foundation",
+  "base_sha": "adb69594673b9e070b323ec5cba75a1d5e74353c",
+  "host": "vmi3646685",
+  "executor_user": "sanro",
+  "privilege": "non-root",
+  "herdr_core": {
+    "id": "a34519e633eb235f04a8f43db9ae7a30",
+    "version": "0.1.22",
+    "core_pid": 2844869,
+    "holder_pid": 2846008,
+    "live_terminals": 1,
+    "configured_remote_machines": 0
+  },
+  "pilot": {
+    "project_id": "sanro-ai-workforce",
+    "worker_name": "sanro-workforce-pilot",
+    "worker_role": "serial-workforce-supervisor",
+    "execution_engine_label": "hermes",
+    "queue": "serial-fifo",
+    "terminal_id": "t3",
+    "terminal_pid": 2933754,
+    "terminal_ppid": 2846008,
+    "launch_flags": ["--bg", "--no-parent"],
+    "working_directory": "/home/sanro/.local/state/sanro-ai-workforce-herdr-pilot/workspace",
+    "terminal_state": "live",
+    "dies_with_parent": false,
+    "worker_status": "idle",
+    "job_id": "788abd731ec242509dc359df4d746f0b",
+    "job_profile": "synthetic",
+    "worker_role_label": "serial-workforce-supervisor",
+    "job_command": "/usr/bin/sleep 2",
+    "job_lifecycle": ["queued", "running", "succeeded"],
+    "job_exit_code": 0,
+    "herdr_osc_7501_status": "done",
+    "herdr_record_app": "sanro-workforce",
+    "herdr_reported_flag": true
+  },
+  "inventory": {
+    "herdr_core_processes": [
+      {"pid": 2844869, "role": "Herdr Core server"},
+      {"pid": 2846008, "role": "current terminal holder"}
+    ],
+    "hermes_processes": [
+      {"project_id": "unknown", "worker_id": "unknown", "pid": 2007093, "ppid": 1225, "session_id": "unknown", "working_directory": "/home/sanro/.hermes", "terminal_id": null, "execution_engine": "Hermes", "status": "process sleeping; work status unknown", "job_id": "unknown", "management": "UNMANAGED"},
+      {"project_id": "unknown", "worker_id": "unknown", "pid": 2054385, "ppid": 1225, "session_id": "unknown", "working_directory": "/home/sanro/.hermes", "terminal_id": null, "execution_engine": "Hermes", "status": "process sleeping; work status unknown", "job_id": "unknown", "management": "UNMANAGED"}
+    ],
+    "codex_processes": [
+      {"project_id": "unknown", "worker_id": "unknown", "pid": 707169, "ppid": 707160, "session_id": "unknown", "working_directory": "/home/sanro", "terminal_id": null, "execution_engine": "Codex CLI", "status": "process sleeping; work status unknown", "job_id": "unknown", "management": "UNMANAGED"},
+      {"project_id": "unknown", "worker_id": "unknown", "pid": 2338991, "ppid": 2537510, "session_id": "unknown", "working_directory": "/home/sanro/codex-termius-stage3g", "terminal_id": null, "execution_engine": "Codex CLI", "status": "process sleeping; work status unknown", "job_id": "unknown", "management": "UNMANAGED"},
+      {"project_id": "unknown", "worker_id": "unknown", "pid": 2537510, "ppid": 1, "session_id": "unknown", "working_directory": "/home/sanro/codex-termius-stage3g", "terminal_id": null, "execution_engine": "Codex CLI", "status": "process sleeping; work status unknown", "job_id": "unknown", "management": "UNMANAGED"},
+      {"project_id": "unknown", "worker_id": "unknown", "pid": 2928091, "ppid": 2928084, "session_id": "unknown", "working_directory": "/home/sanro", "terminal_id": null, "execution_engine": "Codex CLI", "status": "process sleeping; work status unknown", "job_id": "unknown", "management": "UNMANAGED"},
+      {"project_id": "unknown", "worker_id": "unknown", "pid": 2928904, "ppid": 2928893, "session_id": "unknown", "working_directory": "/home/sanro", "terminal_id": null, "execution_engine": "Codex CLI", "status": "process sleeping; work status unknown", "job_id": "unknown", "management": "UNMANAGED"}
+    ],
+    "claude_code_gemini_cli_opencode": "not detected in process identities",
+    "existing_workers_adopted": 0
+  },
+  "acceptance": {
+    "workforce_job_execution": "PASS_SYNTHETIC",
+    "herdr_terminal_and_job_record": "PASS_CORE_PROTOCOL",
+    "android_spaces_visual": "NOT_TESTED",
+    "android_inbox_agent_reporting_visual": "NOT_TESTED",
+    "hermes_model_session": "NOT_TESTED",
+    "all_existing_workers_integrated": false
+  },
+  "privacy": "No environment variables, credentials, private keys, or command-line secrets were read or stored in this evidence."
+}

@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-25",
+  "repository": "arioguswara-oss/Sanro-AI-Workforce",
+  "branch": "feature/hermes-workforce-foundation",
+  "source_commit": "5c246a62b351e3809ef0d6d46cfce39eb837cf98",
+  "scope": "one authorized idle pilot restart and one synthetic runtime job",
+  "runtime_path": [
+    "Workforce project-scoped API job route",
+    "workforce_worker_bridge.py and HermesAdapter FIFO queue",
+    "HerdrWorkerController",
+    "existing Herdr Core"
+  ],
+  "auth": {
+    "type": "ephemeral synthetic project fixture generated in memory",
+    "file_mode": "0600",
+    "production_auth_read_or_changed": false,
+    "fixture_deleted": true
+  },
+  "pre_restart": {
+    "core_version": "0.1.22",
+    "core_id": "a34519e633eb235f04a8f43db9ae7a30",
+    "core_pid": 2844869,
+    "pilot_terminal": "t3",
+    "pilot_pid": 2933754,
+    "project_id": "sanro-ai-workforce",
+    "worker_name": "sanro-workforce-pilot",
+    "worker_state": "idle",
+    "active_queue_jobs": 0,
+    "matching_live_terminals": 1
+  },
+  "post_restart": {
+    "core_id": "a34519e633eb235f04a8f43db9ae7a30",
+    "core_pid": 2844869,
+    "old_terminal": {"id": "t3", "state": "finished", "reason": "killed"},
+    "new_terminal": "t4",
+    "worker_pid": 3018876,
+    "worker_name": "sanro-workforce-pilot",
+    "project_id": "sanro-ai-workforce",
+    "matching_live_terminals": 1,
+    "worker_source_sha256": "7b969e78ce0ed79d0bd110dc65565a009c8a9b0a3ead96d2347a071171ee848b"
+  },
+  "synthetic_job": {
+    "job_id": "50cd39f892d641e1a67c065a17f49c55",
+    "profile": "visible",
+    "command": "/usr/bin/printf SANRO_HERDR_PILOT_OUTPUT",
+    "workforce_submission": "202 accepted; HermesAdapter returns QUEUED for a newly created job",
+    "durable_queue_state": "succeeded",
+    "exit_code": 0,
+    "captured_private_job_log_contains_output": true,
+    "visible_terminal_text": [
+      "[SANRO] project=sanro-ai-workforce worker=sanro-workforce-pilot job=50cd39f892d641e1a67c065a17f49c55 state=running",
+      "[SANRO] project=sanro-ai-workforce worker=sanro-workforce-pilot job=50cd39f892d641e1a67c065a17f49c55 state=completed"
+    ],
+    "herdr_core_record": {"app": "sanro-workforce", "state": "done", "reported": true}
+  },
+  "android": {
+    "same_core_as_owner_previous_spaces_check": true,
+    "ssh_established_connection_count_at_check": 3,
+    "android_session_individually_attributed": false,
+    "t4_spaces_visual": "PENDING_OWNER",
+    "t4_inbox_visual": "PENDING_OWNER",
+    "terminal_visibility_is_not_agent_inbox_acceptance": true
+  },
+  "safety": {
+    "herdr_core_restarted": false,
+    "hermes_restarted_or_changed": false,
+    "vps_restarted": false,
+    "other_workers_changed": false,
+    "production_configuration_changed": false,
+    "trust_hooks_enabled": false,
+    "ai_model_or_paid_quota_used": false
+  },
+  "acceptance": {
+    "workforce_hermesadapter_herdr_runtime_synthetic": "PASS",
+    "terminal_lifecycle_output": "PASS",
+    "herdr_core_lifecycle_record": "PASS",
+    "android_spaces_inbox_visual": "PENDING_OWNER",
+    "all_existing_workers_integrated": false
+  }
+}

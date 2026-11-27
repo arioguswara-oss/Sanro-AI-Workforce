@@ -1,0 +1,94 @@
+{
+  "milestone": "SANRO Chromium AppArmor Runtime Recovery",
+  "date": "2026-11-27",
+  "repository": "arioguswara-oss/Sanro-AI-Workforce",
+  "branch": "feature/hermes-workforce-foundation",
+  "pull_request": 2,
+  "checkpoint_before": "e7496ca6ad491fb6fefa25afd659eee2e53e05ee",
+  "implementation_sha": "fbaf32ef890035eb6d20fa27e8ca7612aa1cd7ba",
+  "host_facts": {
+    "source": "Owner supplied native VPS evidence in the task",
+    "kernel": "Ubuntu 26.04.1 LTS; 7.0.0-38-generic",
+    "chromium": "159.0.8154.6 at ~/.cache/ms-playwright/chromium-1255",
+    "missing_libraries": false,
+    "shared_memory": "3.9 GB",
+    "apparmor": "active; kernel.apparmor_restrict_unprivileged_userns=1",
+    "userns": "uid_map Operation not permitted",
+    "failure": "Chromium FATAL: No usable sandbox"
+  },
+  "profile_inspection": {
+    "local_environment_observed": {
+      "etc_apparmor_d_chrome": "/opt/google/chrome/chrome",
+      "etc_apparmor_d_chromium": "/usr/lib/@{chromium}/@{chromium}",
+      "local_playwright_binary": "~/.cache/ms-playwright/chromium-1255/chrome-linux64/chrome",
+      "local_executable_owner_mode": "sanro:sanro 0755; containing chrome-linux64 directory sanro:sanro 0775",
+      "system_browser_executables_found": []
+    },
+    "native_vps_profile_contents": "The native owner-provided copy was not separately available; read-only preflight inspected the profile files visible in the current execution environment",
+    "path_mismatch": "Playwright cache executable is not matched by the observed stock Chrome or distro Chromium path rules",
+    "native_mismatch_confidence": "consistent with supplied native VPS facts; native profile text has not been independently observed"
+  },
+  "proposed_change": {
+    "file": "/etc/apparmor.d/sanro-playwright-chromium-1255",
+    "executable": "/usr/local/lib/sanro-playwright/chromium-1255/chrome-linux64/chrome",
+    "scope": "exact separately staged root-owned, non-group/world-writable SANRO Playwright Chromium executable only",
+    "rule": "AppArmor userns permission for the exact binary; AppArmor unconfined label follows the Chromium project developer-build allowlist pattern; Chromium's own browser sandbox remains enabled and acceptance requires Playwright chromiumSandbox=true",
+    "global_sysctl_or_security_relaxation": false,
+    "full_access": false,
+    "approval_gate": "script --apply requires root and a supplied Owner approval reference; preflight is read-only",
+    "rollback": "script --rollback unloads and deletes only the marked SANRO profile; failed native package removes only the newly copied tree after digest verification"
+  },
+  "official_references": [
+    "https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md",
+    "https://playwright.dev/docs/api/class-browsertype"
+  ],
+  "acceptance": {
+    "local_ci_command": "SANRO_CHROMIUM_EXECUTABLE=/usr/local/lib/sanro-playwright/chromium-1255/chrome-linux64/chrome npm --prefix apps/web run --silent test:chromium-recovery",
+    "checks": ["Playwright chromiumSandbox=true", "browser version", "no custom --no-sandbox argument", "chrome://sandbox namespace sandbox diagnostics", "synthetic DOM and JavaScript result", "synthetic screenshot SHA-256", "browser cleanup"],
+    "runtime_status": "BLOCKED before browser launch; trusted root-owned copy absent. Owner package runs synthetic Local CI only after approval.",
+    "screenshot": null,
+    "job_id": null
+  },
+  "results": {
+    "profile_inspection_local": "Prior read-only inspection retained; native VPS profile contents and identity remain unverified",
+    "recovery_preflight": "NOT RUN for new root-owned executable path; no such executable exists in this execution environment",
+    "source_validation": "PASS: bash -n, Node --check, git diff --check",
+    "synthetic_control_tests": "PASS: isolated control harness covered preflight, apply, repeated apply, rollback, repeated rollback, and failed-load cleanup; fake parser/state only, not host runtime",
+    "profile_parser": "PASS: apparmor_parser -K -Q; syntax-only parse, no cache read/write or kernel load",
+    "acceptance_guard": "PASS: Local CI entrypoint fails closed before creating synthetic page when SANRO_CHROMIUM_EXECUTABLE is absent/unapproved",
+    "host_change": "NOT ACTIVATED; Owner approval pending",
+    "chromium_runtime": "NOT TESTED",
+    "Local_CI_acceptance": "BLOCKED / NOT RUN; guard only was exercised",
+    "rollback": "VERIFIED SYNTHETIC; native profile rollback not executed"
+  },
+  "safety": {
+    "no_sandbox_flag": false,
+    "global_sysctl_changed": false,
+    "apparmor_profile_activated": false,
+    "hermes_restarted": false,
+    "docker_created": false,
+    "github_actions_added": false,
+    "production_or_merge": false,
+    "new_cost": 0
+  },
+  "owner_approval": {
+    "required_for": "copying the approved tree digest to a root-owned path, loading the exact-path AppArmor userns exception, and one synthetic Local CI acceptance on the native VPS",
+    "approval_request_prepared": true,
+    "requested": true,
+    "granted": false,
+    "reference": "pending Owner response to this recovery continuation"
+  },
+  "continuation": {
+    "baseline_head": "0cc92f16f2fe6331d3fd30cbecfd1e396d6a61e4",
+    "source_tree_observed_sha256": "cdc517739626c4ce3b79194009447da47d4a4420944be45324b49c49c0c93461",
+    "source_binary_observed_sha256": "045558b2f167db04624e36d952496705418a85d87ff9b5fb55a8c40cc59201ae",
+    "source_tree_size": "414 MB; 301 regular files; no symlinks",
+    "source_digest_note": "Digest binds bytes observed in this Codex-visible environment; it is not a vendor signature and native VPS match must be checked",
+    "recovery_script_sha256": "9b74729c27bb5d8ab6b6e7c10e0f58b7cf6b67d8ba150bc9be783de3c5c47829",
+    "acceptance_script_sha256": "17e976104c2628264d3c22a95ac811a86c4b7b4ee06b9c545c538d3dac3533db",
+    "native_package": "integrations/SANRO_CHROMIUM_NATIVE_ACTIVATION_20261127.md",
+    "owner_interactive_approval_prompts": 0,
+    "native_host_invocations": 0
+  },
+  "delivery_sha": "fc59e89e998335a354588a50bcf0b53c643c0d72"
+}

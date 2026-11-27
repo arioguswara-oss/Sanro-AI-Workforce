@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-26",
+  "project": "arioguswara-oss/Sanro-AI-Workforce",
+  "branch": "feature/hermes-workforce-foundation",
+  "baselineSha": "4b0a10f7bb3d3de19f4f1cd194fe080fb0c8d291",
+  "testedSourceSha": "f3e465cc3b56eb8e0e70b90f43f328c604c9e756",
+  "implementationCommitSha": "f3e465cc3b56eb8e0e70b90f43f328c604c9e756",
+  "implementation": {
+    "status": "IMPLEMENTED_CANDIDATE",
+    "activeHermesHookModified": false,
+    "arbitraryShellAdded": false,
+    "runtimeRegistration": "NOT_TESTED",
+    "browserRuntime": "NOT_TESTED"
+  },
+  "liveGateSyntheticObservations": [
+    {
+      "fixture": "pytest -q tests/test_backup_parser.py",
+      "result": "NOOP",
+      "meaning": "harmless test filename containing backup alone did not escalate"
+    },
+    {
+      "fixture": "cat config.json | jq .backup.enabled",
+      "result": "APPROVAL_REQUIRED",
+      "meaning": "confirmed whole-text keyword false positive for metadata inspection"
+    },
+    {
+      "fixture": "tar -czf backup.tar.gz ./data",
+      "result": "APPROVAL_REQUIRED"
+    },
+    {
+      "fixture": "mysqldump app > dump.sql",
+      "result": "APPROVAL_REQUIRED"
+    },
+    {
+      "fixture": "cat /home/sanro/.hermes/config.json",
+      "result": "APPROVAL_REQUIRED"
+    }
+  ],
+  "tests": {
+    "commands": [
+      "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v test_project_runtime_executor integrations.hermes.approval-gate.test_approval_gate",
+      "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v test_worker test_hermes_adapter"
+    ],
+    "passed": 50,
+    "failed": 0,
+    "suiteBreakdown": {
+      "policy_executor_and_gate": 24,
+      "worker_and_hermes_adapter": 26
+    },
+    "result": "PASS"
+  },
+  "approvalCounts": {
+    "interactiveOwnerPrompts": 0,
+    "nativeExecutorApprovals": 0,
+    "escalatedGitWriteInvocations": 3,
+    "activeHookSyntheticFixturesRequestingApproval": 4
+  },
+  "resourceUsage": "NOT_MEASURED",
+  "cleanup": "PASS: temporary unittest Git workspaces removed by test teardown; no browser/runtime child launched",
+  "activation": "NO_GO_PENDING_EXPLICIT_OWNER_APPROVAL_AND_VERIFIED_NATIVE_INTERFACE",
+  "delivery": "fast-forward pushed to feature/hermes-workforce-foundation; no force-push"
+}

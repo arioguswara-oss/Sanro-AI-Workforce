@@ -1,0 +1,34 @@
+{
+  "milestone": "SANRO Hybrid Git PoC V1 — Rootless CI Integration",
+  "repository": "arioguswara-oss/Sanro-AI-Workforce",
+  "branch": "feature/hermes-workforce-foundation",
+  "checkpoint_before": "e9c786b3078e006c8c089e531323f78bb6b8519f",
+  "pilot_repository": "arioguswara-oss/SANRO-Browser-QA",
+  "pilot_local_repository": "sanro-admin/SANRO-Browser-QA",
+  "owner_supplied_main_sha": "4436660bfc4dbdf11aadb0800b043c2c75ce6eaa",
+  "source_status": {
+    "fixed_gitea_unix_socket_bridge": "IMPLEMENTED_STATIC_ONLY",
+    "gitea_browser_workflow_template": "IMPLEMENTED_STATIC_ONLY",
+    "integrated_host_provisioning_script": "NOT_IMPLEMENTED",
+    "host_activation": "NOT_TESTED"
+  },
+  "acceptance": {
+    "gitea_rootless_runtime": "NOT_TESTED",
+    "runner_registration": "NOT_TESTED",
+    "private_endpoint_isolation": "NOT_TESTED",
+    "repository_checkout": "NOT_TESTED",
+    "chromium_sandbox": "NOT_TESTED",
+    "playwright_synthetic": "NOT_TESTED",
+    "screenshot": "NOT_TESTED",
+    "git_fast_forward_sync": "NOT_TESTED",
+    "hermes_continuity": "NOT_TESTED",
+    "additional_cost_usd": 0
+  },
+  "approval_counts": {
+    "interactive_mcp": 0,
+    "native_host_execution": 0
+  },
+  "tested_source_sha": null,
+  "final_source_sha": null,
+  "blocker": "No authorized VPS executor is available to validate rootless host prerequisites or execute activation. No token value was requested, read, or emitted."
+}

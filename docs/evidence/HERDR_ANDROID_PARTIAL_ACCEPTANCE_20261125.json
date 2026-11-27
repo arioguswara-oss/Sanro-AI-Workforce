@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-25",
+  "repository": "arioguswara-oss/Sanro-AI-Workforce",
+  "branch": "feature/hermes-workforce-foundation",
+  "base_sha": "364f28549a18047979aa1a413da17432a92b1803",
+  "scope": "Owner-reported Android partial acceptance and safe terminal lifecycle output fix",
+  "owner_android_result": {
+    "workspace_visible": true,
+    "pilot_visible_and_openable": true,
+    "machine_briefly_offline": true,
+    "terminal_activity_visible": false,
+    "inbox_agent_lifecycle_verified": false,
+    "acceptance": "PARTIAL_PASS"
+  },
+  "runtime_read_only_check": {
+    "herdr_core_version": "0.1.22",
+    "core_id": "a34519e633eb235f04a8f43db9ae7a30",
+    "core_pid": 2844869,
+    "holder_pid": 2846008,
+    "live_terminal_count": 1,
+    "terminal_id": "t3",
+    "worker_name": "sanro-workforce-pilot",
+    "worker_pid": 2933754,
+    "terminal_state": "live",
+    "worker_state": "idle",
+    "terminal_screen_empty": true,
+    "prior_job_id": "788abd731ec242509dc359df4d746f0b",
+    "prior_job_core_record": "done",
+    "core_reported": true,
+    "offline_cause": "UNDETERMINED; server-side Core and terminal were live during check; Android SSH session could not be attributed"
+  },
+  "change": {
+    "ordinary_terminal_output": "safe project/worker/job lifecycle lines for running and completed/error states",
+    "official_herdr_reporting": "OSC 7501 retained",
+    "child_stdout_forwarded": false,
+    "test_added": "safe visible event and invalid job ID suppression"
+  },
+  "validation": {
+    "python_worker_and_hermes_adapter": "22 PASS",
+    "herdr_controller": "9 PASS",
+    "diff_check": "PASS",
+    "runtime_updated_supervisor": "NOT TESTED; current t3 has old code loaded",
+    "new_synthetic_job": "NOT TESTED",
+    "android_spaces_after_fix": "NOT TESTED",
+    "android_inbox_visual": "NOT TESTED"
+  },
+  "safety": {
+    "herdr_core_restarted": false,
+    "hermes_or_existing_workers_changed": false,
+    "hooks_enabled": false,
+    "production_configuration_changed": false,
+    "secrets_read_or_recorded": false
+  },
+  "acceptance": "PARTIAL_PASS_AT_PRIOR_CHECKPOINT_SUPERSEDED_BY_HERDR_RUNTIME_FINAL_ACCEPTANCE_20261125.json"
+}

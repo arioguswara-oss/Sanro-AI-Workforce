@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-25",
+  "repository": "arioguswara-oss/Sanro-AI-Workforce",
+  "branch": "feature/hermes-workforce-foundation",
+  "base_sha": "4e6634a4b6bbceb2cfc9d93f8b5bb388c4764c92",
+  "scope": "Herdr Workforce per-job lifecycle records",
+  "architecture": {
+    "execution_authority": "SANRO AI Workforce serial FIFO worker",
+    "monitoring_layer": "Herdr Core",
+    "shared_runtime_activated": false,
+    "existing_workers_changed": false,
+    "token_optimizer_hooks_enabled": false
+  },
+  "implementation": {
+    "terminal_labels": [
+      "sanro.project_id",
+      "sanro.worker_name",
+      "sanro.execution_engine=hermes",
+      "sanro.queue=serial"
+    ],
+    "job_status_transport": "OSC 7501 record keyed by durable Workforce Job ID",
+    "job_states": ["working", "done", "error"],
+    "project_worker_api_exposes_records": true,
+    "subprocess_output_forwarded_to_terminal": false
+  },
+  "isolated_core_smoke": {
+    "core_version": "0.1.22",
+    "isolation": "distinct HC_SESSION and scratch XDG directories under /tmp",
+    "job_id": "60ae3a07d8b54e43b5ad750315b457d1",
+    "synthetic_command": "python3 -c print(synthetic-job-ok)",
+    "queue_status": "succeeded",
+    "herdr_job_record_status": "done",
+    "terminal_name": "wf-acceptance",
+    "labels_verified": {
+      "sanro.project_id": "synthetic-project",
+      "sanro.worker_name": "wf-acceptance",
+      "sanro.execution_engine": "hermes",
+      "sanro.queue": "serial"
+    },
+    "isolated_terminal_and_core_stopped": true,
+    "scratch_directory_removed": true,
+    "android_visibility": "NOT_TESTED"
+  },
+  "tests": {
+    "node_api_and_herdr_controller": {"pass": 13, "fail": 0},
+    "python_worker_and_hermes_adapter": {"pass": 21, "fail": 0},
+    "diff_check": "PASS",
+    "real_isolated_core_job_record": "PASS"
+  },
+  "existing_worker_inventory": {
+    "status": "NOT_TESTED",
+    "owner_reported_external_workers": ["Codex CLI", "Hermes"],
+    "classification": "UNMANAGED",
+    "project_pid_session_mapping": "UNKNOWN",
+    "reason": "read-only process namespace and no configured remote Herdr machines"
+  },
+  "acceptance": {
+    "isolated_candidate": "GO",
+    "shared_runtime": "NO-GO",
+    "android_all_workers_target": "NO-GO",
+    "required_activation_approval": "project-scoped worker:manage"
+  }
+}

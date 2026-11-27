@@ -1,0 +1,57 @@
+{
+  "milestone": "SANRO Final Functional Activation Preflight",
+  "date": "2026-11-26",
+  "repository": "arioguswara-oss/Sanro-AI-Workforce",
+  "branch": "feature/hermes-workforce-foundation",
+  "baseline_sha": "a95710acac5d6e903d933524305208442af083cf",
+  "evidence_scope": "source review and tool inventory only; no host execution",
+  "hermes": {
+    "owner_reported_installed_version": "0.22.0+119",
+    "official_tag_source_reviewed": "v0.22.0",
+    "exact_installed_build_source_comparison": "NOT_AVAILABLE",
+    "directory_plugin_contract": "SUPPORTED: plugin.yaml, __init__.py register(ctx), ctx.register_tool",
+    "secure_profile_secret_mechanism": "SUPPORTED: manifest requires_env; Hermes plugin install asks masked for secret values and saves to the active Hermes home .env",
+    "candidate_uses_requires_env": false,
+    "candidate_activation_helper_invokes_secure_env_prompt": false,
+    "native_approval_transport": "SUPPORTED_FOR_ROUTING_EXISTING_HUMAN_APPROVAL_REQUESTS_ONLY; not an approval-policy/API and does not create a per-job prompt",
+    "candidate_registers_approval_transport": false,
+    "profile_plugin_opt_in": "SUPPORTED via hermes plugins enable <name> in current profile",
+    "gateway_or_profile_restart_performed": false
+  },
+  "workforce": {
+    "runtime_executor_callback": "createApp dependency injection parameter",
+    "default_server_start_supplies_callback": false,
+    "runtime_without_callback": "FAIL_CLOSED_503_OFFICIAL_NATIVE_RUNTIME_EXECUTOR_NOT_REGISTERED",
+    "native_approval_contract": "runtimeExecutor must call invokeAfterNativeApproval with actor/project/job/operation-bound approved record",
+    "host_callback_registered_or_verified": false,
+    "candidate_project_id": "sanro-ai-workforce",
+    "pilot_repository": "arioguswara-oss/SANRO-Browser-QA",
+    "pilot_registered_in_existing_project_registry": false,
+    "candidate_can_submit_pilot_repository_job": false
+  },
+  "executor_availability": {
+    "callable_host_vps_executor_in_this_session": false,
+    "ssh_or_sandbox_escape_attempted": false,
+    "existing_profile_activation_helper": "profile_activation.py stages, runs Hermes doctor, and enables/disables one plugin; it does not verify the API runtime callback, provision authorization, configure project binding, or launch an Hermes-mediated test",
+    "safe_integrated_activation_invocation": "NOT_AVAILABLE_WITH_CURRENT_PREREQUISITES"
+  },
+  "reused_tests": {
+    "candidate_and_regression_suite": {"source_sha": "5f465facc3a77dd3237f3f171ace1783a6e07d4f", "pass": 60, "fail": 0, "rerun": false},
+    "backup_dr_gate": {"source_sha": "5f465facc3a77dd3237f3f171ace1783a6e07d4f", "pass": 11, "fail": 0, "rerun": false}
+  },
+  "functional_acceptance": {
+    "hermes_to_qa_worker": "NOT_TESTED",
+    "authorized_executor": "BLOCKED_CALLBACK_NOT_REGISTERED",
+    "pilot_repository_checkout": "BLOCKED_PROJECT_BINDING_ABSENT",
+    "chromium_playwright_screenshot": "NOT_TESTED",
+    "job_id": null,
+    "hermes_continuity": "NOT_TESTED",
+    "runtime_status": "NO_GO"
+  },
+  "approval_counts_this_preflight": {
+    "interactive_hermes_prompts": 0,
+    "native_runtime_approvals": 0,
+    "sandbox_escalation_prompts": 0
+  },
+  "cost": "$0"
+}

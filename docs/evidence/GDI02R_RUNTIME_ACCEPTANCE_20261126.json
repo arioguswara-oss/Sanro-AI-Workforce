@@ -1,0 +1,219 @@
+{
+  "milestone": "SANRO GDI-02R Runtime Remediation",
+  "date": "2026-11-26",
+  "repository": "arioguswara-oss/Sanro-AI-Workforce",
+  "branch": "feature/hermes-workforce-foundation",
+  "baseline_sha": "9a77dc5bf31239b980e3e53c371e49e79a7e9ca6",
+  "tested_source_sha": "5c986863f6dc2e6d4f25b1701d050c90c9e1cc5e",
+  "checkpoint_sha": "1471ba3dcd6a249fe6dedfb4f2baa2d99759491d",
+  "draft_pr": 2,
+  "playwright_mcp_handshake_recovery": {
+    "base_sha": "697a74a61b2ab9b95bfc76929db48f4d7339fee0",
+    "project_config_correction": {
+      "status": "IMPLEMENTED",
+      "prior_command": "npm --prefix apps/web exec -- playwright-mcp --config playwright-mcp.config.json",
+      "confirmed_codex_cwd": "inherited project root (codex mcp get reports cwd: -)",
+      "corrected_command": "apps/web/node_modules/.bin/playwright-mcp --config apps/web/playwright-mcp.config.json",
+      "verification": "codex mcp get reports corrected project command, config argument, stdio transport, seven allowed browser tools, startup timeout 30s, tool timeout 20s; corrected CLI/config command exits 0 with stdin EOF",
+      "global_config_changed": false
+    },
+    "pinned_server": {
+      "package": "@playwright/mcp@0.0.86",
+      "executable": "apps/web/node_modules/.bin/playwright-mcp",
+      "version_help": "PASS",
+      "stdio_initialize": "BLOCKED before tools/list; previous observed child exit code 0, stdout empty, stderr empty",
+      "stdio_initiating_cause": "UNCONFIRMED; evidence does not distinguish client stdin EOF from another client/runtime closure; no server diagnostic captured"
+    },
+    "official_loopback_transport": {
+      "mode": "Playwright MCP --port Streamable HTTP (/mcp)",
+      "requested_bind": "127.0.0.1:18765",
+      "status": "BLOCKED",
+      "exit_code": 1,
+      "stderr": "Error: listen EPERM: operation not permitted 127.0.0.1:18765",
+      "stdout": "empty",
+      "retry": false
+    },
+    "live_handshake": "BLOCKED; initialize incomplete, tools/list not reached, live tools discovered 0",
+    "browser_acceptance": {
+      "status": "BLOCKED BEFORE BROWSER LAUNCH",
+      "tool_calls": 0,
+      "dom_interaction": "NOT TESTED",
+      "screenshot": null,
+      "chromium_sandbox_disabled": false
+    },
+    "fresh_codex_session_required": true,
+    "resume_command": "cd /home/sanro/workforce-dev/Sanro-AI-Workforce-gdi02 && codex",
+    "interactive_approvals_in_continuation": 0,
+    "cleanup": "HTTP process exited on failed bind; no listener/browser/resource remained; dependencies, global settings, Hermes and workers untouched"
+  },
+  "results": {
+    "source_edit_lint_build": {
+      "status": "PASS",
+      "evidence": "Runtime changes and fixtures implemented; Python unittest discovery 64 passed, 0 failed, 1 expected skip; Node API suite 33 passed, 0 failed; apps/web Vite build passed on Vite 8.4.0. Focused Director/admission/GDI03/GDI04 suite 11 passed, overlapping full API coverage."
+    },
+    "browser_runtime": {
+      "status": "BLOCKED",
+      "implemented": true,
+      "playwright": "1.65.1 pinned in apps/web",
+      "chromium": "Headless Shell 159.0.8154.6, revision 1255, project-local ignored cache",
+      "actual_smoke": "Launch attempted with chromiumSandbox enabled. Runtime returned Operation not permitted while initializing sandbox/socket; no DOM assertion or screenshot was produced. No sandbox disabling or elevated browser execution was attempted."
+    },
+    "mariadb_runtime": {
+      "status": "BLOCKED",
+      "implemented": true,
+      "binary": "MariaDB 11.8.6",
+      "actual_smoke": "Temporary isolated datadir initialized. Isolated mariadbd startup was denied binding its unique Unix socket with Operation not permitted, before schema/data SQL. Independent temporary AF_UNIX bind probe also returned PermissionError. The job stopped only its child and removed its temporary datadir; no active database was contacted."
+    },
+    "git_delivery": {
+      "status": "APPROVAL_REQUIRED",
+      "actual_smoke": "Normal sandbox cannot write .git metadata. Project-scoped native runtime approval is required for Git index/commit/push. Existing prior approved fast-forward push is retained evidence; this cycle's delivery SHA is recorded in checkpoint metadata. No amend or force push."
+    },
+    "ssh_staging": {
+      "status": "BLOCKED",
+      "actual_smoke": "No verified staging target allowlist; inherited SSH agent socket path unavailable. No connection attempted and no SSH configuration or credentials changed."
+    },
+    "model_routing": {
+      "status": "VERIFIED_SYNTHETIC",
+      "actual_smoke": "Synthetic fixtures verify capability-bound support routes, engineering rejection from non-Codex fallback, rate-limit cooldown, malformed tool schema rejection, temporary provider/network fallback and checkpoint/resume behavior. No live provider request or Hermes configuration change."
+    },
+    "runtime_executor_integration": {
+      "status": "VERIFIED_SYNTHETIC",
+      "actual_smoke": "Director, API admission and Python bridge bind required capabilities to Codex engineering or Local CI QA and reject mismatches. Aggregated preflight is checkpointed with sanitized status. Full Node API suite passed. No live Hermes worker was launched."
+    },
+    "interactive_approvals": {
+      "status": "PARTIAL_OBSERVATION",
+      "owner_facing_prompts_observed": 0,
+      "codex_native_prompt_count": "NOT_TESTED; no Codex engineering job was launched",
+      "note": "Per-command runtime escalations were reviewed by the environment's native reviewer; they are not counted as interactive Codex prompts."
+    },
+    "cleanup_and_production_protection": {
+      "status": "PASS",
+      "actual_smoke": "Failed browser child was closed/exited and synthetic HTML removed. MariaDB process was stopped by the executor and its temporary datadir removed (zero matching datadirs remained). No active worker, Studio workspace, live service, production resource, or active database was accessed."
+    }
+  },
+  "cost": "No additional costs incurred.",
+  "live_autonomous_operation": "NOT_VERIFIED",
+  "executor_continuation": {
+    "starting_sha": "28d692c42739e71558a3cb18b326b6d3e29fa7d3",
+    "status": "BLOCKED_BEFORE_INVOCATION",
+    "verified_interface": null,
+    "evidence": "Connected tool inventory exposed no callable Hermes native executor or Local CI runtime interface. The repository orchestration contract states that a reviewed Codex/Local CI wrapper must consume the bounded instruction and that no wrapper is installed into Hermes. Workforce FIFO/API/bridge code is present but is not evidence of an attached authorized host executor.",
+    "runtime_attempted": false,
+    "browser_or_mariadb_retried": false,
+    "ssh_attempted": false,
+    "regression_tests_rerun": false,
+    "reason": "No official project-scoped runtime invocation interface was available to verify mandate/capability authorization. Generic shell execution is not accepted as a runtime executor.",
+    "required_next_step": "Expose or authorize the existing Hermes native executor or Local CI through an official callable project-scoped interface enforcing project identity, mandate expiry, capability allowlist, bounded execution, audit evidence, and checkpoints."
+  },
+  "runtime_wrapper_implementation": {
+    "baseline_sha": "f098e14579fa2687c1432c3366144646ed481471",
+    "tested_source_sha": "2d7c5b79530d6eaa22b606f7862dd5e2237c89e7",
+    "status": "IMPLEMENTED_AND_VERIFIED_SYNTHETIC",
+    "operations": ["browser_smoke", "mariadb_synthetic"],
+    "ssh": "DISABLED",
+    "python_affected_tests": "17 PASS / 0 FAIL",
+    "node_api_tests": "36 PASS / 0 FAIL",
+    "syntax_and_diff": "Python compilation, browser script node --check, and git diff --check PASS",
+    "runtime_acceptance": {
+      "chromium": "NOT TESTED on this source SHA; no repeated sandbox attempt. Wrapper child inherits seccomp socket denial and browser sandbox.",
+      "mariadb": "NOT TESTED on this source SHA; no repeated sandbox attempt. Wrapper child inherits seccomp socket denial; previous AF_UNIX EPERM evidence unchanged.",
+      "live_hermes_registration": "NOT TESTED; callback not injected or activated"
+    },
+    "security": "Fixed operation map, empty arguments, approved project/branch/checkpoint/mandate/operation scope, profile-bounded timeout <=300s, hash-only native approval evidence, existing worktree lock, private checkpoint/audit, per-job temporary directory and existing Landlock/seccomp inherited by runtime children. No sandbox relaxations.",
+    "host_registration_artifact": "docs/integrations/GDI02R_RUNTIME_EXECUTOR.md",
+    "note": "The Node route test injects a synthetic adapter returning BLOCKED; it does not execute Chromium or MariaDB and is not runtime evidence."
+  },
+  "playwright_mcp_integration": {
+    "starting_sha": "44f713686140fc521b0066a6178191ea187694d1",
+    "implementation_commit_sha": "4cf38de",
+    "tested_basis": "starting SHA plus pinned dependency, project MCP config and evidence diff; Vite build and config discovery ran after those changes",
+    "package": {
+      "name": "@playwright/mcp",
+      "version": "0.0.86",
+      "repository": "https://github.com/microsoft/playwright-mcp",
+      "registry_tarball": "https://registry.npmjs.org/@playwright/mcp/-/mcp-0.0.86.tgz",
+      "integrity": "sha512-4SL9OSINmik3+EObCYJIxH8BkhcqqGU6CM8XIgztW015iBVR9WR6Q0xF180Ery+xuEVyyK5r6nC2bOg3zjgCoA==",
+      "install_scope": "apps/web devDependency",
+      "install_result": "3 packages added; npm audit 0 vulnerabilities",
+      "node": "22.22.1",
+      "mcp_transitive_playwright": "1.66.0-alpha-2026-11-18",
+      "expected_chromium": "159.0.8154.6 revision 1255",
+      "existing_project_cache": "Headless Shell 159.0.8154.6 revision 1255"
+    },
+    "codex_registration": {
+      "config": ".codex/config.toml",
+      "server_command": "npm --prefix apps/web exec -- playwright-mcp --config playwright-mcp.config.json",
+      "enabled_tools": ["browser_navigate", "browser_snapshot", "browser_click", "browser_fill_form", "browser_evaluate", "browser_take_screenshot", "browser_close"],
+      "startup_timeout_seconds": 30,
+      "tool_timeout_seconds": 20,
+      "browser_config": "apps/web/playwright-mcp.config.json",
+      "headless": true,
+      "isolated_context": true,
+      "chromium_sandbox": true,
+      "hostinger_preserved": true,
+      "discovery": "codex mcp list and codex mcp get show project server enabled and Hostinger enabled"
+    },
+    "mcp_runtime": {
+      "initialize": "BLOCKED",
+      "tools_list": "NOT REACHED",
+      "actual_tool_calls": 0,
+      "observation": "Official bundled MCP SDK stdio client received connection closed before initialize completed; child exited code 0 with no stdout/stderr response. A direct stdio probe also received no response. Server --help and version work; no browser operation was invoked.",
+      "browser_acceptance": "BLOCKED BEFORE BROWSER LAUNCH",
+      "dom_click_fill_javascript": "NOT TESTED",
+      "screenshot": null,
+      "screenshot_evidence": "NONE",
+      "chromium_security_sandbox_disabled": false
+    },
+    "hermes_integration": "NOT TESTED; task requires successful Codex browser acceptance first; live Hermes configuration and services untouched",
+    "checks": {
+      "npm_ls": "PASS",
+      "npm_install_audit": "PASS; 0 vulnerabilities",
+      "vite_build": "PASS; Vite 8.4.0",
+      "codex_project_config_discovery": "PASS",
+      "actual_mcp_initialization": "BLOCKED"
+    },
+    "interactive_approvals": {
+      "owner_facing_prompts_observed": 0,
+      "native_escalated_install_commands": 1,
+      "escalated_config_write_attempts_failed": 2,
+      "final_config_written_by": "native apply_patch",
+      "note": "Counts are observed tool interactions only; no prompt was presented to Owner."
+    },
+    "security_and_cleanup": "No active worker, Hermes service, production resource, or global Codex configuration touched. No browser process or screenshot created. No sandbox relaxation, origin bypass, or live network browser navigation performed.",
+    "hermes_config_changed": false,
+    "branch_delivery": "FAST_FORWARD_PUSHED; origin/feature/hermes-workforce-foundation advanced 44f7136..24d00d1; no amend, force push, or merge"
+  },
+  "fresh_session_final_runtime_acceptance": {
+    "tested_source_sha": "1a35dcb910602d39d8efd0a1e26470688d05dd3e",
+    "branch": "feature/hermes-workforce-foundation",
+    "project_mcp_initialization_and_tool_discovery": {
+      "status": "PASS",
+      "evidence": "Fresh Codex session exposed browser_navigate, browser_snapshot, browser_click, browser_fill_form, browser_evaluate, browser_take_screenshot, browser_close from project-scoped Playwright server. Navigation call entered MCP server."
+    },
+    "synthetic_chromium_acceptance": {
+      "status": "BLOCKED",
+      "navigation": "FAIL_BEFORE_PAGE_CREATION",
+      "root_cause": "Chromium stderr: FATAL zygote_host_impl_linux.cc:145: No usable sandbox; process ended SIGTRAP. MCP reported Chromium sandboxing failed and recommended enabling environment sandbox support. Project config keeps chromiumSandbox=true.",
+      "dom_inspection_click_input_javascript_verification": "NOT_RUN",
+      "screenshot": null,
+      "retry_policy": "STOPPED_AFTER_FIRST_BROWSER_LAUNCH_FAILURE; no same-method retry and no sandbox disabling",
+      "alternative_transport": "NOT_NEEDED_FOR_MCP_HANDSHAKE; discovery succeeded. Browser-side supported transport cannot resolve the host Chromium sandbox prerequisite without changing the security boundary."
+    },
+    "hermes_integration": "NOT_RUN; browser acceptance prerequisite did not pass; no Hermes worker, configuration, or service touched",
+    "regressions": {
+      "python": "PASS: 35 tests across test_project_runtime_executor, test_hermes_adapter, test_worker",
+      "node_api": "BLOCKED: admission.test.js, api.test.js, runtime-executor.test.js exited before test registration; apps/api has no node_modules and dependencies were not reinstalled"
+    },
+    "cleanup": {
+      "status": "PASS",
+      "evidence": "Browser launch process exited with SIGTRAP; subsequent process inventory found no chrome-headless-shell, playwright-mcp, or playwright_chromiumdev_profile process. MCP close call also reported the failed launch and did not leave a process. No screenshot or temp page was created."
+    },
+    "interactive_approval_prompts_observed": 0,
+    "owner_authorization": "Existing authorization retained; no new approval prompt observed",
+    "hermes_or_production_access": false,
+    "global_configuration_changed": false,
+    "dependencies_installed": false,
+    "tested_sha": "1a35dcb910602d39d8efd0a1e26470688d05dd3e",
+    "delivery": "PENDING_COMMIT_AND_PUSH"
+  }
+}

@@ -1,0 +1,20 @@
+# Local credentials and runtime-only artifacts
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.sqlite
+*.sqlite3
+*.db
+*.log
+.jd04-worker/
+.jd04-worker-state-*/
+__pycache__/
+*.py[cod]
+node_modules/
+apps/web/dist/
+.workforce-state/
+.workforce-runtime/
+apps/web/dist-monitor/
+apps/web/.cache/playwright/
