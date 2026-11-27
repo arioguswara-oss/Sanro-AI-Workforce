@@ -26,8 +26,20 @@
       "allow_network": false,
       "allow_process_creation": true
     },
-    "allowed_actions": ["qa:execute", "runtime:browser"],
-    "forbidden_actions": ["engineering:execute", "git:write", "worker:manage", "ssh:staging", "merge", "production:deploy", "paid-api", "other-repository:write"],
+    "allowed_actions": [
+      "qa:execute",
+      "runtime:browser"
+    ],
+    "forbidden_actions": [
+      "engineering:execute",
+      "git:write",
+      "worker:manage",
+      "ssh:staging",
+      "merge",
+      "production:deploy",
+      "paid-api",
+      "other-repository:write"
+    ],
     "mainline_exception": "Only exact pinned pilot identity + runtime private_browser_acceptance + local-ci QA profile + read-only permission profile"
   },
   "implementation": {
@@ -42,8 +54,14 @@
     "hermes_restarted": false
   },
   "tests": {
-    "python_policy_controller_bridge": {"passed": 22, "failed": 0},
-    "node_admission_auth_route_runtime": {"passed": 16, "failed": 0},
+    "python_policy_controller_bridge": {
+      "passed": 22,
+      "failed": 0
+    },
+    "node_admission_auth_route_runtime": {
+      "passed": 16,
+      "failed": 0
+    },
     "syntax": "PASS",
     "git_diff_check": "PASS",
     "chromium_native_recovery": "REUSED_LOCKED_VERIFIED_EVIDENCE"
@@ -58,5 +76,8 @@
     "rollback_executed": false
   },
   "handoff": "integrations/SANRO_QA_PILOT_OPERATIONAL_ACTIVATION_V1.md",
-  "previous_workforce_sha": "c1807ca30cdcaec737173a68cdf23598bd7716d1"
+  "previous_workforce_sha": "c1807ca30cdcaec737173a68cdf23598bd7716d1",
+  "tested_source_commit": "42d18fe",
+  "tested_source_sha": "42d18fe",
+  "commit_note": "Tests and syntax checks ran against the exact staged source tree committed as 42d18fe."
 }
