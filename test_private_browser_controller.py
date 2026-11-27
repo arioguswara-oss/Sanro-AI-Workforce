@@ -31,6 +31,7 @@ class PrivateBrowserControllerTests(unittest.TestCase):
         self.assertEqual(command[-3:], ["SANRO_REQUIRE_PRIVATE_NETNS=1", "/usr/bin/node", str(self.runner)])
         self.assertIn("/usr/bin/env", command)
         self.assertIn("-i", command)
+        self.assertIn("SANRO_CHROMIUM_EXECUTABLE=/usr/local/lib/sanro-playwright/chromium-1255/chrome-linux64/chrome", command)
         self.assertNotIn("--no-sandbox", rendered)
         self.assertFalse(any("ExecStart" in item for item in command))
 

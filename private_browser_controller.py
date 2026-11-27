@@ -16,6 +16,7 @@ import json
 CPU_QUOTA = "100%"
 MEMORY_MAX = "2G"
 TASKS_MAX = "128"
+CHROMIUM_EXECUTABLE = "/usr/local/lib/sanro-playwright/chromium-1255/chrome-linux64/chrome"
 
 
 def build_systemd_argv(systemd_run: str, argv: list[str], workspace: pathlib.Path,
@@ -46,6 +47,7 @@ def build_systemd_argv(systemd_run: str, argv: list[str], workspace: pathlib.Pat
         "PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "PYTHONNOUSERSITE": "1",
         "HOME": str(job_root), "TMPDIR": str(job_root / "tmp"),
         "PLAYWRIGHT_BROWSERS_PATH": str(workspace / "apps/web/.cache/playwright"),
+        "SANRO_CHROMIUM_EXECUTABLE": CHROMIUM_EXECUTABLE,
         "SANRO_PROJECT_ID": "sanro-ai-workforce", "SANRO_JOB_ID": job_id,
         "SANRO_BROWSER_STATE_ROOT": str(job_root / "artifacts"),
         "SANRO_REQUIRE_PRIVATE_NETNS": "1",

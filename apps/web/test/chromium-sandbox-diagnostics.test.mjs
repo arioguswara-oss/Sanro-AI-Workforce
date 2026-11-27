@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseChromiumSandbox } from '../scripts/chromium-sandbox-diagnostics.mjs';
+import { buildPrivateBrowserRuntimeConfig, TRUSTED_CHROMIUM_EXECUTABLE } from '../scripts/private-browser-runtime-config.mjs';
 
 const chromium159ActualRows = [
   ['Layer 1 Sandbox', 'Namespace'],
@@ -52,4 +53,19 @@ test('records Yama Non-broker absence as warning without hiding mandatory failur
   assert.equal(result.active, true);
   assert.equal(result.checks['Yama Non-broker'].status, 'WARNING');
   assert.equal(parseChromiumSandbox({ rows: rows.map(([label, value]) => [label, label === 'Seccomp-BPF sandbox' ? 'No' : value]) }).active, false);
+});
+
+test('binds runtime Playwright MCP to the exact trusted executable with sandbox intact', () => {
+  const source = { browser: { browserName: 'chromium', launchOptions: { headless: true, chromiumSandbox: true } } };
+  const runtime = buildPrivateBrowserRuntimeConfig(source, TRUSTED_CHROMIUM_EXECUTABLE);
+  assert.equal(runtime.browser.launchOptions.executablePath, TRUSTED_CHROMIUM_EXECUTABLE);
+  assert.equal(runtime.browser.launchOptions.chromiumSandbox, true);
+  assert.equal(source.browser.launchOptions.executablePath, undefined);
+});
+
+test('rejects missing or substituted browser executable and disabled sandbox without fallback', () => {
+  const source = { browser: { browserName: 'chromium', launchOptions: { chromiumSandbox: true } } };
+  assert.throws(() => buildPrivateBrowserRuntimeConfig(source, ''), /fixed approved Chromium executable/);
+  assert.throws(() => buildPrivateBrowserRuntimeConfig(source, '/tmp/chrome'), /fixed approved Chromium executable/);
+  assert.throws(() => buildPrivateBrowserRuntimeConfig({ browser: { browserName: 'chromium', launchOptions: { chromiumSandbox: false } } }, TRUSTED_CHROMIUM_EXECUTABLE), /chromiumSandbox=true/);
 });

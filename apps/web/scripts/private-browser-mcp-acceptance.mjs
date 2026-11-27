@@ -8,6 +8,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { buildPrivateBrowserRuntimeConfig, TRUSTED_CHROMIUM_EXECUTABLE } from './private-browser-runtime-config.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const webRoot = path.join(repoRoot, 'apps/web');
@@ -75,8 +76,9 @@ process.env.PLAYWRIGHT_BROWSERS_PATH ||= path.join(webRoot, '.cache/playwright')
 const requireFromWeb = createRequire(path.join(webRoot, 'package.json'));
 const chromium = requireFromWeb('playwright').chromium;
 const mcpPackage = JSON.parse(fs.readFileSync(path.join(webRoot, 'node_modules/@playwright/mcp/package.json'), 'utf8'));
-const browserExecutable = chromium.executablePath();
+const browserExecutable = process.env.SANRO_CHROMIUM_EXECUTABLE || '';
 const configValue = JSON.parse(fs.readFileSync(config, 'utf8'));
+const runtimeConfig = path.join(jobDir, 'playwright-mcp.config.json');
 const hostFacts = {
   uid: process.getuid(), cpuCount: os.cpus().length, totalMemoryBytes: os.totalmem(), freeMemoryBytes: os.freemem(),
   kernel: os.release(), userNamespace: fs.existsSync('/proc/self/ns/user') ? fs.readlinkSync('/proc/self/ns/user') : 'unavailable',
@@ -95,6 +97,7 @@ let peakRssBytes = 0;
 let peakProcessCount = 0;
 let sampledCpuTicks = 0;
 let browserProcessObserved = false;
+let trustedBrowserExecutableObserved = false;
 let chromiumNoSandboxArgumentObserved = false;
 const previousCpuTicks = new Map();
 let samplingTimer;
@@ -202,6 +205,7 @@ function sampleProcessTree() {
       try {
         const commandLine = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replaceAll('\0', ' ');
         if (/chrome|chromium/i.test(commandLine)) browserProcessObserved = true;
+        if (commandLine.includes(TRUSTED_CHROMIUM_EXECUTABLE)) trustedBrowserExecutableObserved = true;
         if (/(^|\s)--no-sandbox(?:\s|$)/.test(commandLine)) chromiumNoSandboxArgumentObserved = true;
       } catch {}
     }
@@ -231,14 +235,28 @@ let result;
 try {
   if (!fs.existsSync(mcpBin) || !fs.existsSync(config)) throw new Error('Pinned Playwright MCP executable or project config is missing');
   if (process.getuid() === 0) throw new Error('Browser runtime must not run as root');
+  if (browserExecutable !== TRUSTED_CHROMIUM_EXECUTABLE || !path.isAbsolute(browserExecutable)
+      || fs.realpathSync(browserExecutable) !== TRUSTED_CHROMIUM_EXECUTABLE) {
+    throw new Error('Only the fixed approved root-owned Chromium executable is permitted');
+  }
+  let pathPart = browserExecutable;
+  while (pathPart !== path.dirname(pathPart)) {
+    const info = fs.statSync(pathPart);
+    if (info.uid !== 0 || (info.mode & 0o022) !== 0) throw new Error('Approved Chromium path must remain root-owned and non-writable by group/other');
+    pathPart = path.dirname(pathPart);
+  }
+  const executableInfo = fs.statSync(browserExecutable);
+  if (!executableInfo.isFile() || (executableInfo.mode & 0o111) === 0) throw new Error('Approved Chromium executable is unavailable');
   if (mcpPackage.version !== '0.0.86' || configValue.browser?.launchOptions?.chromiumSandbox !== true || !hostFacts.chromiumExecutableExists) {
     throw new Error('Pinned MCP, Chromium executable, or chromiumSandbox=true preflight failed');
   }
   const ldd = spawnSync('/usr/bin/ldd', [browserExecutable], { encoding: 'utf8', timeout: 5000 });
   if (ldd.status !== 0 || /not found/.test(ldd.stdout || '')) throw new Error('Chromium shared-library preflight failed');
+  const runtimeConfigValue = buildPrivateBrowserRuntimeConfig(configValue, browserExecutable);
+  fs.writeFileSync(runtimeConfig, JSON.stringify(runtimeConfigValue), { mode: 0o600, flag: 'wx' });
   console.log(JSON.stringify({ status: 'PREFLIGHT', host: hostFacts, browserLibraries: 'resolved' }));
   mcp = spawn(mcpBin, [
-    '--config', config, '--browser', 'chromium', '--headless', '--host', '127.0.0.1',
+    '--config', runtimeConfig, '--browser', 'chromium', '--headless', '--host', '127.0.0.1',
     '--port', String(mcpPort), '--allowed-hosts', '127.0.0.1,localhost',
     '--allowed-origins', new URL(fixtureUrl).origin, '--output-dir', jobDir,
     '--idle-timeout', '120000',
@@ -275,7 +293,7 @@ try {
   fs.writeFileSync(screenshotPath, bytes, { mode: 0o600, flag: 'wx' });
   const digest = crypto.createHash('sha256').update(bytes).digest('hex');
   sampleProcessTree();
-  if (!browserProcessObserved || chromiumNoSandboxArgumentObserved || hostFacts.uid === 0 || !hostFacts.chromiumSandboxConfigured) {
+  if (!browserProcessObserved || !trustedBrowserExecutableObserved || chromiumNoSandboxArgumentObserved || hostFacts.uid === 0 || !hostFacts.chromiumSandboxConfigured) {
     throw new Error('Effective Chromium sandbox or non-root process verification failed');
   }
   await callTool('browser_close', {});
@@ -284,7 +302,7 @@ try {
     browser: 'chromium', steps: ['initialize', 'tools/list', 'navigate', 'snapshot', 'fill', 'click', 'evaluate', 'screenshot', 'close'],
     javascriptState: 'DOM_OK:MCP_OK:42', screenshot: screenshotPath, screenshotSha256: digest,
     uid: hostFacts.uid, chromiumSandboxConfigured: hostFacts.chromiumSandboxConfigured,
-    chromiumNoSandboxArgumentObserved,
+    chromiumExecutable: TRUSTED_CHROMIUM_EXECUTABLE, trustedBrowserExecutableObserved, chromiumNoSandboxArgumentObserved,
     measured: { peakProcessTreeRssBytes: peakRssBytes, peakProcessCount, processTreeCpuTicks: sampledCpuTicks },
     networkIsolation: jobBoundary?.networkIsolation || 'NOT_ENFORCED', unauthorizedEgressBlocked: jobBoundary?.unauthorizedEgressBlocked === true,
     enforcedLimits: jobBoundary?.cgroupLimits || null,
