@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
-    "test:runtime-browser": "node scripts/gdi02r-browser-acceptance.mjs"
+    "test:runtime-browser": "node scripts/gdi02r-browser-acceptance.mjs",
+    "test:chromium-recovery": "node scripts/chromium-sandbox-recovery-acceptance.mjs"
   },
   "dependencies": {
     "react": "19.2.7",

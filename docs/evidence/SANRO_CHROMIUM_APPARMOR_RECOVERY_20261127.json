@@ -1,0 +1,73 @@
+{
+  "milestone": "SANRO Chromium AppArmor Runtime Recovery",
+  "date": "2026-11-27",
+  "repository": "arioguswara-oss/Sanro-AI-Workforce",
+  "branch": "feature/hermes-workforce-foundation",
+  "pull_request": 2,
+  "checkpoint_before": "e7496ca6ad491fb6fefa25afd659eee2e53e05ee",
+  "host_facts": {
+    "source": "Owner supplied native VPS evidence in the task",
+    "kernel": "Ubuntu 26.04.1 LTS; 7.0.0-38-generic",
+    "chromium": "159.0.8154.6 at ~/.cache/ms-playwright/chromium-1255",
+    "missing_libraries": false,
+    "shared_memory": "3.9 GB",
+    "apparmor": "active; kernel.apparmor_restrict_unprivileged_userns=1",
+    "userns": "uid_map Operation not permitted",
+    "failure": "Chromium FATAL: No usable sandbox"
+  },
+  "profile_inspection": {
+    "local_environment_observed": {
+      "etc_apparmor_d_chrome": "/opt/google/chrome/chrome",
+      "etc_apparmor_d_chromium": "/usr/lib/@{chromium}/@{chromium}",
+      "local_playwright_binary": "~/.cache/ms-playwright/chromium-1255/chrome-linux64/chrome"
+    },
+    "native_vps_profile_contents": "NOT PROVIDED; will be inspected by recovery preflight on the VPS before change",
+    "path_mismatch": "Playwright cache executable is not matched by the observed stock Chrome or distro Chromium path rules",
+    "native_mismatch_confidence": "consistent with supplied native VPS facts; native profile text has not been independently observed"
+  },
+  "proposed_change": {
+    "file": "/etc/apparmor.d/sanro-playwright-chromium-1255",
+    "scope": "exact existing SANRO Playwright Chromium executable only",
+    "rule": "AppArmor userns permission for the exact binary; AppArmor unconfined label follows the Chromium project developer-build allowlist pattern; Chromium's own browser sandbox remains enabled and acceptance requires Playwright chromiumSandbox=true",
+    "global_sysctl_or_security_relaxation": false,
+    "full_access": false,
+    "approval_gate": "script --apply requires root and a supplied Owner approval reference; preflight is read-only",
+    "rollback": "script --rollback unloads and deletes only the marked SANRO profile"
+  },
+  "official_references": [
+    "https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md",
+    "https://playwright.dev/docs/api/class-browsertype"
+  ],
+  "acceptance": {
+    "local_ci_command": "cd apps/web && npm run test:chromium-recovery",
+    "checks": ["Playwright chromiumSandbox=true", "browser version", "no custom --no-sandbox argument", "chrome://sandbox namespace sandbox diagnostics", "synthetic DOM and JavaScript result", "synthetic screenshot SHA-256", "browser cleanup"],
+    "runtime_status": "NOT RUN; previous Chromium sandbox failure was not repeated",
+    "screenshot": null,
+    "job_id": null
+  },
+  "results": {
+    "profile_inspection_local": "PASS; native VPS file contents remain preflight-required",
+    "recovery_preflight": "PREPARED; not run against native VPS",
+    "host_change": "NOT ACTIVATED; Owner approval pending",
+    "chromium_runtime": "NOT TESTED",
+    "Local_CI_acceptance": "PREPARED; NOT RUN",
+    "rollback": "IMPLEMENTED; NOT EXECUTED"
+  },
+  "safety": {
+    "no_sandbox_flag": false,
+    "global_sysctl_changed": false,
+    "apparmor_profile_activated": false,
+    "hermes_restarted": false,
+    "docker_created": false,
+    "github_actions_added": false,
+    "production_or_merge": false,
+    "new_cost": 0
+  },
+  "owner_approval": {
+    "required_for": "installing/loading the exact-path AppArmor userns exception on the native VPS",
+    "requested": true,
+    "granted": false,
+    "reference": null
+  },
+  "delivery_sha": "PENDING"
+}

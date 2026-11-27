@@ -154,6 +154,19 @@ Focused source checks are recorded in `docs/evidence/PRIVATE_CLOUD_BROWSER_V1_20
 
 Candidate acceptance **NO-GO for runtime activation**. Total targeted result: 60 PASS / 0 FAIL. Both profiles use OS user `sanro`; profile scoping does not provide OS isolation. See [native profile integration and activation procedure](integrations/SANRO_QA_NATIVE_HERMES_PROFILE_V1.md) and [sanitized evidence](evidence/SANRO_QA_NATIVE_HERMES_PROFILE_V1_20261126.json).
 
+## SANRO Chromium AppArmor runtime recovery — 2026-11-27
+
+| Gate | Result | Evidence |
+|---|---|---|
+| Existing profile path inspection | PASS locally / VPS contents pending | Observed `chrome` matches `/opt/google/chrome/chrome`; `chromium` matches `/usr/lib/@{chromium}/@{chromium}`. Playwright cache binary is `~/.cache/ms-playwright/chromium-1255/chrome-linux64/chrome`. The VPS profile files must be re-read by preflight before changes. |
+| Minimal recovery | PREPARED; NOT ACTIVATED | `scripts/chromium-apparmor-recovery.sh` adds only an exact-executable AppArmor `userns` allowlist, with preflight, parser validation, idempotent apply, error rollback and explicit rollback. No sysctl or global policy change. |
+| Playwright sandbox acceptance | PREPARED; NOT RUN | `cd apps/web && npm run test:chromium-recovery` requests `chromiumSandbox: true`, checks synthetic DOM/JS and `chrome://sandbox` namespace diagnostics, adds no custom `--no-sandbox` argument, saves a screenshot digest and closes Chromium. |
+| Native VPS runtime | NOT TESTED | The prior `No usable sandbox` failure was not repeated. No Owner approval or host executor was available in this continuation. |
+
+The official Chromium guidance says Ubuntu's stock profiles cover the packaged Chrome/distro executable paths and documents a path-specific `userns` AppArmor profile for developer builds. Because the Playwright browser cache is writable by the runtime user, the exact executable path remains replaceable by that account; Owner approval must explicitly accept that narrow path binding. Chromium's browser sandbox remains enabled in acceptance. See [Chromium AppArmor user namespace guidance](https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md) and [Playwright BrowserType API](https://playwright.dev/docs/api/class-browsertype).
+
+Exactly one Owner approval is required before `--apply`; do not apply until granted. Runtime status remains **NO-GO / NOT TESTED**. See [recovery evidence](evidence/SANRO_CHROMIUM_APPARMOR_RECOVERY_20261127.json).
+
 ## Final functional activation preflight — 2026-11-26
 
 | Gate | Result | Evidence |

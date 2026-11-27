@@ -1,5 +1,15 @@
 # Hermes-first development checkpoint — 25 November 2026 Jakarta
 
+## SANRO Chromium AppArmor runtime recovery — 2026-11-27
+
+- Resumed from latest GitHub branch checkpoint `e7496ca6ad491fb6fefa25afd659eee2e53e05ee` on `feature/hermes-workforce-foundation` (PR #2); no prior audits or runtime attempts repeated.
+- **PROFILE PATH MISMATCH IDENTIFIED:** the profiles inspected in the current workspace host match `/opt/google/chrome/chrome` and `/usr/lib/@{chromium}/@{chromium}`. The Playwright Chromium 1255 cache executable path is `~/.cache/ms-playwright/chromium-1255/chrome-linux64/chrome`. Native VPS profile text was not available in this checkout and must be inspected by the read-only VPS preflight before any change.
+- **PREPARED, NOT ACTIVATED:** `scripts/chromium-apparmor-recovery.sh` installs only a path-specific AppArmor `userns` permission for the existing Playwright executable. It has read-only preflight, profile parser validation, idempotent apply gated by a literal Owner approval reference, and marked-profile rollback. No sysctl, global security policy, service or Hermes profile changes are included.
+- **PREPARED ACCEPTANCE:** `cd apps/web && npm run test:chromium-recovery` launches Playwright with `chromiumSandbox: true`, checks a synthetic DOM/JS result and browser version, rejects `--no-sandbox`, writes a synthetic screenshot and SHA-256, and closes the browser.
+- **NOT RUN:** no host activation, Chromium retry, Local CI browser run, or screenshot was produced. Existing reported failure is AppArmor-restricted user namespace (`uid_map` denied; `No usable sandbox`). Runtime remains **NOT TESTED / NO-GO** pending one Owner approval and execution on the native VPS.
+- Owner must accept that the Chromium cache executable is user-writable, so the path-scoped userns allowlist trusts the existing runtime account not to replace that executable. This caveat is documented by Chromium's official guidance. References: [Chromium AppArmor userns guidance](https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md), [Playwright BrowserType API](https://playwright.dev/docs/api/class-browsertype).
+- Evidence: [SANRO Chromium AppArmor recovery](evidence/SANRO_CHROMIUM_APPARMOR_RECOVERY_20261127.json). No Docker, GitHub Actions, production, merge, paid resource or Hermes restart.
+
 ## Runtime integration completion — 2026-11-26
 
 - Source implementation commit tested: `b58fb5df6f306e93438b81fbe489d6a799aeafd4`; baseline HEAD `365a973eb329a81c9d14afa93a83b4bbe11e8394`.
