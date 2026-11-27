@@ -1,0 +1,56 @@
+{
+  "status": "PASS",
+  "chromiumSandboxRequested": true,
+  "browserVersion": "159.0.8154.6",
+  "syntheticResult": "SANRO_CHROMIUM_SANDBOX_OK:437",
+  "syntheticScreenshot": "/home/sanro/workforce-dev/Sanro-AI-Workforce-gdi02/docs/evidence/SANRO_CHROMIUM_NATIVE_QA_20261128.m7u7kJ/synthetic-chromium-sandbox.png",
+  "syntheticScreenshotSha256": "abe8dbe1dbd3ea2ac3a8baba1133a6bb46d4c9b848ef61288f6fbbd6006b2c96",
+  "diagnosticsScreenshot": "/home/sanro/workforce-dev/Sanro-AI-Workforce-gdi02/docs/evidence/SANRO_CHROMIUM_NATIVE_QA_20261128.m7u7kJ/chrome-sandbox-diagnostics.png",
+  "diagnosticsScreenshotSha256": "cfbf9fd61a35565bdf36feb356cd82c78f59569372db9fbc15a4143c49a61a09",
+  "sandboxAssessment": {
+    "status": "PASS",
+    "active": true,
+    "source": "chrome://sandbox diagnostics",
+    "checks": {
+      "Layer 1 Sandbox": {
+        "status": "PASS",
+        "value": "namespace"
+      },
+      "PID namespaces": {
+        "status": "PASS",
+        "value": "yes"
+      },
+      "Network namespaces": {
+        "status": "PASS",
+        "value": "yes"
+      },
+      "Seccomp-BPF sandbox": {
+        "status": "PASS",
+        "value": "yes"
+      },
+      "Seccomp-BPF sandbox supports TSYNC": {
+        "status": "PASS",
+        "value": "yes"
+      },
+      "Yama Non-broker": {
+        "status": "WARNING",
+        "values": [
+          "no"
+        ]
+      },
+      "Yama Broker": {
+        "status": "PASS",
+        "values": [
+          "yes"
+        ]
+      }
+    },
+    "warnings": [
+      "Yama Non-broker protection reports No"
+    ],
+    "failures": []
+  },
+  "chromiumSandbox": true,
+  "browserCleanup": "PASS",
+  "syntheticPageCleanup": "PASS"
+}

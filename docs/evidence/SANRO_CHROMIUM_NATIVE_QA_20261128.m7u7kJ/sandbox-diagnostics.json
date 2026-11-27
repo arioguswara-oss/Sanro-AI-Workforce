@@ -1,0 +1,53 @@
+{
+  "url": "chrome://sandbox/",
+  "title": "Sandbox Status",
+  "bodyText": "Sandbox Status\nLayer 1 Sandbox\tNamespace\nPID namespaces\tYes\nNetwork namespaces\tYes\nSeccomp-BPF sandbox\tYes\nSeccomp-BPF sandbox supports TSYNC\tYes\nPtrace Protection with Yama LSM (Broker)\tYes\nPtrace Protection with Yama LSM (Non-broker)\tNo\n\nYou are adequately sandboxed.",
+  "rows": [
+    {
+      "cells": [
+        "Layer 1 Sandbox",
+        "Namespace"
+      ]
+    },
+    {
+      "cells": [
+        "PID namespaces",
+        "Yes"
+      ]
+    },
+    {
+      "cells": [
+        "Network namespaces",
+        "Yes"
+      ]
+    },
+    {
+      "cells": [
+        "Seccomp-BPF sandbox",
+        "Yes"
+      ]
+    },
+    {
+      "cells": [
+        "Seccomp-BPF sandbox supports TSYNC",
+        "Yes"
+      ]
+    },
+    {
+      "cells": [
+        "Ptrace Protection with Yama LSM (Broker)",
+        "Yes"
+      ]
+    },
+    {
+      "cells": [
+        "Ptrace Protection with Yama LSM (Non-broker)",
+        "No"
+      ]
+    }
+  ],
+  "tableHtml": [
+    "<table id=\"sandbox-status\">\n    <tr><td class=\"good\">Layer 1 Sandbox</td><td class=\"good\">Namespace</td></tr><tr><td class=\"good\">PID namespaces</td><td class=\"good\">Yes</td></tr><tr><td class=\"good\">Network namespaces</td><td class=\"good\">Yes</td></tr><tr><td class=\"good\">Seccomp-BPF sandbox</td><td class=\"good\">Yes</td></tr><tr><td class=\"good\">Seccomp-BPF sandbox supports TSYNC</td><td class=\"good\">Yes</td></tr><tr><td class=\"good\">Ptrace Protection with Yama LSM (Broker)</td><td class=\"good\">Yes</td></tr><tr><td class=\"medium\">Ptrace Protection with Yama LSM (Non-broker)</td><td class=\"medium\">No</td></tr></table>"
+  ],
+  "documentHtml": "<html lang=\"en\"><head>\n    <meta charset=\"utf-8\">\n    <meta name=\"color-scheme\" content=\"light dark\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Sandbox Status</title>\n    <link rel=\"stylesheet\" href=\"chrome://resources/css/text_defaults.css\">\n    <style type=\"text/css\">\n      #sandbox-status {\n        border: 1px solid gray;\n      }\n      #sandbox-status td {\n        border: 1px solid gray;\n        padding: 3px;\n        vertical-align: top;\n      }\n      #evaluation {\n        font-weight: bold;\n      }\n      .good {\n        background-color: rgb(143, 218, 146);\n      }\n      .bad {\n        background-color: rgb(249, 156, 149);\n      }\n      .medium {\n        background-color: rgb(255, 255, 90);\n      }\n      .info {\n        background-color: rgb(169, 217, 239);\n      }\n\n    </style>\n\n    <script type=\"module\" src=\"sandbox_internals.js\"></script>\n\n\n  </head>\n  <body>\n    <h1>Sandbox Status</h1>\n\n    <table id=\"sandbox-status\">\n    <tr><td class=\"good\">Layer 1 Sandbox</td><td class=\"good\">Namespace</td></tr><tr><td class=\"good\">PID namespaces</td><td class=\"good\">Yes</td></tr><tr><td class=\"good\">Network namespaces</td><td class=\"good\">Yes</td></tr><tr><td class=\"good\">Seccomp-BPF sandbox</td><td class=\"good\">Yes</td></tr><tr><td class=\"good\">Seccomp-BPF sandbox supports TSYNC</td><td class=\"good\">Yes</td></tr><tr><td class=\"good\">Ptrace Protection with Yama LSM (Broker)</td><td class=\"good\">Yes</td></tr><tr><td class=\"medium\">Ptrace Protection with Yama LSM (Non-broker)</td><td class=\"medium\">No</td></tr></table>\n    <p id=\"evaluation\">You are adequately sandboxed.</p>\n\n  \n\n</body></html>"
+}

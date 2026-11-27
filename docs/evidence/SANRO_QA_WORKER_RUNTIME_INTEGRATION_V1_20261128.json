@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "milestone": "SANRO QA Worker Runtime Integration V1",
+  "baseline_sha": "bfd54d6979c672f76027fa805ad21c0780ef08ef",
+  "tested_implementation_sha": "12d3892b877bd6da0a0cbdc0df76e1de8b9fef01",
+  "repository": "arioguswara-oss/Sanro-AI-Workforce",
+  "branch": "feature/hermes-workforce-foundation",
+  "chromium_milestone": {
+    "status": "LOCKED_VERIFIED_RUNTIME",
+    "evidence_directory": "docs/evidence/SANRO_CHROMIUM_NATIVE_QA_20261128.m7u7kJ",
+    "exit_code": 0,
+    "chromium_version": "159.0.8154.6",
+    "playwright_sandbox": true,
+    "required_sandbox_controls": "PASS",
+    "yama_non_broker": "WARNING_NO",
+    "screenshot": "PASS",
+    "browser_cleanup": "PASS",
+    "apparmor_activation_and_rollback": "PASS_REPORTED_BY_OWNER",
+    "evidence_secret_scan": "PASS",
+    "artifact_sha256": {
+      "acceptance_stdout.json": "f5c86669acc4bb6da2e2f1d89aabbb3189f40b54818da91ad3a4bd648196f564",
+      "result.json": "4671f56bc682f49edf94c666d56c097b9750fadddb0ca6675cb0cf416c70458d",
+      "sandbox-diagnostics.json": "70e7afdca7786a95f41519a2c9b9701be6cc69b440e89ead9f189a8c8203c10d",
+      "synthetic-chromium-sandbox.png": "abe8dbe1dbd3ea2ac3a8baba1133a6bb46d4c9b848ef61288f6fbbd6006b2c96",
+      "chrome-sandbox-diagnostics.png": "cfbf9fd61a35565bdf36feb356cd82c78f59569372db9fbc15a4143c49a61a09"
+    }
+  },
+  "implementation": {
+    "status": "IMPLEMENTED_SOURCE",
+    "runtime_adapter": "private_browser_controller.py passes the fixed root-owned executable in the existing isolated systemd profile environment.",
+    "mcp_runner": "Generates a private per-job config selecting exact executablePath and chromiumSandbox=true; validates canonical path, root ownership, safe path modes, and observes that executable in the browser process tree.",
+    "fallback": "None; missing or substituted executable is rejected.",
+    "app_armor_changed": false,
+    "hermes_profile_activated": false
+  },
+  "tests": {
+    "chromium_parser_and_runtime_config": { "passed": 7, "failed": 0 },
+    "systemd_controller": { "passed": 4, "failed": 0 },
+    "javascript_syntax": "PASS",
+    "source_checksums": "PASS"
+  },
+  "pilot_binding": {
+    "project_id": "sanro-browser-qa",
+    "repository": "arioguswara-oss/SANRO-Browser-QA",
+    "status": "BLOCKED_NOT_REGISTERED",
+    "missing": ["canonical workspace", "authorized branch and source SHA", "worker ID", "private mandate and approval scope", "matching authorized executor entrypoint"],
+    "binding_mismatch": "Existing private_browser_acceptance policy/runner is pinned to project sanro-ai-workforce and the Workforce checkout; Hermes client project is sanro-browser-qa.",
+    "job_id": null
+  },
+  "hermes_dispatch": {
+    "candidate": "existing sanro-qa profile plugin and Workforce API runtime route",
+    "status": "BLOCKED_NATIVE_PER_JOB_APPROVAL_PROVIDER_MISSING",
+    "evidence": "docs/evidence/SANRO_FINAL_FUNCTIONAL_ACTIVATION_PREFLIGHT_20261126.json",
+    "runtime_default": "fail-closed 503 when native runtime executor callback is absent",
+    "official_route": "Existing sanro-qa plugin -> fixed Workforce API runtime route -> injected nativeApprovalProvider -> fixed isolated runtime. Plugin activation alone is insufficient.",
+    "activation_or_restart": false
+  },
+  "end_to_end_qa_job": {
+    "status": "NOT_TESTED",
+    "job_id": null,
+    "reason": "Project authorization binding and genuine native approval provider are unavailable; no mock executor substituted for runtime."
+  },
+  "approval_counts": { "owner_prompts": 0, "native_job_approvals": 0, "runtime_jobs": 0 },
+  "cost_usd": 0
+}

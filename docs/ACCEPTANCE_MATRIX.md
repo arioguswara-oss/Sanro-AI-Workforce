@@ -1,5 +1,18 @@
 # Functional acceptance matrix — isolated candidate only
 
+## SANRO QA worker / Chromium runtime — 2026-11-28
+
+| Acceptance | Result | Evidence |
+|---|---|---|
+| Chromium milestone | LOCKED — VERIFIED RUNTIME | Owner VPS Local CI exit code 0, Chromium 159.0.8154.6, sandbox controls PASS, screenshot and cleanup PASS, Yama Non-broker WARNING; `evidence/SANRO_CHROMIUM_NATIVE_QA_20261128.m7u7kJ/` |
+| Workforce private-browser executable binding | IMPLEMENTED; source tests PASS | Exact approved root-owned executable is injected into the fixed systemd profile and per-job Playwright MCP config; `chromiumSandbox=true`; no fallback path. Runtime launch through this adapter not tested here |
+| SANRO-Browser-QA project admission binding | BLOCKED | No private registry entry proving canonical workspace, authorized branch/SHA, worker, mandate and approval scope; see `PROJECT_REGISTRY.md` |
+| Hermes dispatch to QA | BLOCKED | Existing plugin is not activated; installed-contract evidence says no native per-job approval provider is available. Default API fails closed with 503 |
+| New Hermes-to-QA synthetic job | NOT TESTED | No authenticated project binding/provider; no Job ID or new browser job is claimed |
+| Targeted source regressions | PASS | 7 Chromium parser/config tests; 4 fixed controller tests |
+
+Chromium Runtime Recovery is locked based on the supplied native evidence. This does not establish Hermes-to-SANRO-Browser-QA autonomous execution. Existing approval, profile, AppArmor and worker state were not changed.
+
 ## Chromium 159 native sandbox acceptance — 2026-11-28
 
 | Check | Result | Evidence |
