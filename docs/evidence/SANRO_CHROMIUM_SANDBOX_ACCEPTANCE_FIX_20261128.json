@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "task": "SANRO final Chromium sandbox acceptance fix",
+  "baseline_sha": "33be172b8be269833bbe2c4d221ae9d3b74b4df9",
+  "implementation_sha": "6f38fae108ffd18ec9313e52c7e6a65efe803327",
+  "branch": "feature/hermes-workforce-foundation",
+  "owner_native_evidence": {
+    "apparmor_profile_active": "PASS_REPORTED_BY_OWNER",
+    "playwright_chromiumSandbox": true,
+    "synthetic_dom_javascript": "PASS_REPORTED_BY_OWNER",
+    "synthetic_screenshot": "docs/evidence/SANRO_CHROMIUM_NATIVE_QA_20261127/synthetic-chromium-sandbox.png",
+    "previous_acceptance": "FAIL: prior code only looked for a namespace sandbox phrase",
+    "rollback": "PASS_REPORTED_BY_OWNER"
+  },
+  "changes": {
+    "sandbox_parser": "Require explicit Namespace Sandbox row value Yes; No, absent, unknown, or conflicting values fail closed.",
+    "diagnostic_artifacts": [
+      "sandbox-diagnostics.json",
+      "chrome-sandbox-diagnostics.png",
+      "stages.jsonl",
+      "synthetic-chromium-sandbox.png",
+      "result.json"
+    ],
+    "evidence_directory": "Unique private per-attempt mktemp directory; existing evidence preserved.",
+    "failure_visibility": "Native block prints acceptance stdout, stderr, exit code, and evidence location before rollback trap."
+  },
+  "tests": {
+    "parser_regressions": { "passed": 5, "failed": 0 },
+    "javascript_syntax": "PASS",
+    "native_block_bash_syntax": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "runtime": {
+    "native_activation_this_run": "NOT_TESTED",
+    "chromium_runtime_this_run": "NOT_TESTED",
+    "reason": "Activation is explicitly restricted to native VPS; no sandbox activation was attempted from Codex."
+  },
+  "sha256": {
+    "acceptance_script": "d00abc10610730b4a971c3cb3a7ad8d560ac1e77895db1b72ae857577410ac78",
+    "recovery_helper_unchanged": "84629810ef9c75311350ee0d437f03be5d120a15a3ebeadaaca94dc7b6d2e4cb"
+  },
+  "native_approval_reference": "SANRO-CHROMIUM-NATIVE-20261128",
+  "approval_count_this_run": 0
+}

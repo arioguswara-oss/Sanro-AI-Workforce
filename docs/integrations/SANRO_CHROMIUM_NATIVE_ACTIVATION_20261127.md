@@ -18,9 +18,9 @@ This is one one-shot operation after Owner approval. It copies the exact approve
 set -Eeuo pipefail
 umask 077
 REPO=/home/sanro/workforce-dev/Sanro-AI-Workforce-gdi02
-IMPL_SHA=a4ce322f6a731f6f0b34517e15b1d62ad28eff85
+IMPL_SHA=6f38fae108ffd18ec9313e52c7e6a65efe803327
 SCRIPT_SHA=84629810ef9c75311350ee0d437f03be5d120a15a3ebeadaaca94dc7b6d2e4cb
-ACCEPT_SHA=17e976104c2628264d3c22a95ac811a86c4b7b4ee06b9c545c538d3dac3533db
+ACCEPT_SHA=d00abc10610730b4a971c3cb3a7ad8d560ac1e77895db1b72ae857577410ac78
 TREE_SHA=cdc517739626c4ce3b79194009447da47d4a4420944be45324b49c49c0c93461
 SOURCE=/home/sanro/.cache/ms-playwright/chromium-1255/chrome-linux64
 BASE=/usr/local/lib/sanro-playwright
@@ -162,15 +162,33 @@ sudo env SANRO_QA_OWNER_APPROVAL="$APPROVAL" "$HELPER" --preflight
 PROFILE_APPLIED=1
 sudo env SANRO_QA_OWNER_APPROVAL="$APPROVAL" "$HELPER" --apply "$APPROVAL"
 
-EVIDENCE="$REPO/docs/evidence/SANRO_CHROMIUM_NATIVE_QA_20261127"
-test ! -e "$EVIDENCE"
-mkdir -m 0700 "$EVIDENCE"
+EVIDENCE=$(mktemp -d "$REPO/docs/evidence/SANRO_CHROMIUM_NATIVE_QA_20261128.XXXXXX")
+test -d "$EVIDENCE" && test ! -L "$EVIDENCE"
+test "$(readlink -f -- "$EVIDENCE")" = "$EVIDENCE"
+test "$(stat -c %u "$EVIDENCE")" = "$(id -u)"
+test "$(stat -c %a "$EVIDENCE")" = 700
+printf 'Evidence directory: %s\n' "$EVIDENCE"
+set +e
 SANRO_CHROMIUM_EXECUTABLE="$DEST/chrome-linux64/chrome" \
 SANRO_CHROMIUM_EVIDENCE_DIR="$EVIDENCE" \
-  npm --prefix apps/web run --silent test:chromium-recovery > "$EVIDENCE/result.json"
-cat "$EVIDENCE/result.json"
+  npm --prefix apps/web run --silent test:chromium-recovery \
+  > "$EVIDENCE/acceptance.stdout.json" 2> "$EVIDENCE/acceptance.stderr.log"
+acceptance_rc=$?
+set -e
+printf '%s\n' "$acceptance_rc" > "$EVIDENCE/exit-code.txt"
+printf 'Acceptance exit code: %s\nAcceptance stdout evidence:\n' "$acceptance_rc"
+cat "$EVIDENCE/acceptance.stdout.json"
+if [[ -s "$EVIDENCE/acceptance.stderr.log" ]]; then
+  printf 'Acceptance stderr evidence:\n'
+  cat "$EVIDENCE/acceptance.stderr.log"
+fi
+printf 'Detailed evidence directory: %s\n' "$EVIDENCE"
+if (( acceptance_rc != 0 )); then
+  printf 'Acceptance failed; the EXIT trap will now roll back only components created by this invocation. Evidence is retained at %s\n' "$EVIDENCE" >&2
+  exit "$acceptance_rc"
+fi
 trap - EXIT
-printf 'PASS: approved root-owned browser and exact-path profile remain available for SANRO QA; screenshot is in %s\n' "$EVIDENCE"
+printf 'PASS: approved root-owned browser and exact-path profile remain available for SANRO QA; screenshots and raw diagnostics are in %s\n' "$EVIDENCE"
 ```
 
 On a successful acceptance, explicit rollback later is:
