@@ -103,6 +103,20 @@ fi
 [[ ! -e "$SANRO_TEST_STATE" && ! -e "$root/etc/apparmor.d/sanro-playwright-chromium-1255" ]]
 unset SANRO_TEST_AA_FAIL_AFTER_ADD
 
+"$test_root/recovery.sh" --apply synthetic-approval >/dev/null
+export SANRO_TEST_AA_FAIL=1
+if "$test_root/recovery.sh" --rollback synthetic-approval > "$test_root/rollback-failure.out" 2>&1; then
+  printf 'FAIL: rollback status-probe failure was reported as verified\n' >&2
+  exit 1
+fi
+if grep -Fq 'ROLLBACK PASS' "$test_root/rollback-failure.out"; then
+  printf 'FAIL: rollback printed PASS without status verification\n' >&2
+  exit 1
+fi
+[[ ! -e "$SANRO_TEST_STATE" && ! -e "$root/etc/apparmor.d/sanro-playwright-chromium-1255" ]]
+unset SANRO_TEST_AA_FAIL
+"$test_root/recovery.sh" --rollback synthetic-approval | grep -Fq 'file is absent and profile is not loaded'
+
 export SANRO_TEST_FAIL_ADD=1
 if "$test_root/recovery.sh" --apply synthetic-approval >/dev/null 2>&1; then
   printf 'FAIL: injected profile load error was not propagated\n' >&2
@@ -110,4 +124,4 @@ if "$test_root/recovery.sh" --apply synthetic-approval >/dev/null 2>&1; then
 fi
 [[ ! -e "$SANRO_TEST_STATE" && ! -e "$root/etc/apparmor.d/sanro-playwright-chromium-1255" ]]
 
-printf 'PASS: numeric --profiled output, exact-name (not prefix) loaded/absent matching, aa-status failures before/after apply, preflight/apply/reapply/rollback/re-rollback, orphan-loaded rejection, and failed-apply cleanup\n'
+printf 'PASS: numeric --profiled output, exact-name (not prefix) loaded/absent matching, aa-status failures before/after apply and during rollback, preflight/apply/reapply/rollback/re-rollback, orphan-loaded rejection, and failed-apply cleanup\n'

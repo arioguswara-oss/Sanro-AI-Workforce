@@ -1,5 +1,14 @@
 # Hermes-first development checkpoint — 25 November 2026 Jakarta
 
+## SANRO Chromium AppArmor status lookup fix — 2026-11-27
+
+- Continued from `a757ff4e927a7029da6a699d3eeff601be47194c`. Owner-provided native VPS evidence says `sudo aa-status --profiled` returned numeric `181`; profile file, root-owned browser copy, and recovery helper were absent, and rollback of existing components passed. No activation was attempted from Codex.
+- **Root cause:** AppArmor documents `--profiled` as a count of loaded policies. Name lookup incorrectly treated that count output as a profile-name list.
+- **IMPLEMENTED:** recovery helper now reads `aa-status --verbose` and matches the exact first token of a listed profile. Probe command failure is distinct from an absent match and fails closed. Apply rolls back a newly created profile if post-apply verification cannot confirm it loaded. Rollback verifies exact profile absence even when the profile file is already absent; it does not report success on probe failure. Native activation preflight uses the same exact-name check and aborts on command/parser errors.
+- **VERIFIED SYNTHETIC:** regression harness covers numeric `--profiled` output, loaded and absent profile listings, nonmatching name prefix, `aa-status` failure before/after apply and during rollback, orphan-loaded rejection, rollback verification, and failed apply cleanup. Helper/test/native-block Bash syntax, evidence JSON parse, and `git diff --check` PASS.
+- **NOT TESTED:** no native activation, AppArmor load, Chromium runtime, screenshot, or Local CI. Native evidence remains profile absent / browser copy absent / helper absent; Owner may rerun the updated activation block with existing approval reference `SANRO-CHROMIUM-NATIVE-20261128`.
+- Implementation commit: `a4ce322f6a731f6f0b34517e15b1d62ad28eff85`; helper SHA-256: `84629810ef9c75311350ee0d437f03be5d120a15a3ebeadaaca94dc7b6d2e4cb`. Current activation block and ledger: [native activation handover](integrations/SANRO_CHROMIUM_NATIVE_ACTIVATION_20261127.md), [status fix evidence](evidence/SANRO_CHROMIUM_APPARMOR_STATUS_FIX_20261128.json).
+
 ## SANRO Chromium native activation package correction — 2026-11-27
 
 - Continued from synchronized HEAD `fc553f8ae7fc0045a51ca5a6ee9883075eff93f1`; retained all Chromium/AppArmor implementation and did not rerun browser diagnosis or executor assessment.

@@ -8,6 +8,8 @@ The copied Chromium tree observed in this environment is 414 MB, 301 regular fil
 
 The hardening commits are `fc59e89e998335a354588a50bcf0b53c643c0d72` and `fbaf32ef890035eb6d20fa27e8ca7612aa1cd7ba`. Recovery script SHA-256: `9b74729c27bb5d8ab6b6e7c10e0f58b7cf6b67d8ba150bc9be783de3c5c47829`; acceptance script SHA-256: `17e976104c2628264d3c22a95ac811a86c4b7b4ee06b9c545c538d3dac3533db`. The recovery script only profiles the fixed executable path `/usr/local/lib/sanro-playwright/chromium-1255/chrome-linux64/chrome`; it requires every path component to be root-owned and not group/world writable. The Local CI test requires that same property, asserts Chromium `159.0.8154.6`, and launches Playwright with `chromiumSandbox: true`.
 
+The profile-status correction is committed as `a4ce322f6a731f6f0b34517e15b1d62ad28eff85`; its recovery script SHA-256 is `84629810ef9c75311350ee0d437f03be5d120a15a3ebeadaaca94dc7b6d2e4cb`. This supersedes the helper checksum in the historical paragraph above. The corrected helper inspects `aa-status --verbose` and matches the exact first token of a profile entry; `aa-status --profiled` returns a count and is not used for name lookup. Status command errors fail closed. Apply rolls back a newly created profile if post-apply verification fails, and rollback reports success only after confirming the exact profile is absent.
+
 ## Proposed native execution
 
 This is one one-shot operation after Owner approval. It copies the exact approved tree to a root-owned path, installs the reviewed narrow recovery helper, validates and loads the path-specific AppArmor profile, then runs synthetic Local CI as `sanro`. A failed run unloads/removes the marked profile and removes only the newly staged tree if its digest still matches. A successful run leaves the profile and root-owned browser staged for SANRO QA. It does not restart Hermes or services, touch workers, change sysctls, or disable Chromium sandboxing.
@@ -16,8 +18,8 @@ This is one one-shot operation after Owner approval. It copies the exact approve
 set -Eeuo pipefail
 umask 077
 REPO=/home/sanro/workforce-dev/Sanro-AI-Workforce-gdi02
-IMPL_SHA=fbaf32ef890035eb6d20fa27e8ca7612aa1cd7ba
-SCRIPT_SHA=9b74729c27bb5d8ab6b6e7c10e0f58b7cf6b67d8ba150bc9be783de3c5c47829
+IMPL_SHA=a4ce322f6a731f6f0b34517e15b1d62ad28eff85
+SCRIPT_SHA=84629810ef9c75311350ee0d437f03be5d120a15a3ebeadaaca94dc7b6d2e4cb
 ACCEPT_SHA=17e976104c2628264d3c22a95ac811a86c4b7b4ee06b9c545c538d3dac3533db
 TREE_SHA=cdc517739626c4ce3b79194009447da47d4a4420944be45324b49c49c0c93461
 SOURCE=/home/sanro/.cache/ms-playwright/chromium-1255/chrome-linux64
@@ -37,10 +39,19 @@ test "$(git show "$IMPL_SHA:scripts/chromium-apparmor-recovery.sh" | sha256sum |
 test "$(git show "$IMPL_SHA:apps/web/scripts/chromium-sandbox-recovery-acceptance.mjs" | sha256sum | cut -d' ' -f1)" = "$ACCEPT_SHA"
 test "$(sha256sum apps/web/scripts/chromium-sandbox-recovery-acceptance.mjs | cut -d' ' -f1)" = "$ACCEPT_SHA"
 test ! -e "$PROFILE_FILE" && test ! -L "$PROFILE_FILE"
-PROFILE_STATUS=$(sudo aa-status --profiled)
-if [[ "$PROFILE_STATUS" == *"$PROFILE_NAME"* ]]; then
+if ! PROFILE_STATUS=$(sudo aa-status --verbose); then
+  echo 'BLOCKED: aa-status --verbose failed; refusing to infer AppArmor profile state' >&2
+  exit 4
+fi
+if awk -v name="$PROFILE_NAME" '$1 == name { found = 1 } END { exit(found ? 0 : 1) }' <<< "$PROFILE_STATUS"; then
   echo "BLOCKED: AppArmor profile is already loaded; refusing to own or roll it back" >&2
   exit 4
+else
+  profile_probe_status=$?
+  if (( profile_probe_status != 1 )); then
+    echo 'BLOCKED: exact AppArmor profile lookup failed; refusing to infer profile absence' >&2
+    exit 4
+  fi
 fi
 
 tree_sha() {

@@ -1,0 +1,46 @@
+{
+  "milestone": "SANRO Chromium AppArmor status lookup correction",
+  "date": "2026-11-27",
+  "repository": "arioguswara-oss/Sanro-AI-Workforce",
+  "branch": "feature/hermes-workforce-foundation",
+  "checkpoint_before": "a757ff4e927a7029da6a699d3eeff601be47194c",
+  "native_vps_evidence_owner_supplied": {
+    "aa_status_profiled_output": "181",
+    "sanro_profile_found": false,
+    "profile_file": "ABSENT",
+    "root_owned_browser_copy": "ABSENT",
+    "recovery_helper": "ABSENT",
+    "rollback_components": "PASS"
+  },
+  "root_cause": "AppArmor aa-status --profiled displays a numeric count of loaded policies; it is not a list of profile names. See the Ubuntu 26.04 aa-status man page.",
+  "official_reference": "https://manpages.ubuntu.com/manpages/resolute/man8/apparmor_status.8.html",
+  "implementation": {
+    "commit": "a4ce322f6a731f6f0b34517e15b1d62ad28eff85",
+    "recovery_helper_sha256": "84629810ef9c75311350ee0d437f03be5d120a15a3ebeadaaca94dc7b6d2e4cb",
+    "lookup": "aa-status --verbose parsed by exact first-token profile-name equality",
+    "failure_behavior": "Command failure is distinguished from absence and fails closed. Post-apply uncertainty rolls back only the newly created profile. Rollback verifies absence and never reports success when verification fails.",
+    "activation_document_updated": true,
+    "owner_approval_reference": "SANRO-CHROMIUM-NATIVE-20261128"
+  },
+  "tests": {
+    "recovery_helper_bash_syntax": "PASS",
+    "control_harness": "PASS: numeric --profiled output, exact loaded/absent match, prefix nonmatch, aa-status failures before/after apply and during rollback, orphan-loaded rejection, rollback verification, and failed-apply cleanup",
+    "activation_block_bash_syntax": "PASS",
+    "git_diff_check": "PASS",
+    "evidence_json_parse": "PASS"
+  },
+  "runtime": {
+    "native_activation": "NOT TESTED",
+    "apparmor_load": "NOT TESTED",
+    "chromium_launch": "NOT TESTED",
+    "local_ci_screenshot": "NOT TESTED",
+    "activation_attempted_from_codex": false
+  },
+  "safety": {
+    "global_security_changes": false,
+    "chromium_no_sandbox": false,
+    "hermes_restart": false,
+    "production_access": false,
+    "additional_cost": 0
+  }
+}
