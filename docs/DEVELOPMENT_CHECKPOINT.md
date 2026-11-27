@@ -1,5 +1,16 @@
 # Hermes-first development checkpoint — 25 November 2026 Jakarta
 
+## SANRO Chromium immutable-executable hardening — 2026-11-27
+
+- Continued from current synchronized HEAD `0cc92f16f2fe6331d3fd30cbecfd1e396d6a61e4` (newer than the task's `914017d` implementation reference); no prior runtime failure was repeated.
+- **Risk correction:** the old profile proposal targeted `/home/sanro/.cache/ms-playwright/chromium-1255/chrome-linux64/chrome`, observed as `sanro:sanro`, file mode `0755`, in a `sanro:sanro` directory mode `0775`. A worker could replace it. No system Chrome/Chromium executable was found in the Codex-visible environment; the native VPS was not independently attested.
+- **IMPLEMENTED:** `scripts/chromium-apparmor-recovery.sh` now only profiles `/usr/local/lib/sanro-playwright/chromium-1255/chrome-linux64/chrome`, and preflight requires the executable and every path component to be root-owned and not group/world writable. AppArmor profile remains exact-path and userns-only; parser check skips cache and kernel load. Rollback no longer depends on the browser still existing. `apps/web/scripts/chromium-sandbox-recovery-acceptance.mjs` requires that approved root-owned executable and sets `chromiumSandbox: true`; no `--no-sandbox` path was added.
+- **VERIFIED SYNTHETIC:** shell syntax and JavaScript syntax PASS; AppArmor parser `-K -Q` PASS (syntax only, skipped cache and kernel load); isolated control harness PASS for preflight, first/repeated apply, rollback, repeated rollback and failed-apply cleanup; `git diff --check` PASS. The Local CI acceptance guard returned the expected fail-closed status before creating a page because the trusted staged executable is absent.
+- **BLOCKED / NOT TESTED:** no root-owned Chromium copy exists in this execution environment. The observed cached tree is 414 MB, 301 regular files, no symlinks, SHA-256 `cdc517739626c4ce3b79194009447da47d4a4420944be45324b49c49c0c93461`; this digest is not a vendor signature. No host profile was loaded, no Chromium process launched, no screenshot produced, and no native Local CI acceptance run.
+- **Native package:** [reviewed one-shot activation and rollback block](integrations/SANRO_CHROMIUM_NATIVE_ACTIVATION_20261127.md). It stages the exact Owner-approved tree under a root-managed path, validates hashes/permissions/profile, then runs synthetic Local CI with sandbox enabled. On failure it rolls back the exact profile and removes only the newly staged tree after digest verification. It does not restart services or touch active workers.
+- **Owner gate:** activation is **NO-GO** until Owner accepts the cache source digest/provenance limitation and approves the one-time native copy, narrow AppArmor profile, and synthetic QA run. No native activation was attempted. Evidence: [Chromium recovery ledger](evidence/SANRO_CHROMIUM_APPARMOR_RECOVERY_20261127.json).
+- Implementation commits: `fc59e89e998335a354588a50bcf0b53c643c0d72` (immutable executable gate/control tests) and `fbaf32ef890035eb6d20fa27e8ca7612aa1cd7ba` (pinned Chromium version assertion).
+
 ## SANRO Chromium AppArmor runtime recovery — 2026-11-27
 
 - Resumed from latest GitHub branch checkpoint `e7496ca6ad491fb6fefa25afd659eee2e53e05ee` on `feature/hermes-workforce-foundation` (PR #2); no prior audits or runtime attempts repeated.
