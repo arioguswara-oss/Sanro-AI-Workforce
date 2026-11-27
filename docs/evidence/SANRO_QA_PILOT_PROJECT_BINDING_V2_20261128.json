@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "milestone": "SANRO QA Pilot Project Binding V2",
+  "status": "BLOCKED_NOT_REGISTERED",
+  "workforce": {
+    "repository": "arioguswara-oss/Sanro-AI-Workforce",
+    "branch": "feature/hermes-workforce-foundation",
+    "baseline_sha": "f60564c78612feac6119c0a873176c0c012f8026"
+  },
+  "pilot_checkout": {
+    "repository": "arioguswara-oss/SANRO-Browser-QA",
+    "workspace": "/home/sanro/workforce-dev/SANRO-Browser-QA-pilot",
+    "branch": "main",
+    "sha": "4436660bfc4dbdf11aadb0800b043c2c75ce6eaa",
+    "worktree": "clean",
+    "tracked_files": [".github/workflows/browser-qa.yml"],
+    "playwright_package_present": false,
+    "local_ci_entrypoint_present": false,
+    "repository_modified": false
+  },
+  "workflow_review": {
+    "entrypoint": "inline Node.js script in .github/workflows/browser-qa.yml",
+    "trigger": "workflow_dispatch",
+    "runner": "ubuntu-latest",
+    "requires_github_actions": true,
+    "installs_playwright_and_chromium": true,
+    "chromium_sandbox": true,
+    "usable_as_existing_local_ci_entrypoint": false
+  },
+  "binding": {
+    "project_id": "sanro-browser-qa",
+    "worker_id": null,
+    "operation": "private_browser_acceptance",
+    "executor_entrypoint": null,
+    "mandate_id": null,
+    "mandate_expiration": null,
+    "approval_reference": null,
+    "host_authorization_record": "NOT_AVAILABLE_IN_AUTHORIZED_WORKSPACE",
+    "api_main_branch_policy": "REJECTS_main_and_master",
+    "result": "FAIL_CLOSED_NOT_REGISTERED"
+  },
+  "tests": {
+    "project_runtime_executor": {"passed": 13, "failed": 0},
+    "api_admission": {"passed": 3, "failed": 0, "execution": "native escalation after sandbox EPERM on git fixture spawn"},
+    "pilot_runtime_job": "NOT_TESTED",
+    "job_id": null,
+    "screenshot": null
+  },
+  "runtime_evidence_reused": {
+    "chromium_runtime_recovery": "LOCKED_VERIFIED_RUNTIME",
+    "source": "docs/evidence/SANRO_CHROMIUM_NATIVE_QA_20261128.m7u7kJ/",
+    "repeated": false
+  },
+  "operations": {
+    "native_approval_provider_changed": false,
+    "github_actions_run": false,
+    "production_access": false,
+    "pilot_repository_write": false,
+    "hermes_restart": false
+  },
+  "blockers": [
+    "Existing API admission rejects main/master.",
+    "The pilot workflow is GitHub Actions-only and has no Local CI entrypoint.",
+    "The pilot checkout has no Playwright dependency or CLI; no install was attempted.",
+    "No worker ID, expiring private mandate, approval reference, or verified host authorization record is available."
+  ],
+  "approval_counts": {"owner_prompts": 0, "native_job_approvals": 0, "runtime_jobs": 0},
+  "cost_usd": 0
+}
