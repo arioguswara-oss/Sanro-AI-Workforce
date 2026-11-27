@@ -12,7 +12,7 @@
   "correction": {
     "staging_directory": "sudo mktemp -d output is asserted canonical, root-owned, mode 0700; staging tree digest asserts UID 0 and runs through a narrowly scoped sudo bash invocation. No permissions are widened.",
     "copy_source": "Source cache remains user-writable. Copy uses cp -R --no-dereference into root-private staging; root rejects symlinks and special files and checks the exact approved content digest immediately after copy and after ownership/mode normalization before rename.",
-    "rollback": "Destination is marked created immediately after atomic rename. Pre-existing destinations, including dangling symlinks, are rejected. Rollback requires the exact canonical root-owned destination and matching root-calculated digest; mismatch or failed profile rollback retains the copy. Stage cleanup requires canonical path, root ownership, and mode 0700.",
+    "rollback": "A pre-existing profile file or loaded profile blocks activation so rollback cannot remove a profile owned by an earlier run. Destination is marked created immediately after atomic rename. Pre-existing destinations, including dangling symlinks, are rejected. Rollback requires the exact canonical root-owned destination and matching root-calculated digest; mismatch or failed profile rollback retains the copy. Stage cleanup requires canonical path, root ownership, and mode 0700.",
     "reference": "Native activation block embeds the authorized literal reference; no additional business approval is requested."
   },
   "validation": {

@@ -24,6 +24,8 @@ SOURCE=/home/sanro/.cache/ms-playwright/chromium-1255/chrome-linux64
 BASE=/usr/local/lib/sanro-playwright
 DEST=$BASE/chromium-1255
 HELPER=/usr/local/sbin/sanro-chromium-apparmor-recovery
+PROFILE_FILE=/etc/apparmor.d/sanro-playwright-chromium-1255
+PROFILE_NAME=sanro-playwright-chromium-1255
 APPROVAL=SANRO-CHROMIUM-NATIVE-20261128
 
 cd "$REPO"
@@ -34,6 +36,12 @@ test -z "$(git status --porcelain -- scripts/chromium-apparmor-recovery.sh apps/
 test "$(git show "$IMPL_SHA:scripts/chromium-apparmor-recovery.sh" | sha256sum | cut -d' ' -f1)" = "$SCRIPT_SHA"
 test "$(git show "$IMPL_SHA:apps/web/scripts/chromium-sandbox-recovery-acceptance.mjs" | sha256sum | cut -d' ' -f1)" = "$ACCEPT_SHA"
 test "$(sha256sum apps/web/scripts/chromium-sandbox-recovery-acceptance.mjs | cut -d' ' -f1)" = "$ACCEPT_SHA"
+test ! -e "$PROFILE_FILE" && test ! -L "$PROFILE_FILE"
+PROFILE_STATUS=$(sudo aa-status --profiled)
+if [[ "$PROFILE_STATUS" == *"$PROFILE_NAME"* ]]; then
+  echo "BLOCKED: AppArmor profile is already loaded; refusing to own or roll it back" >&2
+  exit 4
+fi
 
 tree_sha() {
   test -d "$1" && test ! -L "$1"
@@ -140,8 +148,8 @@ for p in /usr/local/sbin "$HELPER"; do
 done
 
 sudo env SANRO_QA_OWNER_APPROVAL="$APPROVAL" "$HELPER" --preflight
-sudo env SANRO_QA_OWNER_APPROVAL="$APPROVAL" "$HELPER" --apply "$APPROVAL"
 PROFILE_APPLIED=1
+sudo env SANRO_QA_OWNER_APPROVAL="$APPROVAL" "$HELPER" --apply "$APPROVAL"
 
 EVIDENCE="$REPO/docs/evidence/SANRO_CHROMIUM_NATIVE_QA_20261127"
 test ! -e "$EVIDENCE"
