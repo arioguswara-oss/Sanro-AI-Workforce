@@ -5,6 +5,7 @@
   "branch": "feature/hermes-workforce-foundation",
   "pull_request": 2,
   "checkpoint_before": "e7496ca6ad491fb6fefa25afd659eee2e53e05ee",
+  "implementation_sha": "914017d",
   "host_facts": {
     "source": "Owner supplied native VPS evidence in the task",
     "kernel": "Ubuntu 26.04.1 LTS; 7.0.0-38-generic",
@@ -21,7 +22,7 @@
       "etc_apparmor_d_chromium": "/usr/lib/@{chromium}/@{chromium}",
       "local_playwright_binary": "~/.cache/ms-playwright/chromium-1255/chrome-linux64/chrome"
     },
-    "native_vps_profile_contents": "NOT PROVIDED; will be inspected by recovery preflight on the VPS before change",
+    "native_vps_profile_contents": "The native owner-provided copy was not separately available; read-only preflight inspected the profile files visible in the current execution environment",
     "path_mismatch": "Playwright cache executable is not matched by the observed stock Chrome or distro Chromium path rules",
     "native_mismatch_confidence": "consistent with supplied native VPS facts; native profile text has not been independently observed"
   },
@@ -47,7 +48,7 @@
   },
   "results": {
     "profile_inspection_local": "PASS; native VPS file contents remain preflight-required",
-    "recovery_preflight": "PREPARED; not run against native VPS",
+    "recovery_preflight": "PASS read-only in current execution environment: AppArmor enabled, sysctl restriction 1, exact Playwright path confirmed, existing profile text printed, no change made; native VPS identity not independently attested",
     "host_change": "NOT ACTIVATED; Owner approval pending",
     "chromium_runtime": "NOT TESTED",
     "Local_CI_acceptance": "PREPARED; NOT RUN",
@@ -69,5 +70,5 @@
     "granted": false,
     "reference": null
   },
-  "delivery_sha": "PENDING"
+  "delivery_sha": "914017d"
 }
