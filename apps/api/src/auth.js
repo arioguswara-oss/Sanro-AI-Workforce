@@ -1,6 +1,7 @@
 import {createHash,timingSafeEqual} from 'node:crypto';
 import {realpathSync,readFileSync,lstatSync,statSync} from 'node:fs';
 import {isAbsolute,parse,resolve,join,sep} from 'node:path';
+import {SANRO_QA_PILOT,hasSanroQaPilotPermissionProfile} from './sanro-qa-pilot-binding.js';
 
 const hash = value => createHash('sha256').update(value).digest();
 function canonicalWorkspace(path){
@@ -31,7 +32,8 @@ export function loadAuth(path) {
     const wsStat=statSync(workspace);if(!wsStat.isDirectory())throw new Error('project workspace must be a directory');
     if(workspaceOwners.has(workspace))throw new Error('workspace is already registered to another project');
     const permissionProfile=p.permission_profile??{version:1,read_only:false,allow_network:false,allow_process_creation:false,write_scope:'project-worktree'};
-    if(!permissionProfile||permissionProfile.version!==1||typeof permissionProfile.read_only!=='boolean'||typeof permissionProfile.allow_network!=='boolean'||typeof permissionProfile.allow_process_creation!=='boolean'||permissionProfile.write_scope!=='project-worktree')throw new Error('invalid project permission profile');
+    const validWriteScope=permissionProfile?.read_only===true?permissionProfile.write_scope==='none':permissionProfile?.write_scope==='project-worktree';
+    if(!permissionProfile||permissionProfile.version!==1||typeof permissionProfile.read_only!=='boolean'||typeof permissionProfile.allow_network!=='boolean'||typeof permissionProfile.allow_process_creation!=='boolean'||!validWriteScope)throw new Error('invalid project permission profile');
     workspaceOwners.set(workspace,p.id);
     const worker_id=p.worker_id??`workforce-${p.id}`;
     if(!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(worker_id))throw new Error('invalid project worker id');
@@ -43,6 +45,9 @@ export function loadAuth(path) {
     }
     if(p.repository!==undefined&&!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(p.repository))throw new Error('invalid project repository identity');
     if(p.branch!==undefined&&(!/^[A-Za-z0-9._/-]{1,120}$/.test(p.branch)||p.branch.includes('..')||p.branch.startsWith('-')))throw new Error('invalid project branch identity');
+    if(p.id===SANRO_QA_PILOT.project_id){
+      if(p.repository!==SANRO_QA_PILOT.repository||workspace!==SANRO_QA_PILOT.workspace||p.branch!==SANRO_QA_PILOT.branch||p.source_sha!==SANRO_QA_PILOT.source_sha||worker_id!==SANRO_QA_PILOT.worker_id||p.mainline_qa_only!==true||!hasSanroQaPilotPermissionProfile(permissionProfile))throw new Error('SANRO QA pilot binding must match the pinned read-only project identity');
+    }else if(p.mainline_qa_only!==undefined)throw new Error('mainline QA exception is reserved for the pinned SANRO QA pilot');
     projects.set(p.id,{...p,workspace,worker_id,permission_profile:permissionProfile,...(drive_delivery?{drive_delivery}:{})});
   }
   const profiles=config.command_profiles??{},approvals=config.approvals??{};
@@ -51,6 +56,16 @@ export function loadAuth(path) {
   for(const [id,p] of Object.entries(profiles)){
     if(!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(id)||!p||!Array.isArray(p.projects)||!p.projects.every(projectId=>projects.has(projectId))||!Array.isArray(p.command)||!p.command.length||!p.command.every(arg=>typeof arg==='string'&&arg.length>0)||shells.has(p.command[0].split('/').pop()))throw new Error('invalid or unauthorized command profile');
     if(p.runtime_operation!==undefined&&(!['browser_smoke','private_browser_acceptance','mariadb_synthetic'].includes(p.runtime_operation)||p.executor!=='local-ci'||p.role!=='qa'||p.command.length!==1||p.command[0]!=='/usr/bin/true'||!Number.isInteger(p.runtime_timeout_seconds??120)||(p.runtime_timeout_seconds??120)<1||(p.runtime_timeout_seconds??120)>300))throw new Error('invalid fixed project runtime profile');
+  }
+  const pilot=projects.get(SANRO_QA_PILOT.project_id);
+  if(pilot){
+    const pilotProfiles=Object.values(profiles).filter(profile=>profile.projects.includes(SANRO_QA_PILOT.project_id));
+    if(pilotProfiles.length!==1||pilotProfiles[0].projects.length!==1||pilotProfiles[0].executor!=='local-ci'||pilotProfiles[0].role!=='qa'||pilotProfiles[0].runtime_operation!==SANRO_QA_PILOT.operation)throw new Error('SANRO QA pilot requires exactly one fixed read-only QA runtime profile');
+    const grants=[...principals.values()].map(principal=>({principal,grant:principal.projects[SANRO_QA_PILOT.project_id]})).filter(x=>x.grant);
+    if(grants.length!==1||grants[0].grant.scopes.length!==2||!['read',SANRO_QA_PILOT.scope].every(scope=>grants[0].grant.scopes.includes(scope))||grants[0].grant.approval_refs.length!==1||grants[0].grant.approval_refs[0]!==SANRO_QA_PILOT.approval_id)throw new Error('SANRO QA pilot requires one least-privilege Owner project grant');
+    const approval=approvals[SANRO_QA_PILOT.approval_id],allowed=['qa:execute',SANRO_QA_PILOT.scope];
+    const denied=['engineering:execute','git:write','worker:manage','ssh:staging','merge','production:deploy','paid-api','other-repository:write'];
+    if(!approval||approval.id!==SANRO_QA_PILOT.approval_id||approval.project_id!==SANRO_QA_PILOT.project_id||approval.subject!==grants[0].principal.subject||approval.owner_actor!==grants[0].principal.subject||approval.status!=='APPROVED'||approval.repository!==SANRO_QA_PILOT.repository||approval.branch!==SANRO_QA_PILOT.branch||approval.environment!=='isolated-development'||approval.max_cost_usd!==0||approval.expires_at!==SANRO_QA_PILOT.expires_at||approval.scopes?.length!==1||approval.scopes[0]!==SANRO_QA_PILOT.scope||approval.allowed_actions?.length!==allowed.length||!allowed.every(scope=>approval.allowed_actions.includes(scope))||!denied.every(scope=>approval.forbidden_actions?.includes(scope)))throw new Error('SANRO QA pilot Owner approval record does not match the fixed mandate');
   }
   return {principals,projects,workspaceRegistry:workspaceOwners,profiles,approvals};
 }

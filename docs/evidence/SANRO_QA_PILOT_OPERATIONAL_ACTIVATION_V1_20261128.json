@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "milestone": "SANRO QA Pilot Operational Activation V1",
+  "approval": {
+    "id": "SANRO-QA-PILOT-OPS-V1",
+    "owner": "Rio",
+    "status": "APPROVED_SOURCE_SCOPE",
+    "expires_at": "2026-12-28T23:59:59Z",
+    "cost_usd": 0,
+    "native_per_job_approval_required": true
+  },
+  "pilot": {
+    "project_id": "sanro-browser-qa",
+    "repository": "arioguswara-oss/SANRO-Browser-QA",
+    "workspace": "/home/sanro/workforce-dev/SANRO-Browser-QA-pilot",
+    "branch": "main",
+    "source_sha": "4436660bfc4dbdf11aadb0800b043c2c75ce6eaa",
+    "worktree": "clean_at_last_read_only_verification",
+    "worker_id": "sanro-qa",
+    "operation": "private_browser_acceptance",
+    "executor": "local-ci",
+    "permission_profile": {
+      "version": 1,
+      "read_only": true,
+      "write_scope": "none",
+      "allow_network": false,
+      "allow_process_creation": true
+    },
+    "allowed_actions": ["qa:execute", "runtime:browser"],
+    "forbidden_actions": ["engineering:execute", "git:write", "worker:manage", "ssh:staging", "merge", "production:deploy", "paid-api", "other-repository:write"],
+    "mainline_exception": "Only exact pinned pilot identity + runtime private_browser_acceptance + local-ci QA profile + read-only permission profile"
+  },
+  "implementation": {
+    "status": "IMPLEMENTED_SOURCE",
+    "admission_module": "apps/api/src/sanro-qa-pilot-binding.js",
+    "local_ci_entrypoint": "apps/web/scripts/sanro-qa-pilot-local-ci.mjs",
+    "runner": "Existing private-browser-mcp-acceptance.mjs",
+    "chromium": "/usr/local/lib/sanro-playwright/chromium-1255/chrome-linux64/chrome",
+    "chromium_sandbox": true,
+    "pilot_repository_modified": false,
+    "chromium_reinstalled": false,
+    "hermes_restarted": false
+  },
+  "tests": {
+    "python_policy_controller_bridge": {"passed": 22, "failed": 0},
+    "node_admission_auth_route_runtime": {"passed": 16, "failed": 0},
+    "syntax": "PASS",
+    "git_diff_check": "PASS",
+    "chromium_native_recovery": "REUSED_LOCKED_VERIFIED_EVIDENCE"
+  },
+  "native_activation": {
+    "private_host_registration": "BLOCKED_WORKFORCE_AUTH_FILE_UNSET",
+    "official_native_approval_provider": "UNAVAILABLE_PER_EXISTING_PREFLIGHT_EVIDENCE",
+    "native_job_id": null,
+    "runtime_status": "NOT_TESTED",
+    "screenshot": null,
+    "native_approval_count": 0,
+    "rollback_executed": false
+  },
+  "handoff": "integrations/SANRO_QA_PILOT_OPERATIONAL_ACTIVATION_V1.md",
+  "previous_workforce_sha": "c1807ca30cdcaec737173a68cdf23598bd7716d1"
+}

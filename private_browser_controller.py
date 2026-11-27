@@ -17,13 +17,21 @@ CPU_QUOTA = "100%"
 MEMORY_MAX = "2G"
 TASKS_MAX = "128"
 CHROMIUM_EXECUTABLE = "/usr/local/lib/sanro-playwright/chromium-1255/chrome-linux64/chrome"
+PILOT_PROJECT_ID = "sanro-browser-qa"
+PILOT_APPROVAL_ID = "SANRO-QA-PILOT-OPS-V1"
 
 
 def build_systemd_argv(systemd_run: str, argv: list[str], workspace: pathlib.Path,
-                       job_root: pathlib.Path, job_id: str, timeout: int) -> list[str]:
+                       job_root: pathlib.Path, job_id: str, timeout: int,
+                       project_id: str = "sanro-ai-workforce",
+                       runner_root: pathlib.Path | None = None) -> list[str]:
     if not os.path.isabs(systemd_run) or not pathlib.Path(systemd_run).name == "systemd-run":
         raise ValueError("systemd-run executable must be absolute and fixed")
-    expected_script = workspace / "apps/web/scripts/private-browser-mcp-acceptance.mjs"
+    runner_root = (runner_root or workspace).resolve(strict=True)
+    if project_id == PILOT_PROJECT_ID and runner_root != pathlib.Path(__file__).resolve().parent:
+        raise ValueError("SANRO QA pilot must use the reviewed Workforce Local CI entrypoint")
+    runner_name = "sanro-qa-pilot-local-ci.mjs" if project_id == PILOT_PROJECT_ID else "private-browser-mcp-acceptance.mjs"
+    expected_script = runner_root / "apps/web/scripts" / runner_name
     node_path = pathlib.Path(argv[0]) if argv else pathlib.Path("/")
     try:
         resolved_node = node_path.resolve(strict=True)
@@ -46,12 +54,14 @@ def build_systemd_argv(systemd_run: str, argv: list[str], workspace: pathlib.Pat
     environment = {
         "PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "PYTHONNOUSERSITE": "1",
         "HOME": str(job_root), "TMPDIR": str(job_root / "tmp"),
-        "PLAYWRIGHT_BROWSERS_PATH": str(workspace / "apps/web/.cache/playwright"),
+        "PLAYWRIGHT_BROWSERS_PATH": str(runner_root / "apps/web/.cache/playwright"),
         "SANRO_CHROMIUM_EXECUTABLE": CHROMIUM_EXECUTABLE,
-        "SANRO_PROJECT_ID": "sanro-ai-workforce", "SANRO_JOB_ID": job_id,
+        "SANRO_PROJECT_ID": project_id, "SANRO_JOB_ID": job_id,
         "SANRO_BROWSER_STATE_ROOT": str(job_root / "artifacts"),
         "SANRO_REQUIRE_PRIVATE_NETNS": "1",
     }
+    if project_id == PILOT_PROJECT_ID:
+        environment["SANRO_PILOT_APPROVAL_ID"] = PILOT_APPROVAL_ID
     result = [systemd_run, "--user", "--quiet", "--wait", "--pipe", "--collect",
               f"--unit=sanro-private-browser-{unit_suffix}"]
     for prop in properties:
@@ -65,7 +75,8 @@ def build_systemd_argv(systemd_run: str, argv: list[str], workspace: pathlib.Pat
 
 
 def run_private_browser(argv: list[str], workspace: pathlib.Path, state_root: pathlib.Path,
-                        job_id: str, timeout: int) -> tuple[int, str, bool]:
+                        job_id: str, timeout: int, project_id: str = "sanro-ai-workforce",
+                        runner_root: pathlib.Path | None = None) -> tuple[int, str, bool]:
     """Execute through user systemd cgroups/network namespace and fail closed."""
     if os.getuid() == 0:
         raise PermissionError("private browser controller refuses root execution")
@@ -76,7 +87,8 @@ def run_private_browser(argv: list[str], workspace: pathlib.Path, state_root: pa
     job_root.mkdir(mode=0o700, parents=True, exist_ok=False)
     (job_root / "tmp").mkdir(mode=0o700)
     (job_root / "artifacts").mkdir(mode=0o700)
-    command = build_systemd_argv(systemd_run, argv, workspace, job_root, job_id, timeout)
+    command = build_systemd_argv(systemd_run, argv, workspace, job_root, job_id, timeout,
+                                 project_id, runner_root)
     started = time.monotonic()
     try:
         completed = subprocess.run(command, cwd=workspace, env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"},

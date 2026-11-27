@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from private_browser_controller import build_systemd_argv, run_private_browser
+from private_browser_controller import PILOT_APPROVAL_ID, PILOT_PROJECT_ID, build_systemd_argv, run_private_browser
 
 
 class PrivateBrowserControllerTests(unittest.TestCase):
@@ -77,6 +77,25 @@ class PrivateBrowserControllerTests(unittest.TestCase):
                 run_private_browser(["/usr/bin/node", str(self.runner)], self.workspace,
                                     self.root / "state", "job-123", 30)
         run.assert_not_called()
+
+    def test_pilot_uses_only_the_pinned_workforce_local_ci_entrypoint(self):
+        workforce_root = pathlib.Path(__file__).resolve().parent
+        runner = workforce_root / "apps/web/scripts/sanro-qa-pilot-local-ci.mjs"
+        command = build_systemd_argv("/usr/bin/systemd-run", ["/usr/bin/node", str(runner)],
+                                     self.workspace, self.job, "sanroqa-job-01", 90,
+                                     PILOT_PROJECT_ID, workforce_root)
+        rendered = "\n".join(command)
+        self.assertIn("SANRO_PROJECT_ID=sanro-browser-qa", command)
+        self.assertIn(f"SANRO_PILOT_APPROVAL_ID={PILOT_APPROVAL_ID}", command)
+        self.assertIn(f"PLAYWRIGHT_BROWSERS_PATH={workforce_root / 'apps/web/.cache/playwright'}", command)
+        self.assertIn(str(runner), command)
+        self.assertIn("PrivateNetwork=yes", rendered)
+        self.assertIn("ProtectSystem=strict", rendered)
+        self.assertNotIn("--no-sandbox", rendered)
+        with self.assertRaisesRegex(ValueError, "reviewed Workforce"):
+            build_systemd_argv("/usr/bin/systemd-run", ["/usr/bin/node", str(runner)],
+                               self.workspace, self.job, "sanroqa-job-02", 90,
+                               PILOT_PROJECT_ID, self.workspace)
 
 
 if __name__ == "__main__":

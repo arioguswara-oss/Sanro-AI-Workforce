@@ -10,6 +10,7 @@ from hermes_adapter import Authorization, HermesAdapter
 from codex_job_launcher import build_codex_argv
 from runtime_preflight import CapabilityPreflightError, collect_runtime_preflight, require_capabilities
 from workforce_runtime_adapter import execute_runtime_profile
+from project_runtime_executor import SANRO_QA_PILOT
 
 
 def verify_bridge_admission(request):
@@ -30,13 +31,30 @@ def verify_bridge_admission(request):
         raise PermissionError("project admission does not match the workspace registry")
     if admission.get("command_profile") != (request.get("profile_config") or {}).get("executor", "local"):
         raise PermissionError("executor identity does not match admission")
+    profile=request.get("profile_config") or {}
+    pilot_qa=(request.get("action")=="runtime" and project.get("id")==SANRO_QA_PILOT["project_id"]
+              and profile.get("runtime_operation")==SANRO_QA_PILOT["operation"]
+              and project.get("repository")==SANRO_QA_PILOT["repository"]
+              and project.get("workspace")==SANRO_QA_PILOT["workspace"]
+              and project.get("branch")==SANRO_QA_PILOT["branch"]
+              and project.get("source_sha")==SANRO_QA_PILOT["source_sha"]
+              and project.get("worker_id")==SANRO_QA_PILOT["worker_id"]
+              and project.get("mainline_qa_only") is True
+              and project.get("permission_profile")=={"version":1,"read_only":True,"write_scope":"none","allow_network":False,"allow_process_creation":True})
     if mandate.get("status") != "APPROVED" or mandate.get("project_id") != project["id"] or mandate.get("repository") != project.get("repository") or mandate.get("branch") != project.get("branch") or mandate.get("environment") != "isolated-development" or mandate.get("owner_actor") != request["principal"].get("subject") or mandate.get("max_cost_usd") != 0:
         raise PermissionError("mandate does not match admission")
     grants = request["principal"].get("projects", {}).get(project["id"], {})
-    if "engineering:execute" not in grants.get("scopes", []) or request.get("approval_ref") not in grants.get("approval_refs", []) or "engineering:execute" not in mandate.get("scopes", []):
+    required_scope=SANRO_QA_PILOT["scope"] if pilot_qa else "engineering:execute"
+    if required_scope not in grants.get("scopes", []) or request.get("approval_ref") not in grants.get("approval_refs", []) or required_scope not in mandate.get("scopes", []):
         raise PermissionError("approval is not bound to the project principal")
-    if not all(x in mandate.get("allowed_actions", []) for x in ("engineering:execute", "qa:execute")) or not all(x in mandate.get("forbidden_actions", []) for x in ("merge", "production:deploy", "paid-api", "other-repository:write")):
+    required_actions=("qa:execute", "runtime:browser") if pilot_qa else ("engineering:execute", "qa:execute")
+    required_denies=("engineering:execute", "git:write", "worker:manage", "ssh:staging", "merge", "production:deploy", "paid-api", "other-repository:write") if pilot_qa else ("merge", "production:deploy", "paid-api", "other-repository:write")
+    if not all(x in mandate.get("allowed_actions", []) for x in required_actions) or not all(x in mandate.get("forbidden_actions", []) for x in required_denies):
         raise PermissionError("mandate action scope is incomplete")
+    if pilot_qa and set(mandate.get("allowed_actions", []))!={"qa:execute","runtime:browser"}:
+        raise PermissionError("pilot mandate action scope is broader than read-only QA")
+    if pilot_qa and (mandate.get("id")!=SANRO_QA_PILOT["approval_id"] or mandate.get("expires_at")!=SANRO_QA_PILOT["expires_at"]):
+        raise PermissionError("SANRO QA pilot Owner mandate is not the pinned approval")
     if mandate.get("expires_at") is None:
         raise PermissionError("mandate expiration is required")
     from datetime import datetime
@@ -62,6 +80,8 @@ def verify_bridge_admission(request):
     dirty = run_git("status", "--porcelain", "--untracked-files=all")
     if branch != project.get("branch") or remote not in expected or current_sha != admission.get("checkpoint_sha") or dirty:
         raise PermissionError("repository, branch, checkpoint or clean-worktree admission failed")
+    if pilot_qa and current_sha!=SANRO_QA_PILOT["source_sha"]:
+        raise PermissionError("SANRO QA pilot source SHA differs from the approved pin")
     return admission
 
 

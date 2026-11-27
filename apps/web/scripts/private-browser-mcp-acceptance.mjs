@@ -57,9 +57,13 @@ async function verifyJobBoundary() {
     cgroupLimits: { memoryMaxBytes: memoryMax, cpuQuotaCores: cpuQuota, pidsMax } };
 }
 const jobBoundary = process.env.SANRO_REQUIRE_PRIVATE_NETNS === '1' ? await verifyJobBoundary() : null;
-const projectId = process.env.SANRO_PROJECT_ID || 'sanro-ai-workforce';
-const jobId = process.env.SANRO_JOB_ID || `synthetic-${Date.now()}-${process.pid}`;
-if (projectId !== 'sanro-ai-workforce' || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(jobId)) {
+const projectId = process.env.SANRO_PROJECT_ID;
+const jobId = process.env.SANRO_JOB_ID;
+const supportedProjects = new Set(['sanro-ai-workforce', 'sanro-browser-qa']);
+const pilotApprovalValid = projectId !== 'sanro-browser-qa'
+  || process.env.SANRO_PILOT_APPROVAL_ID === 'SANRO-QA-PILOT-OPS-V1';
+if (!supportedProjects.has(projectId) || !pilotApprovalValid
+    || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(jobId || '')) {
   throw new Error('Project/job scope is invalid for the authorized SANRO synthetic browser acceptance');
 }
 const lockDir = path.join(stateRoot, '.active-browser-job');

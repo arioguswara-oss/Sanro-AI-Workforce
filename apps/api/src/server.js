@@ -13,6 +13,7 @@ import {ensureArtifactTables,ProjectDriveArtifactDelivery,validateArtifactManife
 import {WorkerController} from './worker-controller.js';
 import {HerdrWorkerController} from './herdr-worker-controller.js';
 import {createNativeRuntimeExecutor} from './native-runtime-executor.js';
+import {SANRO_QA_PILOT,isSanroQaPilotRuntime} from './sanro-qa-pilot-binding.js';
 
 const root=resolve(fileURLToPath(new URL('../../../',import.meta.url)));
 const date=()=>new Date().toISOString();
@@ -49,7 +50,7 @@ async function workerCall(stateDir,auth,principal,project,request){
     mandate=approvalStatus(auth,principal,project.id,request.approval_ref,runtimeScope??'engineering:execute');
     admission=await validateJobAdmission({auth,principal,project,request,mandate,commandProfile});
   }
-  const payload={...request,principal,mandate,admission,project:{id:project.id,name:project.name,workspace:project.workspace,repository:project.repository,branch:project.branch,worker_id:project.worker_id,environment:project.environment,permission_profile:project.permission_profile},projects:Object.fromEntries([...auth.projects].map(([k,v])=>[k,{id:v.id,workspace:v.workspace,repository:v.repository,branch:v.branch,worker_id:v.worker_id,environment:v.environment,permission_profile:v.permission_profile}])),profiles:auth.profiles};
+  const payload={...request,principal,mandate,admission,project:{id:project.id,name:project.name,workspace:project.workspace,repository:project.repository,branch:project.branch,source_sha:project.source_sha,mainline_qa_only:project.mainline_qa_only,worker_id:project.worker_id,environment:project.environment,permission_profile:project.permission_profile},projects:Object.fromEntries([...auth.projects].map(([k,v])=>[k,{id:v.id,workspace:v.workspace,repository:v.repository,branch:v.branch,source_sha:v.source_sha,mainline_qa_only:v.mainline_qa_only,worker_id:v.worker_id,environment:v.environment,permission_profile:v.permission_profile}])),profiles:auth.profiles};
   const env={PATH:'/usr/bin:/bin',HOME:stateDir,TMPDIR:join(stateDir,'tmp'),LANG:'C.UTF-8',PYTHONNOUSERSITE:'1',WORKFORCE_WORKER_STATE:stateDir};
   return await new Promise((resolve,reject)=>{
     const child=spawn(process.env.PYTHON??'python3',[join(root,'workforce_worker_bridge.py')],{cwd:root,env,stdio:['pipe','pipe','ignore'],shell:false});
@@ -207,10 +208,12 @@ export function createApp({authPath=process.env.WORKFORCE_AUTH_FILE,stateDir=pro
           const result=await dispatchWorker(principal,project,{action:'submit',profile:b.profile,approval_ref:approval,idempotency_key:b.idempotency_key,timeout:b.timeout});const created=date();db.prepare('INSERT OR IGNORE INTO worker_jobs(job_id,project_id,owner,profile,created_at,checkpoint_json) VALUES(?,?,?,?,?,?)').run(result.job_id,projectId,principal.subject,b.profile,created,JSON.stringify({status:'QUEUED',updated_at:created,project_id:projectId,owner:principal.subject,profile:b.profile,admission:result.admission}));audit(projectId,principal.subject,'ENGINEERING_JOB_SUBMITTED',result.job_id);return reply(res,202,{...result,project_id:projectId});
         }
         if(resource==='runtime-acceptance'&&req.method==='POST'){
-          if(!access.grants.scopes.includes('engineering:execute'))return reply(res,403,{error:'engineering:execute scope required'});
           const b=await readBody(req);if(typeof b.profile!=='string'||typeof b.idempotency_key!=='string'||!safeId.test(b.idempotency_key)||b.idempotency_key.length<8)return reply(res,400,{error:'fixed runtime profile and bounded idempotency key required'});
           const profile=auth.profiles[b.profile],operation=profile?.runtime_operation;const requiredScope=['browser_smoke','private_browser_acceptance'].includes(operation)?'runtime:browser':operation==='mariadb_synthetic'?'runtime:mariadb':null;
           if(!requiredScope||profile.executor!=='local-ci'||profile.role!=='qa'||!profile.projects?.includes(projectId))return reply(res,403,{error:'project runtime profile is not authorized'});
+          const pilotQa=isSanroQaPilotRuntime(project,{action:'runtime'},profile);
+          if(!access.grants.scopes.includes('engineering:execute')&&!pilotQa)return reply(res,403,{error:'engineering:execute scope required'});
+          if(pilotQa&&b.approval_ref!==SANRO_QA_PILOT.approval_id)return reply(res,403,{error:'SANRO QA pilot Owner approval ID is required'});
           if(!access.grants.scopes.includes(requiredScope)||!approvalStatus(auth,principal,projectId,b.approval_ref,requiredScope))return reply(res,403,{error:'active operation-specific runtime approval required'});
           const result=await dispatchWorker(principal,project,{action:'runtime',profile:b.profile,approval_ref:b.approval_ref,idempotency_key:b.idempotency_key});
           audit(projectId,principal.subject,'PROJECT_RUNTIME_ACCEPTANCE',`${operation}:${b.idempotency_key}:${result.status}`);

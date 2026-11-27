@@ -7,6 +7,8 @@ import pathlib
 
 from project_runtime_executor import OPERATIONS, execute, _validate_policy
 
+SANRO_QA_PILOT_ID = "sanro-browser-qa"
+
 
 def prepare_runtime_profile(request: dict, admission: dict, state_root: str) -> tuple[dict, dict]:
     """Translate verified Workforce records into the narrow runtime wrapper contract."""
@@ -40,7 +42,8 @@ def prepare_runtime_profile(request: dict, admission: dict, state_root: str) -> 
     workspace = str(pathlib.Path(project["workspace"]).resolve(strict=True))
     state_path = pathlib.Path(state_root).resolve(strict=True) / "runtime-executor" / project["id"]
     approval_digest = hashlib.sha256(request["approval_ref"].encode()).hexdigest()
-    mandate_id = hashlib.sha256((project["id"] + "\0" + request["approval_ref"]).encode()).hexdigest()[:32]
+    mandate_id = (mandate.get("id") if project["id"] == SANRO_QA_PILOT_ID else
+                  hashlib.sha256((project["id"] + "\0" + request["approval_ref"]).encode()).hexdigest()[:32])
     timeout = profile.get("runtime_timeout_seconds", 120)
     if type(timeout) is not int or not 1 <= timeout <= 300:
         raise ValueError("runtime profile timeout is outside the fixed bound")
@@ -59,7 +62,8 @@ def prepare_runtime_profile(request: dict, admission: dict, state_root: str) -> 
         "version": 1,
         "projects": {project["id"]: {"status": "AUTHORIZED", "workspace": workspace,
             "repository": project["repository"], "branch": project["branch"],
-            "worker_id": project["worker_id"], "state_root": str(state_path)}},
+            "worker_id": project["worker_id"], "source_sha": admission["checkpoint_sha"],
+            "permission_profile": project.get("permission_profile"), "state_root": str(state_path)}},
         "jobs": {job_id: {"status": "AUTHORIZED", "project_id": project["id"],
             "worker_id": project["worker_id"], "branch": project["branch"],
             "source_sha": admission["checkpoint_sha"], "operation": operation,

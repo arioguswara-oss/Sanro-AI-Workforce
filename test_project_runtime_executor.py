@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from project_runtime_executor import OPERATIONS, RuntimeAdmissionError, _argv, _parse_runtime_evidence, _reported_blocked, _validate_policy, execute
+from project_runtime_executor import OPERATIONS, SANRO_QA_PILOT, WORKFORCE_ROOT, RuntimeAdmissionError, _argv, _parse_runtime_evidence, _reported_blocked, _validate_policy, execute
 from workforce_runtime_adapter import prepare_runtime_profile
 
 
@@ -94,7 +94,7 @@ class ProjectRuntimeExecutorTests(unittest.TestCase):
     def test_private_browser_requires_project_scope_and_real_isolation_evidence(self):
         request = dict(self.request, operation="private_browser_acceptance",
                        required_capabilities=["private_browser_runtime"])
-        with self.assertRaisesRegex(RuntimeAdmissionError, "authorized Workforce project"):
+        with self.assertRaisesRegex(RuntimeAdmissionError, "explicitly supported project binding"):
             _validate_policy(self.policy, request)
         authorized_request = dict(request, project_id="sanro-ai-workforce")
         authorized_policy = copy.deepcopy(self.policy)
@@ -125,6 +125,66 @@ class ProjectRuntimeExecutorTests(unittest.TestCase):
         event["networkIsolation"] = "private-network-namespace"
         screenshot.write_bytes(b"tampered")
         self.assertIsNone(_parse_runtime_evidence("private_browser_acceptance", output, self.workspace, screenshot_root))
+
+    def test_sanro_qa_pilot_runtime_is_pinned_read_only_and_uses_workforce_entrypoint(self):
+        request = dict(self.request, project_id=SANRO_QA_PILOT["project_id"], job_id="sanroqa-pilot-job-001",
+                       worker_id=SANRO_QA_PILOT["worker_id"], workspace=SANRO_QA_PILOT["workspace"],
+                       repository=SANRO_QA_PILOT["repository"], branch=SANRO_QA_PILOT["branch"],
+                       source_sha=SANRO_QA_PILOT["source_sha"], checkpoint_sha=SANRO_QA_PILOT["source_sha"],
+                       operation=SANRO_QA_PILOT["operation"], required_capabilities=[SANRO_QA_PILOT["capability"]],
+                       mandate_id=SANRO_QA_PILOT["approval_id"], approval_ref="a" * 64)
+        request["native_approval_sha256"] = "c" * 64
+        permission = {"version": 1, "read_only": True, "write_scope": "none", "allow_network": False, "allow_process_creation": True}
+        policy = {"version": 1,
+            "projects": {SANRO_QA_PILOT["project_id"]: {"status": "AUTHORIZED", "workspace": SANRO_QA_PILOT["workspace"],
+                "repository": SANRO_QA_PILOT["repository"], "branch": SANRO_QA_PILOT["branch"],
+                "worker_id": SANRO_QA_PILOT["worker_id"], "source_sha": SANRO_QA_PILOT["source_sha"],
+                "permission_profile": permission, "state_root": str(self.state)}},
+            "jobs": {request["job_id"]: {"status": "AUTHORIZED", "project_id": request["project_id"],
+                "worker_id": request["worker_id"], "branch": request["branch"], "source_sha": request["source_sha"],
+                "operation": request["operation"], "mandate_id": request["mandate_id"], "subject": request["subject"],
+                "approval_ref": request["approval_ref"], "native_approval_sha256": request["native_approval_sha256"]}},
+            "mandates": {request["mandate_id"]: {"status": "APPROVED", "project_id": request["project_id"],
+                "repository": request["repository"], "branch": request["branch"], "workspace": request["workspace"],
+                "subject": request["subject"], "expires_at": SANRO_QA_PILOT["expires_at"],
+                "approval_refs": [request["approval_ref"]], "allowed_actions": ["qa:execute", "runtime:browser"],
+                "forbidden_actions": ["engineering:execute", "git:write", "worker:manage", "ssh:staging", "merge", "production:deploy", "paid-api", "other-repository:write"],
+                "max_cost_usd": 0, "environment": "isolated-development"}}}
+        project, mandate, state, action = _validate_policy(policy, request)
+        self.assertEqual(project["worker_id"], "sanro-qa")
+        self.assertTrue(project["permission_profile"]["read_only"])
+        self.assertEqual(mandate["expires_at"], SANRO_QA_PILOT["expires_at"])
+        self.assertEqual(action, "runtime:browser")
+        runner = pathlib.Path(_argv(pathlib.Path(SANRO_QA_PILOT["workspace"]), SANRO_QA_PILOT["operation"], SANRO_QA_PILOT["project_id"])[1])
+        self.assertEqual(runner, WORKFORCE_ROOT / "apps/web/scripts/sanro-qa-pilot-local-ci.mjs")
+        bad = copy.deepcopy(policy)
+        bad["mandates"][SANRO_QA_PILOT["approval_id"]]["allowed_actions"].append("engineering:execute")
+        with self.assertRaisesRegex(RuntimeAdmissionError, "mandate is broader"):
+            _validate_policy(bad, request)
+
+    def test_workforce_adapter_preserves_owner_approval_id_for_pilot_policy(self):
+        project={"id":SANRO_QA_PILOT["project_id"],"workspace":SANRO_QA_PILOT["workspace"],
+                 "repository":SANRO_QA_PILOT["repository"],"branch":SANRO_QA_PILOT["branch"],
+                 "worker_id":SANRO_QA_PILOT["worker_id"],"permission_profile":
+                 {"version":1,"read_only":True,"write_scope":"none","allow_network":False,"allow_process_creation":True}}
+        subject="owner:synthetic"
+        mandate={"id":SANRO_QA_PILOT["approval_id"],"status":"APPROVED","project_id":project["id"],
+                 "repository":project["repository"],"branch":project["branch"],"environment":"isolated-development",
+                 "owner_actor":subject,"max_cost_usd":0,"expires_at":SANRO_QA_PILOT["expires_at"],
+                 "allowed_actions":["qa:execute","runtime:browser"],"forbidden_actions":["engineering:execute","git:write","worker:manage","ssh:staging","merge","production:deploy","paid-api","other-repository:write"],
+                 "scopes":["runtime:browser"]}
+        request={"project":project,"mandate":mandate,"principal":{"subject":subject,"projects":
+                 {project["id"]:{"approval_refs":[SANRO_QA_PILOT["approval_id"]]}}},
+                 "approval_ref":SANRO_QA_PILOT["approval_id"],"native_approval":{"approved":True,"evidence_sha256":"d"*64},
+                 "profile_config":{"executor":"local-ci","role":"qa","command":["/usr/bin/true"],
+                 "runtime_operation":SANRO_QA_PILOT["operation"],"runtime_timeout_seconds":120,
+                 "projects":[SANRO_QA_PILOT["project_id"]]}}
+        admission={"project_id":project["id"],"worker_id":project["worker_id"],"job_id":"sanroqa-adapter-job-01",
+                   "checkpoint_sha":SANRO_QA_PILOT["source_sha"]}
+        runtime_request, runtime_policy=prepare_runtime_profile(request,admission,str(self.state))
+        self.assertEqual(runtime_request["mandate_id"],SANRO_QA_PILOT["approval_id"])
+        self.assertEqual(runtime_request["operation"],SANRO_QA_PILOT["operation"])
+        self.assertEqual(runtime_policy["projects"][project["id"]]["permission_profile"],project["permission_profile"])
 
     def test_rejects_expired_mandate_and_wrong_project(self):
         self.policy["mandates"]["mandate-001"]["expires_at"] = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()

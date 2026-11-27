@@ -207,3 +207,18 @@ One Owner approval is required for copy, profile load, and synthetic acceptance.
 | Chromium/Playwright functional acceptance | NOT TESTED | No valid authorized end-to-end execution path or Job ID |
 
 Prior 60/60 source suite and 11/11 Backup/DR regressions remain reused evidence from SHA `5f465facc3a77dd3237f3f171ace1783a6e07d4f`; they were not rerun. Current functional status is **NO-GO**. Pilot binding V2 source regressions: fixed runtime policy 13/13 PASS; API admission 3/3 PASS after approved process-spawn escalation. No pilot runtime job was launched. See [pilot binding V2 evidence](evidence/SANRO_QA_PILOT_PROJECT_BINDING_V2_20261128.json) and [activation preflight evidence](evidence/SANRO_FINAL_FUNCTIONAL_ACTIVATION_PREFLIGHT_20261126.json).
+
+## SANRO QA Pilot Operational Activation V1 — 2026-11-28
+
+| Gate | Result | Evidence |
+|---|---|---|
+| Exact pinned identity and Owner mandate | SOURCE BINDING PASS | `sanro-browser-qa`, repository/workspace/main/SHA pin, worker `sanro-qa`, approval `SANRO-QA-PILOT-OPS-V1`, expiry `2026-12-28T23:59:59Z`, zero-cost QA/browser-only scope |
+| Main branch exception | PASS — NARROW | Admission allows `main` only for exact pilot identity + private browser Local CI QA + read-only profile; all other mainline and write jobs remain denied |
+| Workforce Local CI entrypoint | IMPLEMENTED | `apps/web/scripts/sanro-qa-pilot-local-ci.mjs` delegates to existing verified private browser MCP runner; does not modify pilot repo or install dependencies |
+| Chromium controls | SOURCE VERIFIED / RUNTIME REUSED | Root-owned Chromium `159.0.8154.6`, `chromiumSandbox=true`, private-network unit, bounded resources and per-job evidence; locked native evidence reused, no relaunch |
+| Python policy/controller/bridge tests | PASS | 22/22; includes pinned SHA, worker, mandate, fail-closed broader scope and runner binding |
+| API admission/auth/route tests | PASS | 16/16; includes mainline exception and synthetic route stopping at blocked executor seam; no native approval fabricated |
+| Private host registration | BLOCKED | `WORKFORCE_AUTH_FILE` is unset in this runtime; no private host binding was written |
+| Native per-job approval and actual pilot browser job | NOT TESTED / BLOCKED | Existing native provider remains absent per locked activation evidence; no Job ID, screenshot or runtime PASS claimed |
+
+Activation handoff: [SANRO QA Pilot Operational Activation V1](integrations/SANRO_QA_PILOT_OPERATIONAL_ACTIVATION_V1.md). Overall: **SOURCE IMPLEMENTED / NATIVE ACTIVATION NO-GO** until existing official host registration and genuine native approval callback are available.

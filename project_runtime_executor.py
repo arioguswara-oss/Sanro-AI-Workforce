@@ -20,10 +20,25 @@ import time
 from datetime import datetime, timezone
 
 
+
 OPERATIONS = {
     "browser_smoke": ("browser_runtime", "runtime:browser", "apps/web/scripts/gdi02r-browser-acceptance.mjs"),
     "private_browser_acceptance": ("private_browser_runtime", "runtime:browser", "apps/web/scripts/private-browser-mcp-acceptance.mjs"),
     "mariadb_synthetic": ("mariadb_runtime", "runtime:mariadb", "isolated_mariadb_executor.py"),
+}
+WORKFORCE_ROOT = pathlib.Path(__file__).resolve().parent
+SANRO_QA_PILOT = {
+    "project_id": "sanro-browser-qa",
+    "repository": "arioguswara-oss/SANRO-Browser-QA",
+    "workspace": "/home/sanro/workforce-dev/SANRO-Browser-QA-pilot",
+    "branch": "main",
+    "source_sha": "4436660bfc4dbdf11aadb0800b043c2c75ce6eaa",
+    "worker_id": "sanro-qa",
+    "approval_id": "SANRO-QA-PILOT-OPS-V1",
+    "expires_at": "2026-12-28T23:59:59Z",
+    "operation": "private_browser_acceptance",
+    "capability": "private_browser_runtime",
+    "scope": "runtime:browser",
 }
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -67,8 +82,9 @@ def _validate_policy(policy: dict, request: dict, now: datetime | None = None) -
             raise RuntimeAdmissionError(f"invalid {key}")
     if request["operation"] not in OPERATIONS or request["arguments"] != {}:
         raise RuntimeAdmissionError("runtime operation or arguments are not allowlisted")
-    if request["operation"] == "private_browser_acceptance" and request["project_id"] != "sanro-ai-workforce":
-        raise RuntimeAdmissionError("private browser controller is restricted to the authorized Workforce project")
+    pilot = request["project_id"] == SANRO_QA_PILOT["project_id"]
+    if request["operation"] == "private_browser_acceptance" and request["project_id"] not in {"sanro-ai-workforce", SANRO_QA_PILOT["project_id"]}:
+        raise RuntimeAdmissionError("private browser controller requires an explicitly supported project binding")
     capability, action, _ = OPERATIONS[request["operation"]]
     if request["required_capabilities"] != [capability]:
         raise RuntimeAdmissionError("runtime capability requirement mismatch")
@@ -112,6 +128,15 @@ def _validate_policy(policy: dict, request: dict, now: datetime | None = None) -
         raise RuntimeAdmissionError("project registry identity does not match")
     if policy.get("version") != 1 or project.get("status") != "AUTHORIZED":
         raise RuntimeAdmissionError("project policy is not authorized")
+    if pilot:
+        expected = {"workspace": SANRO_QA_PILOT["workspace"], "repository": SANRO_QA_PILOT["repository"],
+                    "branch": SANRO_QA_PILOT["branch"], "worker_id": SANRO_QA_PILOT["worker_id"],
+                    "source_sha": SANRO_QA_PILOT["source_sha"]}
+        if request["operation"] != SANRO_QA_PILOT["operation"] or any(project.get(key) != value for key, value in expected.items()) or request["source_sha"] != SANRO_QA_PILOT["source_sha"]:
+            raise RuntimeAdmissionError("SANRO QA pilot does not match its exact read-only registration")
+        permission = project.get("permission_profile")
+        if permission != {"version": 1, "read_only": True, "write_scope": "none", "allow_network": False, "allow_process_creation": True}:
+            raise RuntimeAdmissionError("SANRO QA pilot must use the fixed read-only permission profile")
 
     jobs = policy.get("jobs")
     job = jobs.get(request["job_id"]) if isinstance(jobs, dict) else None
@@ -137,6 +162,14 @@ def _validate_policy(policy: dict, request: dict, now: datetime | None = None) -
         raise RuntimeAdmissionError("mandate expiration is invalid") from exc
     if expires.tzinfo is None or expires <= current:
         raise RuntimeAdmissionError("mandate is expired")
+    if pilot and (request["mandate_id"] != SANRO_QA_PILOT["approval_id"]
+                  or mandate.get("expires_at") != SANRO_QA_PILOT["expires_at"]
+                  or "engineering:execute" in mandate.get("allowed_actions", [])
+                  or "engineering:execute" not in mandate.get("forbidden_actions", [])
+                  or not {"engineering:execute", "git:write", "worker:manage", "ssh:staging", "merge", "production:deploy", "paid-api", "other-repository:write"}.issubset(set(mandate.get("forbidden_actions", [])))
+                  or "runtime:browser" not in mandate.get("allowed_actions", [])
+                  or set(mandate.get("allowed_actions", [])) != {"qa:execute", "runtime:browser"}):
+        raise RuntimeAdmissionError("SANRO QA pilot mandate is broader than the approved read-only scope")
     mandate_fields = {
         "status": "APPROVED", "project_id": request["project_id"],
         "repository": request["repository"], "branch": request["branch"],
@@ -194,12 +227,14 @@ def _atomic_json(path: pathlib.Path, value: dict) -> None:
             pass
 
 
-def _argv(workspace: pathlib.Path, operation: str) -> list[str]:
+def _argv(workspace: pathlib.Path, operation: str, project_id: str | None = None) -> list[str]:
     if operation not in OPERATIONS:
         raise RuntimeAdmissionError("runtime operation is not allowlisted")
     _, _, relative = OPERATIONS[operation]
-    target = workspace / relative
-    if not target.is_file() or target.is_symlink() or workspace not in target.resolve().parents:
+    pilot_runner = operation == "private_browser_acceptance" and project_id == SANRO_QA_PILOT["project_id"]
+    target = WORKFORCE_ROOT / "apps/web/scripts/sanro-qa-pilot-local-ci.mjs" if pilot_runner else workspace / relative
+    expected_root = WORKFORCE_ROOT if pilot_runner else workspace
+    if not target.is_file() or target.is_symlink() or expected_root not in target.resolve().parents:
         raise RuntimeAdmissionError("allowlisted runtime entrypoint is unavailable")
     if operation in {"browser_smoke", "private_browser_acceptance"}:
         executable = shutil.which("node", path="/usr/bin:/bin")
@@ -210,12 +245,14 @@ def _argv(workspace: pathlib.Path, operation: str) -> list[str]:
 
 
 def _run_bounded(argv: list[str], workspace: pathlib.Path, timeout: int, operation: str,
-                 state_root: pathlib.Path | None = None, job_id: str | None = None) -> tuple[int, str, bool]:
+                 state_root: pathlib.Path | None = None, job_id: str | None = None,
+                 project_id: str | None = None) -> tuple[int, str, bool]:
     if operation == "private_browser_acceptance":
         from private_browser_controller import run_private_browser
         if state_root is None or job_id is None:
             raise RuntimeAdmissionError("private browser state and admitted job identity are required")
-        return run_private_browser(argv, workspace, state_root, job_id, timeout)
+        runtime_root = WORKFORCE_ROOT if project_id == SANRO_QA_PILOT["project_id"] else workspace
+        return run_private_browser(argv, workspace, state_root, job_id, timeout, project_id or "sanro-ai-workforce", runtime_root)
     job_tmp = pathlib.Path(tempfile.mkdtemp(prefix=".workforce-runtime-job-", dir=workspace))
     env = {"PATH": "/usr/bin:/bin:/usr/sbin", "LANG": "C.UTF-8", "HOME": str(job_tmp), "TMPDIR": str(job_tmp), "PYTHONNOUSERSITE": "1"}
     if operation == "browser_smoke":
@@ -383,8 +420,8 @@ def execute(request: dict, policy: dict) -> dict:
         checkpoint["stage"] = "RUNNING"
         _atomic_json(job_path, checkpoint)
         try:
-            code, output, timed_out = _run_bounded(_argv(workspace, request["operation"]), workspace,
-                request["timeout_seconds"], request["operation"], state_root, request["job_id"])
+            code, output, timed_out = _run_bounded(_argv(workspace, request["operation"], request["project_id"]), workspace,
+                request["timeout_seconds"], request["operation"], state_root, request["job_id"], request["project_id"])
         except Exception as error:
             if request["operation"] == "private_browser_acceptance":
                 shutil.rmtree(state_root / "jobs" / request["job_id"], ignore_errors=True)
