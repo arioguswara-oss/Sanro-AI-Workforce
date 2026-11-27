@@ -1,0 +1,40 @@
+{
+  "milestone": "SANRO Chromium native activation package permission-flow correction",
+  "date": "2026-11-27",
+  "repository": "arioguswara-oss/Sanro-AI-Workforce",
+  "branch": "feature/hermes-workforce-foundation",
+  "checkpoint_before": "fc553f8ae7fc0045a51ca5a6ee9883075eff93f1",
+  "owner_approval": {
+    "status": "approved",
+    "reference": "SANRO-CHROMIUM-NATIVE-20261128",
+    "scope": "414 MB Chromium copy, exact-path AppArmor profile, synthetic Local CI with browser sandbox enabled, and rollback of registrations/copy created by the invocation"
+  },
+  "correction": {
+    "staging_directory": "sudo mktemp -d output is asserted canonical, root-owned, mode 0700; staging tree digest asserts UID 0 and runs through a narrowly scoped sudo bash invocation. No permissions are widened.",
+    "copy_source": "Source cache remains user-writable. Copy uses cp -R --no-dereference into root-private staging; root rejects symlinks and special files and checks the exact approved content digest immediately after copy and after ownership/mode normalization before rename.",
+    "rollback": "Destination is marked created immediately after atomic rename. Pre-existing destinations, including dangling symlinks, are rejected. Rollback requires the exact canonical root-owned destination and matching root-calculated digest; mismatch or failed profile rollback retains the copy. Stage cleanup requires canonical path, root ownership, and mode 0700.",
+    "reference": "Native activation block embeds the authorized literal reference; no additional business approval is requested."
+  },
+  "validation": {
+    "native_block_bash_n": "PASS",
+    "recovery_helper_bash_n": "PASS",
+    "synthetic_apparmor_control_harness": "PASS: preflight, apply, repeated apply, rollback, repeated rollback, failed-apply cleanup",
+    "git_diff_check": "PASS",
+    "native_permission_boundary": "NOT TESTED: no privileged host operation was invoked from the sandbox",
+    "chromium_launch": "NOT TESTED",
+    "Local_CI_screenshot": "NOT TESTED",
+    "host_rollback": "NOT TESTED"
+  },
+  "safety": {
+    "stage_permissions_widened": false,
+    "source_tree_mutated": false,
+    "global_security_changed": false,
+    "chromium_sandbox_disabled": false,
+    "hermes_restarted": false,
+    "active_workers_touched": false,
+    "production_or_merge": false,
+    "additional_cost": 0
+  },
+  "native_runtime_status": "NOT TESTED; execute the reviewed copy-paste block on the native VPS under the approved reference",
+  "interactive_approval_count": 0
+}

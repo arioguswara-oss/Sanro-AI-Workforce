@@ -24,7 +24,7 @@ SOURCE=/home/sanro/.cache/ms-playwright/chromium-1255/chrome-linux64
 BASE=/usr/local/lib/sanro-playwright
 DEST=$BASE/chromium-1255
 HELPER=/usr/local/sbin/sanro-chromium-apparmor-recovery
-APPROVAL=${SANRO_QA_OWNER_APPROVAL:?Set only after Owner approval}
+APPROVAL=SANRO-CHROMIUM-NATIVE-20261128
 
 cd "$REPO"
 test "$(git branch --show-current)" = feature/hermes-workforce-foundation
@@ -36,10 +36,21 @@ test "$(git show "$IMPL_SHA:apps/web/scripts/chromium-sandbox-recovery-acceptanc
 test "$(sha256sum apps/web/scripts/chromium-sandbox-recovery-acceptance.mjs | cut -d' ' -f1)" = "$ACCEPT_SHA"
 
 tree_sha() {
-  test -d "$1"
-  ! find "$1" -type l -print -quit | grep -q .
-  ! find "$1" ! -type f ! -type d -print -quit | grep -q .
-  (cd "$1" && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
+  test -d "$1" && test ! -L "$1"
+  test "$(readlink -f -- "$1")" = "$1"
+  ! find -P "$1" -type l -print -quit | grep -q .
+  ! find -P "$1" ! -type f ! -type d -print -quit | grep -q .
+  (cd -- "$1" && find -P . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
+}
+tree_sha_root() {
+  sudo bash -Eeuo pipefail -c '
+    [[ "$(id -u)" = 0 ]]
+    d=$1
+    [[ -d "$d" && ! -L "$d" && "$(readlink -f -- "$d")" = "$d" ]]
+    ! find -P "$d" -type l -print -quit | grep -q .
+    ! find -P "$d" ! -type f ! -type d -print -quit | grep -q .
+    (cd -- "$d" && find -P . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d" " -f1)
+  ' _ "$1"
 }
 test "$(readlink -f "$SOURCE")" = "$SOURCE"
 test "$(tree_sha "$SOURCE")" = "$TREE_SHA"
@@ -69,12 +80,12 @@ cleanup_failure() {
     if (( PROFILE_APPLIED )); then
       sudo env SANRO_QA_OWNER_APPROVAL="$APPROVAL" "$HELPER" --rollback "$APPROVAL" || rollback_ok=0
     fi
-    if (( COPY_CREATED && rollback_ok )) && [[ -d "$DEST/chrome-linux64" ]] && [[ "$(tree_sha "$DEST/chrome-linux64")" = "$TREE_SHA" ]]; then
+    if (( COPY_CREATED && rollback_ok )) && [[ -d "$DEST" && ! -L "$DEST" ]] && [[ "$(readlink -f -- "$DEST")" = "$DEST" ]] && [[ "$(stat -c %u "$DEST")" = 0 ]] && [[ "$(tree_sha_root "$DEST/chrome-linux64")" = "$TREE_SHA" ]]; then
       sudo rm -rf --one-file-system -- "$DEST"
     elif (( COPY_CREATED )); then
-      printf 'ROLLBACK BLOCKED: staged tree changed; retained at %s\n' "$DEST" >&2
+      printf 'ROLLBACK BLOCKED: destination failed integrity or rollback gate; retained at %s\n' "$DEST" >&2
     fi
-    if [[ -n "$STAGE" && -d "$STAGE" ]]; then sudo rm -rf --one-file-system -- "$STAGE"; fi
+    if [[ -n "$STAGE" && -d "$STAGE" && ! -L "$STAGE" && "$(readlink -f -- "$STAGE")" = "$STAGE" && "$(stat -c %u "$STAGE")" = 0 && "$(stat -c %a "$STAGE")" = 700 ]]; then sudo rm -rf --one-file-system -- "$STAGE"; fi
     if [[ -n "$TMP_HELPER" && -e "$TMP_HELPER" ]]; then rm -f -- "$TMP_HELPER"; fi
     if (( HELPER_CREATED && rollback_ok )); then sudo rm -f -- "$HELPER"; fi
   fi
@@ -82,29 +93,35 @@ cleanup_failure() {
 }
 trap cleanup_failure EXIT
 
-if [[ ! -e "$DEST" ]]; then
+if [[ ! -e "$DEST" && ! -L "$DEST" ]]; then
   available_kb=$(df -Pk /usr/local/lib | awk 'NR==2 {print $4}')
   source_kb=$(du -sk "$SOURCE" | awk '{print $1}')
   (( available_kb >= source_kb + 102400 )) || { echo 'BLOCKED: less than source size plus 100 MiB free'; exit 3; }
   STAGE=$(sudo mktemp -d "$BASE/.chromium-stage.XXXXXX")
+  test "$(stat -c %u "$STAGE")" = 0
+  test "$(stat -c %a "$STAGE")" = 700
+  test "$(readlink -f -- "$STAGE")" = "$STAGE"
   sudo install -d -o root -g root -m 0755 "$STAGE/chromium-1255"
-  sudo bash -c 'umask 077; cp -R --no-preserve=ownership -- "$1" "$2"' _ "$SOURCE" "$STAGE/chromium-1255/chrome-linux64"
+  sudo bash -c 'umask 077; cp -R --no-dereference --no-preserve=ownership -- "$1" "$2"' _ "$SOURCE" "$STAGE/chromium-1255/chrome-linux64"
+  test "$(tree_sha_root "$STAGE/chromium-1255/chrome-linux64")" = "$TREE_SHA"
   sudo chown -R root:root "$STAGE/chromium-1255"
-  ! sudo find "$STAGE/chromium-1255/chrome-linux64" -type f -perm /6000 -print -quit | grep -q .
-  sudo find "$STAGE/chromium-1255/chrome-linux64" -type d -exec chmod 0755 {} +
-  sudo find "$STAGE/chromium-1255/chrome-linux64" -type f -perm /111 -exec chmod 0755 {} +
-  sudo find "$STAGE/chromium-1255/chrome-linux64" -type f ! -perm /111 -exec chmod 0644 {} +
-  test "$(tree_sha "$STAGE/chromium-1255/chrome-linux64")" = "$TREE_SHA"
+  ! sudo find -P "$STAGE/chromium-1255/chrome-linux64" -type f -perm /6000 -print -quit | grep -q .
+  sudo find -P "$STAGE/chromium-1255/chrome-linux64" -type d -exec chmod 0755 {} +
+  sudo find -P "$STAGE/chromium-1255/chrome-linux64" -type f -perm /111 -exec chmod 0755 {} +
+  sudo find -P "$STAGE/chromium-1255/chrome-linux64" -type f ! -perm /111 -exec chmod 0644 {} +
+  test "$(tree_sha_root "$STAGE/chromium-1255/chrome-linux64")" = "$TREE_SHA"
   sudo mv -- "$STAGE/chromium-1255" "$DEST"
+  COPY_CREATED=1
   sudo rmdir -- "$STAGE"
   STAGE=
-  COPY_CREATED=1
 else
+  test -d "$DEST" && test ! -L "$DEST"
+  test "$(readlink -f -- "$DEST")" = "$DEST"
   test "$(stat -c %u "$DEST")" = 0
   test "$(tree_sha "$DEST/chrome-linux64")" = "$TREE_SHA"
 fi
 
-if [[ ! -e "$HELPER" ]]; then
+if [[ ! -e "$HELPER" && ! -L "$HELPER" ]]; then
   TMP_HELPER=$(mktemp /tmp/sanro-chromium-helper.XXXXXX)
   git show "$IMPL_SHA:scripts/chromium-apparmor-recovery.sh" > "$TMP_HELPER"
   test "$(sha256sum "$TMP_HELPER" | cut -d' ' -f1)" = "$SCRIPT_SHA"
@@ -140,11 +157,11 @@ printf 'PASS: approved root-owned browser and exact-path profile remain availabl
 On a successful acceptance, explicit rollback later is:
 
 ```bash
-sudo env SANRO_QA_OWNER_APPROVAL="$SANRO_QA_OWNER_APPROVAL" /usr/local/sbin/sanro-chromium-apparmor-recovery --rollback "$SANRO_QA_OWNER_APPROVAL"
+sudo env SANRO_QA_OWNER_APPROVAL=SANRO-CHROMIUM-NATIVE-20261128 /usr/local/sbin/sanro-chromium-apparmor-recovery --rollback SANRO-CHROMIUM-NATIVE-20261128
 ```
 
 Then remove `/usr/local/lib/sanro-playwright/chromium-1255` only after verifying its tree digest is still the approved `TREE_SHA` above. No host command has been run from this continuation.
 
 ## Owner approval request
 
-**Owner: please approve one native VPS operation** to copy the exact Chromium tree with SHA-256 `cdc517739626c4ce3b79194009447da47d4a4420944be45324b49c49c0c93461` (414 MB, 301 regular files, no symlinks as observed here) into the non-worker-writable root-owned path, load only the `sanro-playwright-chromium-1255` AppArmor profile for that executable, and run one synthetic Local CI browser acceptance with the Chromium sandbox enabled. The cache source is user-writable before staging; the displayed digest pins its bytes but is not a vendor signature. If that trust assumption is not accepted or the native hash differs, do not execute. Approval also covers rollback of only the profile and staged copy on failure. No service restart, global sysctl/policy change, active worker, production, or cost is involved.
+**Owner authorization:** GO approved for one native VPS operation under reference `SANRO-CHROMIUM-NATIVE-20261128`: copy the exact Chromium tree with SHA-256 `cdc517739626c4ce3b79194009447da47d4a4420944be45324b49c49c0c93461` (414 MB, 301 regular files, no symlinks as observed here) into the non-worker-writable root-owned path, load only the `sanro-playwright-chromium-1255` AppArmor profile for that executable, and run one synthetic Local CI browser acceptance with the Chromium sandbox enabled. The cache source is user-writable before staging; the displayed digest pins its bytes but is not a vendor signature. The package fails closed if the source/copy digest differs. Approval includes rollback of only the profile and staged copy created by this invocation. No service restart, global sysctl/policy change, active worker, production, or cost is included.
