@@ -8,6 +8,7 @@ const artifactDir = process.env.SANRO_CHROMIUM_EVIDENCE_DIR || path.join(os.tmpd
 const html = path.join(os.tmpdir(), `sanro-chromium-recovery-${process.pid}.html`);
 const screenshot = path.join(artifactDir, 'synthetic-chromium-sandbox.png');
 const executablePath = process.env.SANRO_CHROMIUM_EXECUTABLE;
+const expectedBrowserVersion = '159.0.8154.6';
 let browser;
 
 try {
@@ -24,6 +25,7 @@ try {
   fs.mkdirSync(artifactDir, { recursive: true, mode: 0o700 });
   fs.writeFileSync(html, '<!doctype html><meta charset="utf-8"><title>SANRO QA synthetic</title><main><button id="run">Run</button><output id="result">pending</output></main><script>document.querySelector("#run").onclick=()=>document.querySelector("#result").textContent="SANRO_CHROMIUM_SANDBOX_OK:"+(19*23)</script>');
   browser = await chromium.launch({ headless: true, chromiumSandbox: true, executablePath });
+  if (browser.version() !== expectedBrowserVersion) throw new Error(`unexpected Chromium version: ${browser.version()}`);
   const page = await browser.newPage({ viewport: { width: 800, height: 450 } });
   await page.goto(pathToFileURL(html).href);
   await page.getByRole('button', { name: 'Run' }).click();
@@ -34,7 +36,7 @@ try {
   await page.goto('chrome://sandbox');
   const sandboxDiagnostics = (await page.locator('body').innerText()).replace(/\s+/g, ' ').slice(0, 1200);
   if (!/namespace sandbox/i.test(sandboxDiagnostics)) throw new Error('Chromium sandbox diagnostics did not report namespace sandbox status');
-  console.log(JSON.stringify({ status: 'PASS', browserVersion: browser.version(), chromiumSandbox: true, executablePath: canonicalExecutable, executableOwnerUid: fs.statSync(executablePath).uid, customNoSandboxArgument: false, sandboxDiagnostics, result, screenshot, screenshotSha256: digest }));
+  console.log(JSON.stringify({ status: 'PASS', browserVersion: browser.version(), expectedBrowserVersion, chromiumSandbox: true, executablePath: canonicalExecutable, executableOwnerUid: fs.statSync(executablePath).uid, customNoSandboxArgument: false, sandboxDiagnostics, result, screenshot, screenshotSha256: digest }));
 } catch (error) {
   const message = String(error?.message || 'Chromium acceptance failed').split('\n')[0].slice(0, 240);
   console.log(JSON.stringify({ status: 'FAIL', chromiumSandbox: true, error: message }));
