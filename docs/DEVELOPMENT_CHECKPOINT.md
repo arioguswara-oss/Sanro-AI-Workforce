@@ -1,5 +1,14 @@
 # Hermes-first development checkpoint — 25 November 2026 Jakarta
 
+## SANRO Chromium 159 final sandbox acceptance correction — 2026-11-28
+
+- Continued from `4d5bfd34634f02841277bdeaae464a4637dd45c8`; no Chromium install, profile activation, or host runtime retry was performed. Read the preserved native capture at `docs/evidence/SANRO_CHROMIUM_NATIVE_QA_20261128.tBNs4p/sandbox-diagnostics.json`.
+- **Root cause:** Chromium 159 reports `Layer 1 Sandbox: Namespace`; the former parser expected a `Namespace Sandbox` row, so it rejected valid raw runtime diagnostics.
+- **IMPLEMENTED:** parser now requires `Layer 1 Sandbox=Namespace`, `PID namespaces=Yes`, `Network namespaces=Yes`, `Seccomp-BPF sandbox=Yes`, and `Seccomp-BPF sandbox supports TSYNC=Yes`. Missing, unknown, conflicting or negative mandatory values fail closed. Yama Non-broker `No` is recorded as WARNING; it does not hide mandatory failures. Acceptance result now includes each control and warning.
+- **VERIFIED SYNTHETIC:** Chromium 159 actual-format fixtures, tab-separated body text, negative value for each mandatory control, missing/malformed/conflicting diagnostics, legacy-only data, and Yama warning behavior: **5/5 PASS**. The parser also returned PASS on the preserved actual VPS `sandbox-diagnostics.json`, with all five required controls PASS and Yama Non-broker WARNING. Native browser was not relaunched after parser correction.
+- Updated [acceptance matrix](ACCEPTANCE_MATRIX.md), [native activation block](integrations/SANRO_CHROMIUM_NATIVE_ACTIVATION_20261127.md), and [machine-readable evidence](evidence/SANRO_CHROMIUM_FINAL_SANDBOX_ACCEPTANCE_20261128.json). Existing screenshots/raw diagnostics remain untouched. The activation block pins implementation `a964f4c24602ba3bd6c278de3994e39350100811`; acceptance SHA-256 `810b65f68308ca921051633a5eddb81fd9be84d3d7ef36017f2288d9c5d5c54f`; helper SHA-256 unchanged `84629810ef9c75311350ee0d437f03be5d120a15a3ebeadaaca94dc7b6d2e4cb`.
+- **RUNTIME EVIDENCE (prior native run, Owner-provided):** Chromium `159.0.8154.6`, `chromiumSandbox=true`, synthetic DOM/JS and screenshots PASS; raw sandbox controls meet parser requirements. AppArmor activation and rollback PASS. This continuation did not repeat that runtime; native rerun after correction is **NOT TESTED**. No profile/security change was made.
+
 ## SANRO Chromium sandbox diagnostics acceptance correction — 2026-11-28
 
 - Continued from Owner-reported native result at `33be172b8be269833bbe2c4d221ae9d3b74b4df9`: AppArmor profile and `chromiumSandbox: true` were active; synthetic browser interaction and screenshot succeeded, but acceptance failed because the prior check only searched for the phrase “namespace sandbox”. Owner evidence and prior screenshot were preserved unchanged in `docs/evidence/SANRO_CHROMIUM_NATIVE_QA_20261127/`.

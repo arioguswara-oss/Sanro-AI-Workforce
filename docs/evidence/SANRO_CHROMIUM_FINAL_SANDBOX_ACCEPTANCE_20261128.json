@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "task": "SANRO final Chromium runtime acceptance parser correction",
+  "baseline_sha": "4d5bfd34634f02841277bdeaae464a4637dd45c8",
+  "implementation_sha": "a964f4c24602ba3bd6c278de3994e39350100811",
+  "branch": "feature/hermes-workforce-foundation",
+  "runtime_evidence_source": "Owner-provided native VPS run, preserved in docs/evidence/SANRO_CHROMIUM_NATIVE_QA_20261128.tBNs4p/",
+  "captured_runtime": {
+    "chromium_version": "159.0.8154.6",
+    "playwright_chromiumSandbox": true,
+    "synthetic_dom_javascript": "PASS_REPORTED_BY_OWNER",
+    "synthetic_screenshot": {
+      "path": "docs/evidence/SANRO_CHROMIUM_NATIVE_QA_20261128.tBNs4p/synthetic-chromium-sandbox.png",
+      "sha256": "abe8dbe1dbd3ea2ac3a8baba1133a6bb46d4c9b848ef61288f6fbbd6006b2c96"
+    },
+    "sandbox_diagnostics_screenshot": {
+      "path": "docs/evidence/SANRO_CHROMIUM_NATIVE_QA_20261128.tBNs4p/chrome-sandbox-diagnostics.png",
+      "sha256": "cfbf9fd61a35565bdf36feb356cd82c78f59569372db9fbc15a4143c49a61a09"
+    },
+    "apparmor_activation_and_rollback": "PASS_REPORTED_BY_OWNER"
+  },
+  "raw_diagnostics": {
+    "path": "docs/evidence/SANRO_CHROMIUM_NATIVE_QA_20261128.tBNs4p/sandbox-diagnostics.json",
+    "sha256": "70e7afdca7786a95f41519a2c9b9701be6cc69b440e89ead9f189a8c8203c10d",
+    "parsed_result": "PASS",
+    "checks": {
+      "Layer 1 Sandbox": { "expected": "Namespace", "actual": "Namespace", "status": "PASS" },
+      "PID namespaces": { "expected": "Yes", "actual": "Yes", "status": "PASS" },
+      "Network namespaces": { "expected": "Yes", "actual": "Yes", "status": "PASS" },
+      "Seccomp-BPF sandbox": { "expected": "Yes", "actual": "Yes", "status": "PASS" },
+      "Seccomp-BPF sandbox supports TSYNC": { "expected": "Yes", "actual": "Yes", "status": "PASS" },
+      "Yama Broker": { "actual": "Yes", "status": "PASS" },
+      "Yama Non-broker": { "actual": "No", "status": "WARNING" }
+    }
+  },
+  "parser_regressions": {
+    "passed": 5,
+    "failed": 0,
+    "coverage": [
+      "actual Chromium 159 row format",
+      "tab-separated body text",
+      "each required control negative",
+      "missing, malformed, conflicting and legacy-only diagnostics",
+      "Yama Non-broker warning"
+    ]
+  },
+  "runtime_after_parser_fix": "NOT_TESTED; this continuation evaluated preserved raw runtime diagnostics and did not relaunch Chromium or activate AppArmor",
+  "acceptance_script_sha256": "810b65f68308ca921051633a5eddb81fd9be84d3d7ef36017f2288d9c5d5c54f",
+  "recovery_helper_sha256_unchanged": "84629810ef9c75311350ee0d437f03be5d120a15a3ebeadaaca94dc7b6d2e4cb",
+  "approval_reference": "SANRO-CHROMIUM-NATIVE-20261128",
+  "profile_changed": false,
+  "activation_attempted_from_codex": false
+}

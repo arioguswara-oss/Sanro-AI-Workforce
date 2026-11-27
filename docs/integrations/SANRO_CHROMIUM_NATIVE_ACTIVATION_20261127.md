@@ -10,6 +10,10 @@ The hardening commits are `fc59e89e998335a354588a50bcf0b53c643c0d72` and `fbaf32
 
 The profile-status correction is committed as `a4ce322f6a731f6f0b34517e15b1d62ad28eff85`; its recovery script SHA-256 is `84629810ef9c75311350ee0d437f03be5d120a15a3ebeadaaca94dc7b6d2e4cb`. This supersedes the helper checksum in the historical paragraph above. The corrected helper inspects `aa-status --verbose` and matches the exact first token of a profile entry; `aa-status --profiled` returns a count and is not used for name lookup. Status command errors fail closed. Apply rolls back a newly created profile if post-apply verification fails, and rollback reports success only after confirming the exact profile is absent.
 
+### Chromium 159 sandbox acceptance gate
+
+The acceptance parser is pinned by `IMPL_SHA` and `ACCEPT_SHA` in the execution block below. It requires all of these `chrome://sandbox` values: `Layer 1 Sandbox: Namespace`, `PID namespaces: Yes`, `Network namespaces: Yes`, `Seccomp-BPF sandbox: Yes`, and `Seccomp-BPF sandbox supports TSYNC: Yes`. Missing, unknown, conflicting, or negative required values fail closed. `Ptrace Protection with Yama LSM (Non-broker): No` is retained as a WARNING; it does not replace or weaken the required checks. Captured VPS diagnostics at `docs/evidence/SANRO_CHROMIUM_NATIVE_QA_20261128.tBNs4p/` satisfy the parser; the acceptance runner has not yet been rerun with the corrected parser.
+
 ## Proposed native execution
 
 This is one one-shot operation after Owner approval. It copies the exact approved tree to a root-owned path, installs the reviewed narrow recovery helper, validates and loads the path-specific AppArmor profile, then runs synthetic Local CI as `sanro`. A failed run unloads/removes the marked profile and removes only the newly staged tree if its digest still matches. A successful run leaves the profile and root-owned browser staged for SANRO QA. It does not restart Hermes or services, touch workers, change sysctls, or disable Chromium sandboxing.
@@ -18,9 +22,9 @@ This is one one-shot operation after Owner approval. It copies the exact approve
 set -Eeuo pipefail
 umask 077
 REPO=/home/sanro/workforce-dev/Sanro-AI-Workforce-gdi02
-IMPL_SHA=6f38fae108ffd18ec9313e52c7e6a65efe803327
+IMPL_SHA=a964f4c24602ba3bd6c278de3994e39350100811
 SCRIPT_SHA=84629810ef9c75311350ee0d437f03be5d120a15a3ebeadaaca94dc7b6d2e4cb
-ACCEPT_SHA=d00abc10610730b4a971c3cb3a7ad8d560ac1e77895db1b72ae857577410ac78
+ACCEPT_SHA=810b65f68308ca921051633a5eddb81fd9be84d3d7ef36017f2288d9c5d5c54f
 TREE_SHA=cdc517739626c4ce3b79194009447da47d4a4420944be45324b49c49c0c93461
 SOURCE=/home/sanro/.cache/ms-playwright/chromium-1255/chrome-linux64
 BASE=/usr/local/lib/sanro-playwright

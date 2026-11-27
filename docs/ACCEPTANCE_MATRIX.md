@@ -1,5 +1,18 @@
 # Functional acceptance matrix — isolated candidate only
 
+## Chromium 159 native sandbox acceptance — 2026-11-28
+
+| Check | Result | Evidence |
+|---|---|---|
+| Prior native browser launch with Playwright `chromiumSandbox=true` | PASS (Owner-reported runtime) | Chromium `159.0.8154.6`; synthetic DOM/JavaScript and screenshots in `docs/evidence/SANRO_CHROMIUM_NATIVE_QA_20261128.tBNs4p/` |
+| `Layer 1 Sandbox=Namespace` | PASS (re-evaluated preserved actual diagnostics) | `sandbox-diagnostics.json`, SHA-256 `70e7afdca7786a95f41519a2c9b9701be6cc69b440e89ead9f189a8c8203c10d` |
+| PID namespaces, Network namespaces, Seccomp-BPF, TSYNC | PASS (each explicitly `Yes`) | Chromium 159 diagnostics parsed by current fail-closed parser |
+| Yama Non-broker | WARNING (`No`) | Recorded, not treated as mandatory sandbox control; no profile change |
+| Parser regression suite | PASS, 5 cases | Actual format, tab-separated text, negative required controls, malformed/missing/conflicting/legacy-only data, Yama warning |
+| Native runtime rerun after parser fix | NOT TESTED | No host activation or browser relaunch from Codex |
+
+The prior native acceptance returned FAIL because the parser expected a `Namespace Sandbox` row. The current parser recognizes Chromium 159's `Layer 1 Sandbox: Namespace` and fails closed unless the four additional required controls are explicitly `Yes`. See [final sandbox evidence](evidence/SANRO_CHROMIUM_FINAL_SANDBOX_ACCEPTANCE_20261128.json) and [preserved native run](evidence/SANRO_CHROMIUM_NATIVE_QA_20261128.tBNs4p/sandbox-diagnostics.json).
+
 Each of ten functional gates has equal weight. This is not a percentage of live autonomous readiness. Baseline source: `6efeba5b0e0985da2feb352ad5c8877c262743bc`; original accepted source: `44ed2cedb2f5d40829b3f215e1dd09026a91ed6d`; focused follow-up ran after upstream source through `f909923` plus the local Herdr candidate.
 
 | Gate | Baseline | Current | Evidence |
