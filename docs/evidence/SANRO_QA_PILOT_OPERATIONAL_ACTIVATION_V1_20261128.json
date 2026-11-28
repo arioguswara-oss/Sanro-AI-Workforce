@@ -79,5 +79,24 @@
   "previous_workforce_sha": "c1807ca30cdcaec737173a68cdf23598bd7716d1",
   "tested_source_commit": "42d18fe",
   "tested_source_sha": "42d18fe",
-  "commit_note": "Tests and syntax checks ran against the exact staged source tree committed as 42d18fe."
+  "commit_note": "Tests and syntax checks ran against the exact staged source tree committed as 42d18fe.",
+  "authorization_closure": {
+    "checked_at_utc": "2026-11-28T03:19:25Z",
+    "workforce_auth_file_environment": "UNSET",
+    "private_authorization_content_read": false,
+    "chromium_executable": "PRESENT_NOT_INVOKED",
+    "pilot_workspace": "PRESENT_NO_WRITE",
+    "hermes_native_job_approval_interface": "UNAVAILABLE",
+    "supported_local_ci_dispatch": "UNAVAILABLE_WITHOUT_AUTH_FILE_AND_NATIVE_PROVIDER",
+    "direct_entrypoint_invoked": false,
+    "reason": "Entry point is only valid after Workforce admission and genuine native per-job approval; direct invocation would skip the required gates.",
+    "hermes_plugin_activation_attempted": false,
+    "job_id": null,
+    "runtime_status": "NOT_TESTED",
+    "native_approval_count": 0,
+    "approval_prompts": 0,
+    "remaining_blocker": "Existing host must expose its authorized WORKFORCE_AUTH_FILE binding and a genuine provider for createApp({nativeApprovalProvider}); Hermes v0.22 plugin/approval transport does not supply that callback.",
+    "handoff_executable": "NONE_SAFE_EXISTING",
+    "activation_note": "The existing profile activation helper only enables the plugin; it cannot create the native per-job provider or private Workforce auth binding, so it was not run."
+  }
 }
